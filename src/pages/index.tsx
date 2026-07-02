@@ -204,7 +204,7 @@ export default function WelcomePage() {
             <span className="font-extrabold text-sm tracking-tight text-white leading-tight truncate drop-shadow-md">
               UOBK RSUD AL-MULK
             </span>
-            <span className="text-[12px] text-slate-200 font-bold leading-none mt-1 drop-shadow-md">
+            <span className="text-[12px] font-bold leading-none mt-1 drop-shadow-md text-[#2dd96e]">
               Kota Sukabumi
             </span>
           </div>
@@ -280,7 +280,7 @@ export default function WelcomePage() {
                 localStorage.setItem("welcome_seen", "true");
                 router.push("/dashboard");
               }}
-              className="px-8 py-4 md:px-10 md:py-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 text-white font-black text-sm tracking-wider uppercase hover:bg-white/20 hover:border-emerald-400 active:scale-95 transition-all duration-300 flex items-center gap-3.5 mx-auto cursor-pointer shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+              className="px-8 py-4 md:px-10 md:py-4 rounded-2xl bg-emerald-600 border border-emerald-500 text-white font-black text-sm tracking-wider uppercase hover:bg-emerald-700 hover:border-emerald-600 active:scale-95 transition-all duration-300 flex items-center gap-3.5 mx-auto cursor-pointer shadow-[0_8px_32px_0_rgba(16,185,129,0.4)]"
             >
               <span>BUKA DASHBOARD</span>
               <motion.div
