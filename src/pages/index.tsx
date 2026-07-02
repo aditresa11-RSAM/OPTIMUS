@@ -25,7 +25,7 @@ interface WelcomeSettings {
 
 const DEFAULT_SETTINGS: WelcomeSettings = {
   id: "1",
-  image_url: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1920&q=80",
+  image_url: "",
   video_url: "",
   youtube_url: "",
   google_drive_url: "",
@@ -41,10 +41,7 @@ export default function WelcomePage() {
   const [muted, setMuted] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  const backgroundImageSrc = 
-    (!settings.image_url || settings.image_url === "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1920&q=80") 
-      ? "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1920&q=80"
-      : settings.image_url;
+  const backgroundImageSrc = settings.image_url;
 
   // Sync real-time clock tickers
   useEffect(() => {
@@ -123,10 +120,11 @@ export default function WelcomePage() {
   };
 
   const ytId = getYoutubeVideoId(settings.youtube_url);
-  const forcedVideoUrl = "https://labs.google/fx/api/og-video/shared/aa8e5e45-5eb3-4f60-a0e1-b029cfa72289";
-  const isYoutube = false;
+  const isYoutube = !!ytId;
   const isDrive = false;
-  const isRawVideo = true;
+  const isRawVideo = !!settings.video_url;
+  const isImage = !!settings.image_url;
+  const videoUrl = settings.video_url;
 
   return (
     <div id="welcome-fullscreen-canvas" className="relative min-h-screen text-white flex flex-col justify-between overflow-hidden">
@@ -164,14 +162,14 @@ export default function WelcomePage() {
                 el.muted = muted;
               }
             }}
-            src={forcedVideoUrl}
+            src={videoUrl}
             autoPlay
             muted
             loop
             playsInline
             className="w-full h-full object-cover opacity-[0.6]"
           />
-        ) : (
+        ) : isImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
@@ -181,6 +179,8 @@ export default function WelcomePage() {
               referrerPolicy="no-referrer"
             />
           </>
+        ) : (
+          <div className="w-full h-full bg-slate-950" />
         )}
 
       </div>
