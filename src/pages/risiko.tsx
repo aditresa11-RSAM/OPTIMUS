@@ -129,7 +129,19 @@ export default function ManajemenRisiko() {
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [newUnitName, setNewUnitName] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'data' | 'input'>('dashboard');
-  const [records, setRecords] = useState<RiskRecord[]>([]);
+  const [records, setRecords] = useState<RiskRecord[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("manajemen_risiko");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Error reading manajemen_risiko from localStorage:", e);
+        }
+      }
+    }
+    return [];
+  });
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -153,8 +165,15 @@ export default function ManajemenRisiko() {
             updatedAt: d.updated_at
           }));
           setRecords(mapped);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("manajemen_risiko", JSON.stringify(mapped));
+          }
+        } else if (error) {
+          console.warn("Supabase load failed, utilizing localStorage fallback.", error);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error("Supabase load error:", err);
+      }
       setIsLoading(false);
     };
     fetchRecords();
@@ -244,7 +263,19 @@ export default function ManajemenRisiko() {
       updatedAt: new Date().toISOString()
     };
 
+    // Update local state and local storage immediately so it survives refresh
+    let updatedRecords: RiskRecord[] = [];
+    if (editingId) {
+      updatedRecords = records.map(r => r.id === editingId ? newRecord : r);
+    } else {
+      updatedRecords = [...records, newRecord];
+    }
     
+    setRecords(updatedRecords);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("manajemen_risiko", JSON.stringify(updatedRecords));
+    }
+
     const saveToSupabase = async (record: RiskRecord) => {
       try {
         const payload = {
@@ -267,15 +298,11 @@ export default function ManajemenRisiko() {
         } else {
           await supabase.from('manajemen_risiko').insert(payload);
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error("Error saving to Supabase, offline mode saved locally:", e);
+      }
     };
     saveToSupabase(newRecord);
-
-    if (editingId) {
-      setRecords(prev => prev.map(r => r.id === editingId ? newRecord : r));
-    } else {
-      setRecords(prev => [...prev, newRecord]);
-    }
 
     // Reset
     setFormData({ tahun: new Date().getFullYear().toString(), unit: '', risiko: '', penyebab: '', severity: 1, probability: 1, pengelolaan: '', pic: '' });
@@ -291,8 +318,20 @@ export default function ManajemenRisiko() {
 
   const handleDeleteConfirm = () => {
     if (recordToDelete) {
-      setRecords(prev => prev.filter(r => r.id !== recordToDelete));
-      supabase.from('manajemen_risiko').delete().eq('id', recordToDelete).then();
+      const updatedRecords = records.filter(r => r.id !== recordToDelete);
+      setRecords(updatedRecords);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("manajemen_risiko", JSON.stringify(updatedRecords));
+      }
+      
+      const deleteFromSupabase = async () => {
+        try {
+          await supabase.from('manajemen_risiko').delete().eq('id', recordToDelete);
+        } catch (e) {
+          console.error("Error deleting from Supabase:", e);
+        }
+      };
+      deleteFromSupabase();
     }
     setIsDeleteModalOpen(false);
     setRecordToDelete(null);

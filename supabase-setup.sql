@@ -58,3 +58,25 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('backgrounds', 'backgroun
 
 CREATE POLICY "Public Access Logos" ON storage.objects FOR ALL USING (bucket_id = 'logos') WITH CHECK (bucket_id = 'logos');
 CREATE POLICY "Public Access Backgrounds" ON storage.objects FOR ALL USING (bucket_id = 'backgrounds') WITH CHECK (bucket_id = 'backgrounds');
+
+-- Tabel Manajemen Risiko
+CREATE TABLE IF NOT EXISTS public.manajemen_risiko (
+  id TEXT PRIMARY KEY,
+  tahun TEXT,
+  unit TEXT,
+  risiko TEXT,
+  penyebab TEXT,
+  severity INT,
+  probability INT,
+  risk_score INT,
+  pengelolaan TEXT,
+  pic TEXT,
+  grading TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.manajemen_risiko ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access Manajemen Risiko" ON public.manajemen_risiko;
+CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR ALL USING (true) WITH CHECK (true);
+

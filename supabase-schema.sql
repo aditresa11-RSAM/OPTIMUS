@@ -185,3 +185,30 @@ DROP POLICY IF EXISTS "Public All survei_budaya" ON public.survei_budaya;
 CREATE POLICY "Public Read survei_budaya" ON public.survei_budaya FOR SELECT USING (true);
 CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (true) WITH CHECK (true);
 
+
+-- ==========================================
+-- 9. Tabel Manajemen Risiko
+-- ==========================================
+CREATE TABLE IF NOT EXISTS public.manajemen_risiko (
+  id TEXT PRIMARY KEY,
+  tahun TEXT,
+  unit TEXT,
+  risiko TEXT,
+  penyebab TEXT,
+  severity INT,
+  probability INT,
+  risk_score INT,
+  pengelolaan TEXT,
+  pic TEXT,
+  grading TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.manajemen_risiko ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read manajemen_risiko" ON public.manajemen_risiko;
+DROP POLICY IF EXISTS "Public All manajemen_risiko" ON public.manajemen_risiko;
+CREATE POLICY "Public Read manajemen_risiko" ON public.manajemen_risiko FOR SELECT USING (true);
+CREATE POLICY "Public All manajemen_risiko" ON public.manajemen_risiko FOR ALL USING (true) WITH CHECK (true);
+
+
