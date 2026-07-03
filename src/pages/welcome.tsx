@@ -225,8 +225,8 @@ export default function WelcomePage() {
         <div className="flex items-center gap-6">
           {mounted && (
             <div className="hidden md:flex flex-col text-right animate-in fade-in duration-350" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              <span className="text-xs font-normal text-white ml-0 pl-0 mt-0">{getDayText(currentTime)}</span>
-              <span className="text-[10px] text-slate-400 font-normal">{formatWIB(currentTime)}</span>
+              <span className="text-xs font-normal text-white -mb-[5px]">{getDayText(currentTime)}</span>
+              <span className="text-[10px] text-slate-400 font-normal mt-[5px]">{formatWIB(currentTime)}</span>
             </div>
           )}
 

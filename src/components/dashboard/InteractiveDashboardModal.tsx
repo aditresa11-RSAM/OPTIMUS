@@ -404,7 +404,7 @@ export default function InteractiveDashboardModal({
                    <h4 className="text-[#059669] font-black mb-4 uppercase tracking-wider text-xs">Summary Tercapai</h4>
                    <div className="flex flex-col md:flex-row items-center gap-8 w-full">
                      <div className="h-[180px] w-[180px] shrink-0 relative flex items-center justify-center mx-auto md:mx-0">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                          <RechartsPieChart>
                            <Pie
                              data={[
@@ -456,7 +456,7 @@ export default function InteractiveDashboardModal({
                    <h4 className="text-[#EF4444] font-black mb-4 uppercase tracking-wider text-xs">Analisis Capaian</h4>
                    <div className="flex flex-col md:flex-row items-center gap-8 w-full">
                      <div className="h-[180px] w-[180px] shrink-0 relative flex items-center justify-center mx-auto md:mx-0">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                          <RechartsPieChart>
                            <Pie
                              data={[
@@ -513,7 +513,7 @@ export default function InteractiveDashboardModal({
                    <h4 className="text-[#3B82F6] font-black mb-4 uppercase tracking-wider text-xs">Distribusi Tipe Insiden</h4>
                    <div className="flex flex-col md:flex-row items-center gap-8 w-full">
                      <div className="h-[180px] w-[180px] shrink-0 relative flex items-center justify-center mx-auto md:mx-0">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                          <RechartsPieChart>
                            <Pie
                              data={ikpPieData}
@@ -556,7 +556,7 @@ export default function InteractiveDashboardModal({
                    
                    <div className="flex flex-col md:flex-row items-center gap-8 w-full">
                      <div className="h-[180px] w-[180px] shrink-0 relative flex items-center justify-center mx-auto md:mx-0">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                          <RechartsPieChart>
                            <Pie
                              data={[

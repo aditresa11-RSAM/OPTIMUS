@@ -337,7 +337,7 @@ export default function IKP() {
                   </div>
                 ) : (
                   <div className="relative w-full h-full shrink-0 flex justify-center items-center">
-                    <ResponsiveContainer width="100%" height="100%" debounce={0}>
+                    <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                       <PieChart>
                         <Pie
                           data={ikpPieData}
