@@ -63,38 +63,36 @@ export default function Layout({ children, router }: LayoutProps) {
       {/* Content flex alignment container */}
       <div className="flex-1 flex flex-col min-h-screen md:pl-64 w-full min-w-0">
         {/* PREMIUM UNIFIED GLASSMORPHISM TOP HEADER */}
-        <header className="fixed top-0 left-0 right-0 md:left-64 z-30 flex items-center justify-between min-h-20 md:h-[88px] py-4 md:py-2 px-4 md:px-8 bg-white/75 backdrop-blur-lg border-b border-gray-100/80 shadow-xs w-full md:w-auto">
+        <header className="fixed top-0 left-0 right-0 md:left-64 z-30 flex items-center justify-between h-16 md:h-[88px] px-4 md:px-8 bg-white/75 backdrop-blur-lg border-b border-gray-100/80 shadow-xs w-full md:w-auto">
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 shadow-[0_2px_15px_rgba(16,163,127,0.8)] z-40" />
           {/* Left Side: Brand Identity */}
           <div className="flex items-center gap-3">
-            <div className="flex flex-col pt-6 md:pt-0">
+            <div className="flex flex-col justify-center">
               <span 
-                className="font-black tracking-[0.1em] drop-shadow-sm select-none antialiased leading-none"
+                className="font-black tracking-[0.1em] drop-shadow-sm select-none antialiased leading-none text-2xl md:text-[40px]"
                 style={{ 
                   fontVariantLigatures: "common-ligatures", 
                   WebkitFontSmoothing: "antialiased",
                   color: "#10a37f",
                   fontStyle: "italic",
-                  fontSize: "40px",
                   display: "inline-block",
                   textDecorationLine: "none",
-                  marginBottom: "-6px",
-                  marginTop: "-12px",
-                  height: "40px",
+                  marginBottom: "-2px",
+                  marginTop: "0px",
                   paddingBottom: "0px",
                   paddingLeft: "0px",
                   paddingRight: "0px",
                   paddingTop: "0px",
                   marginRight: "0px",
                   marginLeft: "0px",
-                  width: "250.891px"
+                  width: "auto"
                 }}
               >
                 OPTIMUS
               </span>
               <span 
-                className="text-[9px] sm:text-[10px] font-semibold tracking-[0.15em] text-slate-500 uppercase block whitespace-nowrap"
-                style={{ marginBottom: "0px", marginTop: "6px", fontWeight: "bold" }}
+                className="text-[8px] sm:text-[10px] font-semibold tracking-[0.15em] text-slate-500 uppercase block whitespace-nowrap mt-1"
+                style={{ marginBottom: "0px", fontWeight: "bold" }}
               >
                 Optimalisasi Sistem Pelaporan Mutu Rumah Sakit
               </span>
@@ -127,7 +125,7 @@ export default function Layout({ children, router }: LayoutProps) {
         </header>
 
         {/* Primary Page views main insertion wrapper */}
-        <main className="flex-1 w-full p-4 md:p-8 pt-28 md:pt-[112px]">
+        <main className="flex-1 w-full p-4 md:p-8 pt-24 md:pt-[112px]">
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>

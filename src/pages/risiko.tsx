@@ -19,7 +19,9 @@ import {
   Info,
   Building2,
   X,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Database,
+  Copy
 } from "lucide-react";
 import { 
   PieChart, 
@@ -103,7 +105,7 @@ const CHART_COLORS = {
 const initialData: RiskRecord[] = [];
 
 // --- Components ---
-const SummaryCard = ({ title, value, icon: Icon, shadowClass, textClass }: any) => {
+const SummaryCard = ({ title, value, icon: Icon, shadowClass, textClass, titleStyle, valueStyle, iconStyle }: any) => {
   return (
     <motion.div 
       whileHover={{ y: -4, scale: 1.02 }}
@@ -112,11 +114,11 @@ const SummaryCard = ({ title, value, icon: Icon, shadowClass, textClass }: any) 
     >
       <div className="flex justify-between items-start w-full relative z-10">
         <div className="space-y-1">
-          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">{title}</p>
-          <p className="text-4xl font-black text-slate-800 tracking-tight">{value}</p>
+          <p className="text-[12px] font-bold text-gray-400 uppercase tracking-wider" style={titleStyle}>{title}</p>
+          <p className="text-4xl font-black text-slate-800 tracking-tight" style={valueStyle}>{value}</p>
         </div>
         <div className={`flex items-center justify-center ${textClass}`}>
-          <Icon size={36} strokeWidth={2.5} />
+          <Icon size={36} strokeWidth={2.5} style={iconStyle} />
         </div>
       </div>
     </motion.div>
@@ -129,6 +131,8 @@ export default function ManajemenRisiko() {
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [newUnitName, setNewUnitName] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'data' | 'input'>('dashboard');
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [records, setRecords] = useState<RiskRecord[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("manajemen_risiko");
@@ -149,30 +153,65 @@ export default function ManajemenRisiko() {
       try {
         const { data, error } = await supabase.from('manajemen_risiko').select('*');
         if (data && !error) {
-          const mapped = data.map(d => ({
-            id: d.id,
-            tahun: d.tahun,
-            unit: d.unit,
-            risiko: d.risiko,
-            penyebab: d.penyebab,
-            severity: d.severity,
-            probability: d.probability,
-            riskScore: d.risk_score,
-            pengelolaan: d.pengelolaan,
-            pic: d.pic,
-            grading: d.grading,
-            createdAt: d.created_at,
-            updatedAt: d.updated_at
-          }));
-          setRecords(mapped);
+          let localSaved: RiskRecord[] = [];
           if (typeof window !== "undefined") {
-            localStorage.setItem("manajemen_risiko", JSON.stringify(mapped));
+            const saved = localStorage.getItem("manajemen_risiko");
+            if (saved) {
+              try {
+                localSaved = JSON.parse(saved);
+              } catch (e) {}
+            }
           }
+
+          if (data.length === 0 && localSaved.length > 0) {
+            console.log("Database is empty, but localStorage has records. Syncing to cloud...");
+            for (const record of localSaved) {
+              const payload = {
+                id: record.id,
+                tahun: record.tahun,
+                unit: record.unit,
+                risiko: record.risiko,
+                penyebab: record.penyebab,
+                severity: record.severity,
+                probability: record.probability,
+                risk_score: record.riskScore,
+                pengelolaan: record.pengelolaan,
+                pic: record.pic,
+                grading: record.grading,
+                updated_at: record.updatedAt,
+                created_at: record.createdAt
+              };
+              await supabase.from('manajemen_risiko').insert(payload);
+            }
+          } else {
+            const mapped = data.map(d => ({
+              id: d.id,
+              tahun: d.tahun,
+              unit: d.unit,
+              risiko: d.risiko,
+              penyebab: d.penyebab,
+              severity: d.severity,
+              probability: d.probability,
+              riskScore: d.risk_score,
+              pengelolaan: d.pengelolaan,
+              pic: d.pic,
+              grading: d.grading,
+              createdAt: d.created_at,
+              updatedAt: d.updated_at
+            }));
+            setRecords(mapped);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("manajemen_risiko", JSON.stringify(mapped));
+            }
+          }
+          setSupabaseError(null);
         } else if (error) {
           console.warn("Supabase load failed, utilizing localStorage fallback.", error);
+          setSupabaseError(error.message);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Supabase load error:", err);
+        setSupabaseError(err?.message || String(err));
       }
       setIsLoading(false);
     };
@@ -293,13 +332,18 @@ export default function ManajemenRisiko() {
           updated_at: record.updatedAt,
           created_at: record.createdAt
         };
-        if (editingId) {
-          await supabase.from('manajemen_risiko').update(payload).eq('id', record.id);
+        const { error } = editingId 
+          ? await supabase.from('manajemen_risiko').update(payload).eq('id', record.id)
+          : await supabase.from('manajemen_risiko').insert(payload);
+        if (error) {
+          console.error("Error saving to Supabase:", error);
+          setSupabaseError(error.message);
         } else {
-          await supabase.from('manajemen_risiko').insert(payload);
+          setSupabaseError(null);
         }
-      } catch(e) {
+      } catch(e: any) {
         console.error("Error saving to Supabase, offline mode saved locally:", e);
+        setSupabaseError(e?.message || String(e));
       }
     };
     saveToSupabase(newRecord);
@@ -326,9 +370,16 @@ export default function ManajemenRisiko() {
       
       const deleteFromSupabase = async () => {
         try {
-          await supabase.from('manajemen_risiko').delete().eq('id', recordToDelete);
-        } catch (e) {
+          const { error } = await supabase.from('manajemen_risiko').delete().eq('id', recordToDelete);
+          if (error) {
+            console.error("Error deleting from Supabase:", error);
+            setSupabaseError(error.message);
+          } else {
+            setSupabaseError(null);
+          }
+        } catch (e: any) {
           console.error("Error deleting from Supabase:", e);
+          setSupabaseError(e?.message || String(e));
         }
       };
       deleteFromSupabase();
@@ -340,6 +391,68 @@ export default function ManajemenRisiko() {
   const handleViewDetail = (record: RiskRecord) => {
     setSelectedRecord(record);
     setIsDetailModalOpen(true);
+  };
+
+  const sqlToCopy = `CREATE TABLE IF NOT EXISTS public.manajemen_risiko (
+  id TEXT PRIMARY KEY,
+  tahun TEXT,
+  unit TEXT,
+  risiko TEXT,
+  penyebab TEXT,
+  severity INT,
+  probability INT,
+  risk_score INT,
+  pengelolaan TEXT,
+  pic TEXT,
+  grading TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.manajemen_risiko ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access Manajemen Risiko" ON public.manajemen_risiko;
+CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR ALL USING (true) WITH CHECK (true);`;
+
+  const handleCopySQL = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(sqlToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (filteredRecords.length === 0) return;
+    
+    // Headers in CSV
+    const headers = ["No", "Tahun", "Unit", "Risiko", "Penyebab", "Severity", "Probability", "Risk Score", "Grading", "Pengelolaan", "PIC"];
+    
+    // Convert records to rows
+    const rows = filteredRecords.map((record, index) => [
+      index + 1,
+      record.tahun,
+      record.unit,
+      `"${record.risiko.replace(/"/g, '""')}"`,
+      `"${record.penyebab.replace(/"/g, '""')}"`,
+      record.severity,
+      record.probability,
+      record.riskScore,
+      record.grading,
+      `"${record.pengelolaan.replace(/"/g, '""')}"`,
+      `"${record.pic.replace(/"/g, '""')}"`
+    ]);
+    
+    // Add BOM for Excel UTF-8 compatibility
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `manajemen_risiko_${filterGrading}_${filterUnit}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // --- Components ---
@@ -388,6 +501,43 @@ export default function ManajemenRisiko() {
         </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {supabaseError && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 bg-amber-50/90 backdrop-blur-md border border-amber-200/60 text-amber-900 rounded-[24px] p-6 shadow-sm overflow-hidden"
+          >
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-100 rounded-2xl text-amber-700">
+                  <Database size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base">Sinkronisasi Database: Mode Penyimpanan Lokal</h3>
+                  <p className="text-xs text-amber-800/80 mt-0.5 font-medium">
+                    Tabel <code className="bg-amber-100/80 px-1.5 py-0.5 rounded text-amber-900 font-mono font-bold">manajemen_risiko</code> belum terdeteksi di database Supabase Anda.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCopySQL}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all duration-300 self-stretch md:self-auto justify-center"
+              >
+                {copied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
+                {copied ? "SQL Disalin!" : "Salin SQL Setup"}
+              </button>
+            </div>
+            <div className="text-xs text-amber-950/90 leading-relaxed bg-white/60 p-4 rounded-xl border border-amber-100/50 space-y-2">
+              <p>
+                💡 **Data Anda Aman & Tidak Akan Hilang:** Semua data yang Anda input secara otomatis disimpan di browser Anda (**localStorage**). Data akan tetap utuh walaupun Anda menyegarkan peramban (refresh) atau memuat ulang halaman.
+              </p>
+              <p>
+                🛠️ **Cara Sinkronisasi ke Supabase Cloud:** Salin perintah SQL di atas menggunakan tombol salin, buka **SQL Editor** di dashboard Supabase Anda, tempelkan (paste), lalu klik **Run**. Setelah itu, refresh halaman ini untuk menghubungkan data Anda secara cloud sepenuhnya!
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         <AnimatePresence mode="wait">
           
           {/* DASHBOARD TAB */}
@@ -401,12 +551,61 @@ export default function ManajemenRisiko() {
             >
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <SummaryCard title="Total Unit" value={totalUnits} icon={Building2} shadowClass="shadow-blue-500/40" textClass="text-blue-500" />
-                <SummaryCard title="Unit Sudah Mengisi" value={unitsFilled} icon={CheckCircle2} shadowClass="shadow-emerald-500/40" textClass="text-emerald-500" />
-                <SummaryCard title="Unit Belum Mengisi" value={unitsNotFilled} icon={XCircle} shadowClass="shadow-orange-500/40" textClass="text-orange-500" />
-                <SummaryCard title="Total Risiko" value={totalRisks} icon={AlertTriangle} shadowClass="shadow-slate-500/40" textClass="text-slate-600" />
-                <SummaryCard title="Risiko Extreme" value={extremeRisks} icon={Activity} shadowClass="shadow-red-500/40" textClass="text-red-500" />
-                <SummaryCard title="Rata-rata Score" value={avgRiskScore} icon={TrendingUp} shadowClass="shadow-indigo-500/40" textClass="text-indigo-500" />
+                <SummaryCard 
+                  title="Total Unit" 
+                  value={totalUnits} 
+                  icon={Building2} 
+                  shadowClass="shadow-blue-500/40" 
+                  textClass="text-blue-500" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', color: '#4c7dbb', fontSize: '45px' }}
+                  iconStyle={{ color: '#4c7dbb' }}
+                />
+                <SummaryCard 
+                  title="Unit Sudah Mengisi" 
+                  value={unitsFilled} 
+                  icon={CheckCircle2} 
+                  shadowClass="shadow-emerald-500/40" 
+                  textClass="text-emerald-500" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', color: '#2e9d5c', fontSize: '45px' }}
+                />
+                <SummaryCard 
+                  title="Unit Belum Mengisi" 
+                  value={unitsNotFilled} 
+                  icon={XCircle} 
+                  shadowClass="shadow-orange-500/40" 
+                  textClass="text-orange-500" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', color: '#ea7729', fontSize: '45px' }}
+                />
+                <SummaryCard 
+                  title="Total Risiko" 
+                  value={totalRisks} 
+                  icon={AlertTriangle} 
+                  shadowClass="shadow-slate-500/40" 
+                  textClass="text-slate-600" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', fontSize: '45px' }}
+                />
+                <SummaryCard 
+                  title="Risiko Extreme" 
+                  value={extremeRisks} 
+                  icon={Activity} 
+                  shadowClass="shadow-red-500/40" 
+                  textClass="text-red-500" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', color: '#da1a24', fontSize: '45px' }}
+                />
+                <SummaryCard 
+                  title="Rata-rata Score" 
+                  value={avgRiskScore} 
+                  icon={TrendingUp} 
+                  shadowClass="shadow-indigo-500/40" 
+                  textClass="text-indigo-500" 
+                  titleStyle={{ color: '#727477' }}
+                  valueStyle={{ fontStyle: 'italic', color: '#615fff', fontSize: '45px' }}
+                />
               </div>
 
               {/* Charts */}
@@ -552,11 +751,11 @@ export default function ManajemenRisiko() {
                   </div>
                   
                   <div className="flex items-center gap-3 w-full lg:w-auto">
-                    <button className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-slate-600 hover:bg-gray-50 hover:text-emerald-600 font-bold text-sm transition-colors">
-                      <Download size={16} /> Export Excel
-                    </button>
-                    <button className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-slate-600 hover:bg-gray-50 hover:text-emerald-600 font-bold text-sm transition-colors">
-                      <Printer size={16} /> Print
+                    <button 
+                      onClick={handleDownloadCSV}
+                      className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-slate-600 hover:bg-gray-50 hover:text-emerald-600 font-bold text-sm transition-colors"
+                    >
+                      <Download size={16} /> Download
                     </button>
                   </div>
                 </div>
@@ -566,10 +765,10 @@ export default function ManajemenRisiko() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-emerald-600 text-white text-sm">
-                        <th className="px-4 py-3.5 font-bold rounded-tl-xl whitespace-nowrap">No</th>
-                        <th className="px-4 py-3.5 font-bold whitespace-nowrap">Tahun</th>
-                        <th className="px-4 py-3.5 font-bold whitespace-nowrap">Unit</th>
-                        <th className="px-4 py-3.5 font-bold min-w-[200px]">Risiko</th>
+                        <th className="px-4 py-3.5 font-bold rounded-tl-xl whitespace-nowrap text-center">No</th>
+                        <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Tahun</th>
+                        <th className="px-4 py-3.5 font-bold whitespace-nowrap text-center">Unit</th>
+                        <th className="px-4 py-3.5 font-bold min-w-[200px] text-center">Risiko</th>
                         <th className="px-4 py-3.5 font-bold text-center whitespace-nowrap">Severity</th>
                         <th className="px-4 py-3.5 font-bold text-center whitespace-nowrap">Probability</th>
                         <th className="px-4 py-3.5 font-bold text-center whitespace-nowrap">Score</th>
@@ -580,10 +779,10 @@ export default function ManajemenRisiko() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredRecords.length > 0 ? filteredRecords.map((record, index) => (
                         <tr key={record.id} className="hover:bg-emerald-50/30 transition-colors group">
-                          <td className="px-4 py-3.5 text-sm font-semibold text-slate-500">{index + 1}</td>
-                          <td className="px-4 py-3.5 text-sm text-slate-700 font-medium">{record.tahun}</td>
+                          <td className="px-4 py-3.5 text-sm font-semibold text-slate-500 text-center">{index + 1}</td>
+                          <td className="px-4 py-3.5 text-sm text-slate-700 font-medium text-center">{record.tahun}</td>
                           <td className="px-4 py-3.5 text-sm text-slate-700 font-semibold">{record.unit}</td>
-                          <td className="px-4 py-3.5 text-sm text-slate-600">{record.risiko}</td>
+                          <td className="px-4 py-3.5 text-[12px] text-slate-600 text-center">{record.risiko}</td>
                           <td className="px-4 py-3.5 text-sm text-center font-bold text-slate-700">{record.severity}</td>
                           <td className="px-4 py-3.5 text-sm text-center font-bold text-slate-700">{record.probability}</td>
                           <td className="px-4 py-3.5 text-sm text-center">

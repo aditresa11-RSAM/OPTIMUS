@@ -1166,7 +1166,7 @@ export default function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="name"
-                      tick={{ fontSize: 11, fill: "#64748b", fontWeight: 600 }}
+                      tick={{ fontSize: 15, fill: "#64748b", fontWeight: "bold" }}
                       axisLine={false}
                       tickLine={false}
                       dy={10}
@@ -1254,7 +1254,7 @@ export default function Dashboard() {
                 <ul className="list-none space-y-2 pl-0 mb-0">
                   {selectedChartAnalysis?.recommendations?.map((rec: string, i: number) => (
                     <li key={i} className="text-[13px] text-slate-600 flex items-start gap-2.5">
-                      <span className="text-emerald-500 font-bold mt-[-1px] text-lg leading-none">•</span>
+                      <span className="text-emerald-500 mt-[-1px] leading-none" style={{ fontStyle: "normal", fontWeight: "bold", fontSize: "15px" }}>•</span>
                       <span className="font-medium">{rec}</span>
                     </li>
                   ))}
