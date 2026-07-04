@@ -12,6 +12,7 @@ interface LayoutProps {
 
 export default function Layout({ children, router }: LayoutProps) {
   const hospitalLogo = useStore((state) => state.hospitalLogo);
+  const sidebarMinimized = useStore((state) => state.sidebarMinimized);
 
   // High-precision clock & Indonesian calendar state
   const [timeString, setTimeString] = useState<string>("");
@@ -61,9 +62,9 @@ export default function Layout({ children, router }: LayoutProps) {
       <Sidebar />
 
       {/* Content flex alignment container */}
-      <div className="flex-1 flex flex-col min-h-screen md:pl-64 w-full min-w-0">
+      <div className={`flex-1 flex flex-col min-h-screen ${sidebarMinimized ? 'md:pl-20' : 'md:pl-64'} w-full min-w-0 transition-all duration-300`}>
         {/* PREMIUM UNIFIED GLASSMORPHISM TOP HEADER */}
-        <header className="fixed top-0 left-0 right-0 md:left-64 z-30 flex items-center justify-between h-16 md:h-[88px] px-4 md:px-8 bg-white/75 backdrop-blur-lg border-b border-gray-100/80 shadow-xs w-full md:w-auto">
+        <header className={`fixed top-0 left-0 right-0 ${sidebarMinimized ? 'md:left-20' : 'md:left-64'} z-30 flex items-center justify-between h-16 md:h-[88px] px-4 md:px-8 bg-white/75 backdrop-blur-lg border-b border-gray-100/80 shadow-xs w-full md:w-auto transition-all duration-300`}>
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 shadow-[0_2px_15px_rgba(16,163,127,0.8)] z-40" />
           {/* Left Side: Brand Identity */}
           <div className="flex items-center gap-3">

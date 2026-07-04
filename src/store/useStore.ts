@@ -123,6 +123,8 @@ const initialIndicatorProfiles: IndicatorProfile[] = [];
 interface RootState {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  sidebarMinimized: boolean;
+  setSidebarMinimized: (minimized: boolean) => void;
   userRole: string;
   hospitalLogo: string;
   setHospitalLogo: (logo: string) => void;
@@ -164,6 +166,8 @@ const initialUnits: Unit[] = [
 export const useStore = create<RootState>((set) => ({
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  sidebarMinimized: false,
+  setSidebarMinimized: (minimized) => set({ sidebarMinimized: minimized }),
   userRole: "Admin",
   hospitalLogo: "",
   setHospitalLogo: (logo) => set({ hospitalLogo: logo }),

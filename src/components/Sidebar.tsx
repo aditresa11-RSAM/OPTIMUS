@@ -17,11 +17,15 @@ import {
   User,
   LogOut,
   ClipboardCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function Sidebar() {
   const hospitalLogo = useStore((state) => state.hospitalLogo);
   const setHospitalLogo = useStore((state) => state.setHospitalLogo);
+  const sidebarMinimized = useStore((state) => state.sidebarMinimized);
+  const setSidebarMinimized = useStore((state) => state.setSidebarMinimized);
 
   const [currentPath, setCurrentPath] = useState("");
 
@@ -50,14 +54,14 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         id="main-sidebar"
-        className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-[#007A4D] to-[#005F3A] text-white flex-col justify-between border-r border-[#005F3A]/50 shadow-[4px_0_24px_rgba(0,122,77,0.15)] transition-transform font-sans"
+        className={`hidden md:flex fixed inset-y-0 left-0 z-40 ${sidebarMinimized ? 'w-20' : 'w-64'} bg-gradient-to-b from-[#007A4D] to-[#005F3A] text-white flex-col justify-between border-r border-[#005F3A]/50 shadow-[4px_0_24px_rgba(0,122,77,0.15)] transition-all duration-300 font-sans`}
       >
         {/* Header & Logo */}
-        <div className="relative p-4 pt-3 flex flex-col items-center border-b border-[#005F3A]/30 bg-white/5 backdrop-blur-sm" style={{ marginTop: '7px' }}>
+        <div className="relative h-[88px] flex items-center justify-center border-b border-[#005F3A]/30 bg-white/5 backdrop-blur-sm transition-all duration-300 w-full">
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#f59e0b] via-[#ded92d] to-[#f59e0b] shadow-[0_2px_15px_rgba(222,217,45,0.8)] z-40" />
-          <div className="flex items-center justify-between w-full mb-2">
-            <div className="flex items-center gap-3 min-w-0" style={{ paddingTop: '0px', marginLeft: '0px', marginTop: '0px', marginBottom: '0px', height: '44px', width: '207.781px', paddingBottom: '0px', paddingRight: '0px' }}>
-              <div className="h-11 w-11 rounded-xl bg-white border border-emerald-500/10 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg p-0.5" style={{ paddingTop: '2px', marginTop: '10px', paddingBottom: '2px', marginRight: '-9px', marginBottom: '0px', height: '44px', marginLeft: '11px' }}>
+          <div className="flex items-center justify-center w-full">
+            <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'gap-3'} min-w-0 transition-all duration-300`} style={{ height: '44px', width: sidebarMinimized ? '44px' : '207.781px' }}>
+              <div className="h-11 w-11 rounded-xl bg-white border border-emerald-500/10 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg p-0.5" style={{ marginRight: sidebarMinimized ? '0' : '-9px', height: '44px', marginLeft: sidebarMinimized ? '0' : '11px' }}>
                 {hospitalLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -69,17 +73,19 @@ export default function Sidebar() {
                   <Hospital className="text-emerald-600 h-6 w-6" />
                 )}
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="font-extrabold text-sm tracking-tight text-white leading-tight truncate" style={{ marginTop: '12px', paddingBottom: '0px', paddingRight: '7px', marginBottom: '0px', marginRight: '-10px', marginLeft: '6px' }}>
-                  UOBK RSUD AL-MULK
-                </span>
-                <span 
-                  className="leading-none"
-                  style={{ color: "#ded92d", fontWeight: "bold", fontSize: "12px", marginTop: "0px", marginRight: "1px", marginLeft: "6px" }}
-                >
-                  Kota Sukabumi
-                </span>
-              </div>
+              {!sidebarMinimized && (
+                <div className="flex flex-col min-w-0 transition-opacity duration-300">
+                  <span className="font-extrabold text-sm tracking-tight text-white leading-tight truncate" style={{ paddingRight: '7px', marginRight: '-10px', marginLeft: '6px' }}>
+                    UOBK RSUD AL-MULK
+                  </span>
+                  <span 
+                    className="leading-none"
+                    style={{ color: "#ded92d", fontWeight: "bold", fontSize: "12px", marginLeft: "6px" }}
+                  >
+                    Kota Sukabumi
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -110,51 +116,66 @@ export default function Sidebar() {
                       ? { repeat: Infinity, duration: 2.2, ease: "easeInOut" }
                       : undefined
                   }
-                  className="flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:opacity-100 opacity-90"
+                  className={`flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:opacity-100 opacity-90 ${sidebarMinimized ? 'mx-auto' : ''}`}
                 >
                   <Icon
                     className={`h-5 w-5 transition-colors duration-200 ${isActive ? "text-[#ded92d] drop-shadow-[0_0_4px_rgba(222,217,45,0.4)]" : "text-white"}`}
                     strokeWidth={2.2}
                   />
                 </motion.div>
-                <span>{item.name}</span>
+                {!sidebarMinimized && <span className="transition-opacity duration-300">{item.name}</span>}
               </Link>
             );
           })}
         </nav>
 
         {/* User Information Profile Footer */}
-        <div className="p-4 border-t border-[#005F3A]/40 bg-black/10 backdrop-blur-sm flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-[14px] bg-white/10 flex items-center justify-center border border-white/10 shadow-sm">
+        <div className={`p-4 border-t border-[#005F3A]/40 bg-black/10 backdrop-blur-sm flex flex-col gap-3 ${sidebarMinimized ? 'items-center' : ''}`}>
+          <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'gap-3'} w-full`}>
+            <div className="h-10 w-10 rounded-[14px] bg-white/10 flex items-center justify-center border border-white/10 shadow-sm shrink-0">
               <User className="h-5 w-5 text-emerald-50" />
             </div>
-            <div className="flex flex-col min-w-0">
-              <span 
-                className="text-xs truncate font-sans tracking-wide"
-                style={{ color: "#cffae5", fontWeight: "bold" }}
-              >
-                Pengguna
-              </span>
-              <span className="text-emerald-100/80" style={{ color: "#ded92d", fontWeight: "bold", fontSize: "13px" }}>Tim Mutu RS</span>
-            </div>
+            {!sidebarMinimized && (
+              <div className="flex flex-col min-w-0 flex-1">
+                <span 
+                  className="text-xs truncate font-sans tracking-wide"
+                  style={{ color: "#cffae5", fontWeight: "bold" }}
+                >
+                  Pengguna
+                </span>
+                <span className="text-emerald-100/80 truncate" style={{ color: "#ded92d", fontWeight: "bold", fontSize: "13px" }}>Tim Mutu RS</span>
+              </div>
+            )}
           </div>
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full"
-          >
-            <Link
-              href="/"
-              onClick={(e) => {
-                localStorage.removeItem("welcome_seen");
-              }}
-              className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 active:bg-white/5 border border-white/10 hover:border-white/20 text-white text-xs font-bold rounded-[14px] shadow-sm transition-all duration-200 cursor-pointer select-none"
+          
+          <div className={`flex items-center gap-2 w-full ${sidebarMinimized ? 'flex-col' : ''}`}>
+            {!sidebarMinimized && (
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1"
+              >
+                <Link
+                  href="/"
+                  onClick={(e) => {
+                    localStorage.removeItem("welcome_seen");
+                  }}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 active:bg-white/5 border border-white/10 hover:border-white/20 text-white text-xs font-bold rounded-[14px] shadow-sm transition-all duration-200 cursor-pointer select-none"
+                >
+                  <LogOut className="h-3.5 w-3.5" style={{ color: "#ded92d" }} />
+                  <span style={{ color: "#ded92d" }}>Keluar</span>
+                </Link>
+              </motion.div>
+            )}
+            
+            <button
+              onClick={() => setSidebarMinimized(!sidebarMinimized)}
+              className={`flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/20 text-white rounded-[14px] transition-all duration-200 ${sidebarMinimized ? 'w-10 h-10' : 'w-10 h-10 shrink-0'}`}
+              title={sidebarMinimized ? "Perbesar Sidebar" : "Perkecil Sidebar"}
             >
-              <LogOut className="h-3.5 w-3.5" style={{ color: "#ded92d" }} />
-              <span style={{ color: "#ded92d" }}>Keluar</span>
-            </Link>
-          </motion.div>
+              {sidebarMinimized ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
+          </div>
         </div>
       </aside>
 
