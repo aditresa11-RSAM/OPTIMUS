@@ -2,17 +2,41 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import SupervisiMenu from '../components/supervisi/SupervisiMenu';
 import FormSupervisiMutu from '../components/supervisi/FormSupervisiMutu';
+import FormSupervisiPPI from '../components/supervisi/FormSupervisiPPI';
+import FormSupervisiK3RS from '../components/supervisi/FormSupervisiK3RS';
+import FormSupervisiKeperawatan from '../components/supervisi/FormSupervisiKeperawatan';
 import DashboardSupervisi from '../components/supervisi/DashboardSupervisi';
 // import { ShieldCheck } from 'lucide-react';
 
 export default function SupervisiPage() {
-  const [activeView, setActiveView] = useState<'menu' | 'form-mutu' | 'dashboard' | 'riwayat'>('menu');
+  const [activeView, setActiveView] = useState<'menu' | 'form-mutu' | 'form-ppi' | 'form-k3rs' | 'form-keperawatan' | 'dashboard' | 'riwayat'>('menu');
 
   const renderContent = () => {
     switch (activeView) {
       case 'form-mutu':
         return (
           <FormSupervisiMutu 
+            onBack={() => setActiveView('menu')} 
+            onViewRiwayat={() => setActiveView('riwayat')} 
+          />
+        );
+      case 'form-ppi':
+        return (
+          <FormSupervisiPPI 
+            onBack={() => setActiveView('menu')} 
+            onViewRiwayat={() => setActiveView('riwayat')} 
+          />
+        );
+      case 'form-k3rs':
+        return (
+          <FormSupervisiK3RS 
+            onBack={() => setActiveView('menu')} 
+            onViewRiwayat={() => setActiveView('riwayat')} 
+          />
+        );
+      case 'form-keperawatan':
+        return (
+          <FormSupervisiKeperawatan 
             onBack={() => setActiveView('menu')} 
             onViewRiwayat={() => setActiveView('riwayat')} 
           />
@@ -27,6 +51,9 @@ export default function SupervisiPage() {
           <SupervisiMenu 
             onSelect={(menu) => {
               if (menu === 'mutu') setActiveView('form-mutu');
+              else if (menu === 'ppi') setActiveView('form-ppi');
+              else if (menu === 'k3rs') setActiveView('form-k3rs');
+              else if (menu === 'keperawatan') setActiveView('form-keperawatan');
               else alert('Modul ini sedang dalam pengembangan.');
             }} 
             onViewDashboard={() => setActiveView('dashboard')}
