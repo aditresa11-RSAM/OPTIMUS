@@ -28,7 +28,7 @@ export default function DashboardSupervisi({ onBack }: DashboardSupervisiProps) 
             </div>
           </div>
           <div className="text-4xl font-black text-slate-800">124</div>
-          <p className="text-xs font-bold text-emerald-500 mt-2">+12% dari bulan lalu</p>
+          <p className="text-sm font-bold text-emerald-500 mt-2">+12% dari bulan lalu</p>
           <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors"></div>
         </div>
 
@@ -52,7 +52,7 @@ export default function DashboardSupervisi({ onBack }: DashboardSupervisiProps) 
             </div>
           </div>
           <div className="text-4xl font-black text-slate-800">86%</div>
-          <p className="text-xs font-bold text-emerald-500 mt-2">Kategori BAIK</p>
+          <p className="text-sm font-bold text-emerald-500 mt-2">Kategori BAIK</p>
           <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors"></div>
         </div>
 
@@ -64,7 +64,7 @@ export default function DashboardSupervisi({ onBack }: DashboardSupervisiProps) 
             </div>
           </div>
           <div className="text-4xl font-black text-slate-800">5</div>
-          <p className="text-xs font-bold text-rose-500 mt-2">Unit dengan nilai &lt; 70%</p>
+          <p className="text-sm font-bold text-rose-500 mt-2">Unit dengan nilai &lt; 70%</p>
           <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-colors"></div>
         </div>
       </div>
