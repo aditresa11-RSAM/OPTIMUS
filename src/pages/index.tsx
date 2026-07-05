@@ -9,7 +9,9 @@ import {
   VolumeX, 
   Activity, 
   ShieldCheck,
-  Hospital
+  Hospital,
+  TrendingUp,
+  Award
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/store/useStore";
@@ -40,8 +42,60 @@ export default function WelcomePage() {
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [complianceScore, setComplianceScore] = useState(90);
+  const [isExiting, setIsExiting] = useState(false);
 
   const backgroundImageSrc = settings.image_url;
+
+  const handleEnterDashboard = () => {
+    setIsExiting(true);
+    localStorage.setItem("welcome_seen", "true");
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 1100); // Smooth transition before routing
+  };
+
+  // Sync real-time compliance score animation from 90% to 100%
+  useEffect(() => {
+    let active = true;
+    let timer: any;
+    
+    const runAnimation = () => {
+      const duration = 2500; // 2.5 seconds to go from 90 to 100
+      const startTime = Date.now();
+      
+      const update = () => {
+        if (!active) return;
+        const now = Date.now();
+        const elapsed = now - startTime;
+        
+        if (elapsed >= duration) {
+          setComplianceScore(100);
+          // Stay at 100% for 3 seconds, then reset to 90% and restart
+          timer = setTimeout(() => {
+            if (active) {
+              setComplianceScore(90);
+              runAnimation();
+            }
+          }, 3000);
+        } else {
+          const progress = elapsed / duration;
+          const current = Math.floor(90 + progress * 10);
+          setComplianceScore(current);
+          requestAnimationFrame(update);
+        }
+      };
+      
+      requestAnimationFrame(update);
+    };
+
+    runAnimation();
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Sync real-time clock tickers
   useEffect(() => {
@@ -127,7 +181,18 @@ export default function WelcomePage() {
   const videoUrl = settings.video_url;
 
   return (
-    <div id="welcome-fullscreen-canvas" className="relative min-h-screen text-white flex flex-col justify-between overflow-hidden">
+    <motion.div 
+      id="welcome-fullscreen-canvas" 
+      className="relative min-h-screen text-white flex flex-col justify-between overflow-hidden origin-center bg-slate-950"
+      animate={isExiting ? { scale: 3.5 } : { scale: 1 }}
+      transition={{ duration: 1.2, ease: [0.32, 0.72, 0, 1] }}
+    >
+      <motion.div 
+        className="absolute inset-0 z-50 bg-black pointer-events-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isExiting ? 1 : 0 }}
+        transition={{ duration: 0.9, ease: "easeIn" }}
+      />
       
       {/* CINEMATIC MEDIA BACKDROP SCREEN */}
       <div className="absolute inset-0 z-0 select-none overflow-hidden bg-slate-950">
@@ -186,7 +251,11 @@ export default function WelcomePage() {
       </div>
 
       {/* TOPHEADER TICKER BAR */}
-      <header className="relative z-10 w-full px-6 py-5 md:px-12 flex justify-between items-center font-sans">
+      <motion.header 
+        animate={isExiting ? { opacity: 0, y: -20 } : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeIn" }}
+        className="relative z-10 w-full px-6 py-5 md:px-12 flex justify-between items-center font-sans"
+      >
         <div className="flex items-center gap-2.5">
           <div className="h-10 w-10 bg-white border border-emerald-500/10 rounded-xl flex items-center justify-center overflow-hidden shadow-lg p-0.5">
             {hospitalLogo ? (
@@ -229,10 +298,14 @@ export default function WelcomePage() {
             </button>
           )}
         </div>
-      </header>
+      </motion.header>
 
-      {/* MID SECTION GREETING CARDS */}
-      <main className="relative z-10 w-full px-6 flex-1 flex flex-col items-center justify-center text-center">
+      {/* CONTENT LAYER */}
+      <motion.main 
+        animate={isExiting ? { opacity: 0, y: 30 } : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeIn" }}
+        className="relative z-10 w-full px-6 md:px-12 pb-12 md:pb-16 flex-1 flex flex-col md:flex-row items-start md:items-end justify-end md:justify-between gap-8 md:gap-12"
+      >
         <style dangerouslySetInnerHTML={{ __html: `
           .glass-emboss-text {
             color: #ffffff;
@@ -248,53 +321,173 @@ export default function WelcomePage() {
               0 4px 12px rgba(0, 0, 0, 0.5);
           }
         `}} />
-        <div className="max-w-3xl space-y-8">
+        
+        {/* LEFT COLUMN: TITLE & CONTROLS */}
+        <div className="w-full md:max-w-xl space-y-5 text-left flex flex-col justify-end mt-auto md:mt-0">
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             <motion.h1 
-              animate={{ y: [0, -12, 0] }}
-              transition={{ 
-                repeat: Infinity, 
-                duration: 4, 
-                ease: "easeInOut" 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              className="text-7xl sm:text-8xl lg:text-[110px] font-black tracking-normal leading-none select-none text-[#2dd96e] glass-emboss-text"
+              style={{
+                fontFamily: "Poppins, sans-serif",
+                fontStyle: "italic",
+                fontWeight: 900,
+                letterSpacing: "0.02em",
+                marginBottom: "0px",
+                textDecorationLine: "none"
               }}
-              className="text-7xl sm:text-9xl lg:text-[145px] font-black tracking-tight leading-none select-none text-white glass-emboss-text"
             >
               OPTIMUS
             </motion.h1>
             <h2 
-              className="text-sm sm:text-xl md:text-[26px] font-bold tracking-normal leading-relaxed text-slate-100 max-w-2xl mx-auto mt-2 md:mt-4 glass-emboss-sub"
+              className="whitespace-nowrap text-[10px] min-[360px]:text-[11px] min-[400px]:text-xs sm:text-lg lg:text-xl font-bold tracking-normal leading-tight glass-emboss-sub"
+              style={{
+                marginBottom: "6px",
+                color: "#2dd96e",
+                textShadow: "0px 2px 4px rgba(0, 0, 0, 0.95), 0px 4px 12px rgba(0, 0, 0, 0.85)",
+                fontSize: "21px"
+              }}
             >
               Optimalisasi Sistem Pelaporan Mutu Rumah Sakit
             </h2>
             <p 
-              className="text-xs md:text-base text-slate-200/90 font-medium max-w-2xl mx-auto leading-relaxed mt-4 md:mt-6 glass-emboss-sub"
+              className="text-[12px] sm:text-xs md:text-sm text-slate-200/85 font-medium leading-relaxed glass-emboss-sub"
+              style={{
+                fontSize: "14px",
+                lineHeight: "22.75px",
+                height: "45.5px",
+                width: "555px"
+              }}
             >
-              Sistem terintegrasi untuk meningkatkan kualitas laporan, keselamatan pasien dan tata kelola mutu rumah sakit secara berkelanjutan
+              Sistem terintegrasi untuk meningkatkan kualitas laporan, keselamatan pasien dan tata kelola mutu rumah sakit secara berkelanjutan.
             </p>
           </div>
 
-          <div className="pt-8">
+          <div className="pt-2">
             <button
-              onClick={() => {
-                localStorage.setItem("welcome_seen", "true");
-                router.push("/dashboard");
-              }}
-              className="px-8 py-4 md:px-10 md:py-4 rounded-2xl bg-emerald-600 border border-emerald-500 text-white font-black text-sm tracking-wider uppercase hover:bg-emerald-700 hover:border-emerald-600 active:scale-95 transition-all duration-300 flex items-center gap-3.5 mx-auto cursor-pointer shadow-[0_8px_32px_0_rgba(16,185,129,0.4)]"
+              onClick={handleEnterDashboard}
+              className="px-6 py-3.5 rounded-xl bg-emerald-600 border border-emerald-500 text-white font-black text-xs tracking-wider uppercase hover:bg-emerald-700 hover:border-emerald-600 active:scale-95 transition-all duration-300 flex items-center gap-2.5 cursor-pointer shadow-[0_8px_24px_0_rgba(16,185,129,0.3)]"
             >
-              <span>BUKA DASHBOARD</span>
+              <span style={{ textShadow: "1px 1.5px 1px rgba(0, 0, 0, 0.95)" }}>BUKA DASHBOARD</span>
               <motion.div
-                animate={{ x: [0, 8, 0] }}
+                animate={{ x: [0, 6, 0] }}
                 transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
               >
-                <ArrowRight size={18} className="stroke-[3]" />
+                <ArrowRight size={14} className="stroke-[3]" />
               </motion.div>
             </button>
           </div>
 
         </div>
-      </main>
 
-    </div>
+        {/* RIGHT COLUMN: GLASSMORPHISM ANALYTICS WIDGETS */}
+        <div className="hidden md:flex flex-col sm:flex-row items-stretch sm:items-end gap-5 w-full md:w-auto shrink-0 justify-end">
+          
+          {/* Widget 1: Capaian Mutu (Floating Bar Chart) */}
+          <motion.div 
+            animate={{ y: [0, -8, 0] }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 3.5, 
+              ease: "easeInOut" 
+            }}
+            whileHover={{ scale: 1.03 }}
+            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full sm:w-[280px] min-h-[200px]"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Capaian Mutu</p>
+                <p className="text-sm font-black text-emerald-400">Target Tercapai</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[#2dd96e] flex items-center justify-center">
+                <TrendingUp size={16} />
+              </div>
+            </div>
+
+            {/* Custom Interactive rounded wide bars with bounce animations */}
+            <div className="h-28 flex items-end justify-between gap-2.5 px-0.5 mt-5">
+              {[
+                { month: "Jan", pct: "62%", hRange: ["45%", "65%"], duration: 2.2, delay: 0.1, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
+                { month: "Feb", pct: "74%", hRange: ["55%", "78%"], duration: 2.5, delay: 0.3, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
+                { month: "Mar", pct: "58%", hRange: ["40%", "60%"], duration: 2.1, delay: 0.5, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
+                { month: "Apr", pct: "81%", hRange: ["65%", "85%"], duration: 2.4, delay: 0.2, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" },
+                { month: "Mei", pct: "89%", hRange: ["70%", "92%"], duration: 2.3, delay: 0.4, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" },
+                { month: "Jun", pct: "94%", hRange: ["75%", "98%"], duration: 2.6, delay: 0.6, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" }
+              ].map((bar, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end relative">
+                  {/* Bar wrapper */}
+                  <div className="w-full flex-1 bg-white/5 rounded-t-lg overflow-visible flex items-end relative">
+                    <motion.div 
+                      animate={{ height: bar.hRange }}
+                      transition={{
+                        repeat: Infinity,
+                        repeatType: "reverse",
+                        duration: bar.duration,
+                        delay: bar.delay,
+                        ease: "easeInOut"
+                      }}
+                      className={`w-full bg-gradient-to-t ${bar.color} rounded-t-lg relative flex items-start justify-center ${bar.glow}`}
+                    >
+                      {/* Floating percentage above it */}
+                      <div className="absolute -top-4 flex flex-col items-center">
+                        <span className={`text-[9px] font-black ${bar.textColor} tracking-tighter select-none`}>
+                          {bar.pct}
+                        </span>
+                      </div>
+                    </motion.div>
+                  </div>
+                  {/* Month Label */}
+                  <span className="text-[10px] font-bold text-slate-400 tracking-wider font-sans select-none">
+                    {bar.month}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Widget 2: Kepatuhan Mutu (Floating Percentage) */}
+          <motion.div 
+            animate={{ y: [0, -10, 0] }}
+            transition={{ 
+              repeat: Infinity, 
+              duration: 4, 
+              ease: "easeInOut",
+              delay: 0.5
+            }}
+            whileHover={{ scale: 1.03 }}
+            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full sm:w-56 min-h-[180px]"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Kepatuhan Mutu</p>
+                <p className="text-sm font-black text-[#2dd96e]" style={{ fontSize: "12px" }}>Akreditasi Paripurna</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[#2dd96e] flex items-center justify-center">
+                <Award size={16} />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col justify-end flex-1">
+              {/* Score text displaying anim score from 90 to 100 */}
+              <div className="flex items-baseline gap-1">
+                <span className="text-5xl font-black text-white tracking-tight drop-shadow-md" style={{ fontStyle: "italic" }}>
+                  {complianceScore}
+                </span>
+                <span className="text-2xl font-extrabold text-[#2dd96e]">%</span>
+              </div>
+              <p className="text-[10px] text-slate-300 font-medium mt-1 leading-normal">
+                Indeks kepatuhan pelaporan indikator nasional mutu (INM).
+              </p>
+            </div>
+          </motion.div>
+
+        </div>
+
+      </motion.main>
+
+    </motion.div>
   );
 }

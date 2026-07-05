@@ -7,6 +7,34 @@ import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
 import "@/styles/globals.css";
 
+// Prevents Next.js HMR TypeError: Cannot read properties of undefined (reading 'components') during dynamic hot-reloading
+if (typeof window !== "undefined") {
+  let currentNextData = (window as any).__NEXT_DATA__ || { components: {} };
+  if (!currentNextData.components) {
+    currentNextData.components = {};
+  }
+  
+  try {
+    Object.defineProperty(window, "__NEXT_DATA__", {
+      get() {
+        return currentNextData;
+      },
+      set(newVal) {
+        if (newVal) {
+          if (!newVal.components) {
+            newVal.components = {};
+          }
+          currentNextData = newVal;
+        }
+      },
+      configurable: true,
+    });
+  } catch (e) {
+    // Fallback if defineProperty fails
+    (window as any).__NEXT_DATA__ = currentNextData;
+  }
+}
+
 function GlobalInitializer() {
   const setHospitalLogo = useStore((state) => state.setHospitalLogo);
   const setIndicatorProfiles = useStore((state) => state.setIndicatorProfiles);

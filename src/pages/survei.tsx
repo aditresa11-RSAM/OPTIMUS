@@ -191,6 +191,11 @@ export default function SurveiBudaya() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [showSqlGuide, setShowSqlGuide] = useState<boolean>(false);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [showResetPassword, setShowResetPassword] = useState<boolean>(false);
+  const [resetPasswordInput, setResetPasswordInput] = useState<string>("");
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
+  const [showResetSuccess, setShowResetSuccess] = useState<boolean>(false);
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
@@ -509,9 +514,22 @@ export default function SurveiBudaya() {
     }
   };
 
-  const handleResetData = async () => {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus semua data kuesioner? Tindakan ini tidak dapat dibatalkan.")) return;
+  const handleConfirmResetStep = () => {
+    setShowResetConfirm(false);
+    setShowResetPassword(true);
+    setResetPasswordInput("");
+    setResetPasswordError(null);
+  };
+
+  const handleExecuteReset = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (resetPasswordInput !== "230489") {
+      setResetPasswordError("Password salah! Silakan coba lagi.");
+      return;
+    }
+
     setLoading(true);
+    setShowResetPassword(false);
     
     // Clear local storage
     if (typeof window !== "undefined") {
@@ -530,10 +548,10 @@ export default function SurveiBudaya() {
       
       if (error && error.code !== "PGRST205") throw error;
       
-      alert("Semua data kuesioner berhasil dihapus!");
+      setShowResetSuccess(true);
       fetchSurveys();
     } catch (err: any) {
-      alert("Semua data kuesioner lokal berhasil dihapus.");
+      setShowResetSuccess(true);
       fetchSurveys();
     } finally {
       setLoading(false);
@@ -591,8 +609,8 @@ export default function SurveiBudaya() {
 
           {surveys.length > 0 && (
             <button
-              onClick={handleResetData}
-              className="flex items-center justify-center bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 p-2.5 rounded-xl font-bold transition-all shadow-xs w-10 h-10 shrink-0"
+              onClick={() => setShowResetConfirm(true)}
+              className="flex items-center justify-center bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 p-2.5 rounded-xl font-bold transition-all shadow-xs w-10 h-10 shrink-0 cursor-pointer"
               title="Reset Semua Data Kuesioner"
             >
               <Trash2 size={18} />
@@ -736,7 +754,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
 
           {/* TABLE SECTION: A. DATA HASIL SURVEY BUDAYA KESELAMATAN PASIEN */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-8 overflow-hidden w-full">
-            <h3 className="text-base sm:text-lg font-black text-[#10a37f] tracking-tight uppercase border-b pb-4 mb-5 text-center">
+            <h3 className="text-[25px] font-black text-[#10a37f] tracking-tight uppercase border-b pb-4 mb-5 text-center">
               DATA HASIL SURVEY BUDAYA KESELAMATAN PASIEN
             </h3>
             
@@ -750,15 +768,24 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-slate-800 text-sm">
-                  {computedDimensions.map((dim, idx) => (
-                    <tr key={dim.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 text-center font-bold text-gray-500 border-r border-gray-200">{idx + 1}</td>
-                      <td className="p-4 font-semibold text-gray-800 border-r border-gray-200">{dim.name}</td>
-                      <td className="p-4 text-center font-black text-emerald-700 bg-emerald-50/20">
-                        {Math.round(dim.score)}%
-                      </td>
-                    </tr>
-                  ))}
+                  {computedDimensions.map((dim, idx) => {
+                    const roundedScore = Math.round(dim.score);
+                    let scoreClass = "text-rose-700 bg-rose-50/30";
+                    if (roundedScore > 75) {
+                      scoreClass = "text-emerald-700 bg-emerald-50/30";
+                    } else if (roundedScore >= 50) {
+                      scoreClass = "text-amber-700 bg-amber-50/30";
+                    }
+                    return (
+                      <tr key={dim.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 text-center font-bold text-gray-500 border-r border-gray-200">{idx + 1}</td>
+                        <td className="p-4 font-semibold text-gray-800 border-r border-gray-200">{dim.name}</td>
+                        <td className={`p-4 text-center font-black ${scoreClass}`}>
+                          {roundedScore}%
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {/* TOTAL SKOR ROW */}
                   <tr className="bg-slate-100/80 text-gray-900 font-extrabold border-t-2 border-slate-300">
                     <td colSpan={2} className="p-4 text-center text-[16px] uppercase tracking-wider font-black bg-[#10a37f] text-white border-r border-[#0e8f6e]/60">
@@ -941,6 +968,128 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                 Tutup
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: RESET CONFIRMATION */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+            <div className="flex items-center gap-3 text-rose-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                Konfirmasi Reset Data
+              </h3>
+            </div>
+            
+            <p className="text-sm text-slate-600 font-semibold leading-relaxed mb-6">
+              Apakah Anda yakin ingin menghapus seluruh data kuesioner? Tindakan ini akan menghapus semua responden secara permanen dari database cloud dan penyimpanan lokal, serta tidak dapat dibatalkan.
+            </p>
+
+            <div className="flex justify-end gap-2.5">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-extrabold transition-all text-xs cursor-pointer focus:outline-none"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmResetStep}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-extrabold transition-all text-xs cursor-pointer shadow-md shadow-rose-500/20 focus:outline-none"
+              >
+                Ya, Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: RESET PASSWORD VALIDATION */}
+      {showResetPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+            <div className="flex items-center gap-3 text-emerald-600 mb-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Database size={20} className="text-[#10a37f]" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                Verifikasi Keamanan
+              </h3>
+            </div>
+            
+            <p className="text-sm text-slate-600 font-semibold leading-relaxed mb-4">
+              Silakan masukkan password reset untuk memproses penghapusan seluruh data survei keselamatan pasien.
+            </p>
+
+            <form onSubmit={(e) => handleExecuteReset(e)} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  value={resetPasswordInput}
+                  onChange={(e) => {
+                    setResetPasswordInput(e.target.value);
+                    if (resetPasswordError) setResetPasswordError(null);
+                  }}
+                  placeholder="Masukkan password reset"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-[#10a37f] focus:bg-white transition-all shadow-inner"
+                  autoFocus
+                />
+                {resetPasswordError && (
+                  <p className="text-xs text-rose-600 font-bold mt-1.5 flex items-center gap-1">
+                    <XCircle size={12} /> {resetPasswordError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetPassword(false);
+                    setResetPasswordInput("");
+                    setResetPasswordError(null);
+                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-extrabold transition-all text-xs cursor-pointer focus:outline-none"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-extrabold transition-all text-xs cursor-pointer shadow-md shadow-rose-500/20 focus:outline-none"
+                >
+                  Konfirmasi Reset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: RESET SUCCESS FEEDBACK */}
+      {showResetSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-[#10a37f] flex items-center justify-center mb-4">
+              <Sparkles size={28} />
+            </div>
+            
+            <h3 className="text-lg font-black text-slate-900 tracking-tight mb-2">
+              Reset Data Berhasil!
+            </h3>
+            
+            <p className="text-sm text-slate-600 font-semibold leading-relaxed mb-6">
+              Seluruh data kuesioner pada database cloud dan penyimpanan lokal telah berhasil dibersihkan.
+            </p>
+
+            <button
+              onClick={() => setShowResetSuccess(false)}
+              className="w-full bg-[#10a37f] hover:bg-[#0e8f6e] text-white py-3 rounded-xl font-black transition-all text-xs cursor-pointer shadow-md shadow-emerald-500/20 focus:outline-none"
+            >
+              Selesai
+            </button>
           </div>
         </div>
       )}
