@@ -8,6 +8,11 @@ import {
   Radar,
   Legend,
   Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 import { 
   Activity, 
@@ -19,7 +24,17 @@ import {
   XCircle, 
   Sparkles,
   Trash2,
-  X
+  X,
+  ChevronRight,
+  Eye,
+  Printer,
+  Download,
+  Search,
+  Filter,
+  Calendar,
+  Award,
+  TrendingUp,
+  BarChart2
 } from "lucide-react";
 import SurveiForm from "@/components/survei/SurveiForm";
 import { supabase } from "@/lib/supabase";
@@ -184,6 +199,208 @@ function isPositiveResponse(val: string | undefined, isReverse: boolean): boolea
   }
 }
 
+const QUESTIONS_BAGIAN_A = [
+  "Karyawan di unit kami saling mendukung",
+  "Unit kami memiliki cukup staf untuk menangani beban kerja yang berlebih",
+  "Bila unit kami ada pekerjaan yang harus dilakukan dalam waktu cepat, maka karyawan di unit kami bekerja bersama-sama sebagai tim",
+  "Petugas di unit kami saling menghargai",
+  "Karyawan di unit kami bekerja dengan waktu yang lebih lama dari normal untuk perawatan pasien",
+  "Unit kami secara aktif melakukan kegiatan untuk meningkatkan keselamatan pasien",
+  "Unit kami banyak menggunakan tenaga melebihi normal/tambahan untuk kegiatan pelayanan pasien",
+  "Karyawan unit kami sering merasa bahwa kesalahan yang mereka lakukan digunakan untuk menyalahkan mereka",
+  "Di unit kami, kesalahan yang terjadi digunakan untuk membuat perubahan kearah yang positif",
+  "Hanya karena kebetulan saja bila insiden yang lebih serius tidak terjadi di unit kami",
+  "Bila salah satu area di unit kami sangat sibuk, maka area lain dari unit kami akan membantu",
+  "Bila unit kami melaporkan suatu insiden, yang dibicarakan adalah pelakunya bukan masalahnya",
+  "Sesudah membuat perubahan-perubahan untuk meningkatkan Keselamatan Pasien, kita lakukan evaluasi tentang efektivitasnya",
+  "Kami bekerja seolah-olah dalam keadaan “krisis”, berusaha bertindak berlebihan dan terlalu cepat",
+  "Unit kami tidak pernah mengorbankan keselamatan pasien untuk menyelesaikan pekerjaan yang lebih banyak",
+  "Karyawan merasa khawatir kesalahan yang mereka buat akan dicatat di berkas pribadi mereka",
+  "Di unit kami banyak masalah keselamatan pasien",
+  "Prosedur dan system di unit kami sudah baik dalam mencegah terjadinya error"
+];
+
+const QUESTIONS_BAGIAN_B = [
+  "Manajer/supervisor di unit kami memberi pujian jika melihat pekerjaan diselesaikan sesuai prosedur keselamatan pasien yang berlaku",
+  "Manajer/supervisor dengan serius mempertimbangkan masukan staf untuk meningkatkan keselamatan pasien",
+  "Bila beban kerja tinggi, manajer/supervisor kami meminta kami bekerja cepat meski dengan mengambil jalan pintas",
+  "Manajer/supervisor kami selalu mengabaikan masalah Keselamatan Pasien yang terjadi berulang kali di unit kami"
+];
+
+const QUESTIONS_BAGIAN_C = [
+  "Karyawan di unit kami mendapat umpan balik mengenai perubahan yang dilaksanakan atas dasar hasil laporan insiden",
+  "Karyawan di unit kami bebas berbicara jika melihat sesuatu yang dapat berdampak negatif pada pelayanan pasien",
+  "Karyawan di unit kami mendapat informasi mengenai insiden yang terjadi di unit ini",
+  "Karyawan di unit kami merasa bebas untuk mempertanyakan keputusan atau tindakan yang diambil oleh atasannya",
+  "Di unit kami, didiskusikan cara untuk mencegah agar insiden tidak terulang kembali",
+  "Karyawan di unit kami takut bertanya jika terjadi hal yang kelihatannya tidak benar"
+];
+
+const QUESTIONS_BAGIAN_D = [
+  "Bila terjadi kesalahan, tetapi sempat diketahui dan dikoreksi sebelum berdampak pada pasien, seberapa sering hal ini dilaporkan?",
+  "Bila terjadi kesalahan, tetapi tidak berpotensi mencenderai pasien, seberapa sering hal ini dilaporkan?",
+  "Bila terjadi kesalahan, yang dapat mencederai pasien tetapi ternyata tidak terjadi cedera, seberapa sering hal ini dilaporkan?"
+];
+
+const QUESTIONS_BAGIAN_F = [
+  "Manajemen rumah sakit membuat suasana kerja yang mendukung keselamatan pasien",
+  "Antar Unit di RS kami tidak saling berkoordinasi dengan baik",
+  "Bila terjadi pemindahan pasien dari unit satu ke unit lain, pasti menimbulkan masalah terkait dengan informasi pasien",
+  "Terdapat kerjasama yang baik antar unit di RS yang dibutuhkan untuk menyelesaikan pekerjaan bersama",
+  "Informasi penting mengenai pelayanan pasien sering hilang saat pergantian jaga (shift)",
+  "Sering kali tidak menyenangkan bekerja dengan staf dari unit lain di RS ini",
+  "Masalah sering timbul dalam pertukaran informasi antar unit di RS",
+  "Tindakan manajemen RS menunjukkan bahwa keselamatan pasien merupakan prioritas utama",
+  "Manajemen RS kelihatan tertarik pada Keselamatan Pasien hanya sesudah terjadi KTD (Kejadian yang Tidak Diharapkan)",
+  "Unit-unit di RS bekerjasama dengan baik untuk memberikan pelayanan yang terbaik untuk pasien",
+  "Pergantian shift merupakan masalah bagi pasien-pasien di RS ini"
+];
+
+function getQuestionText(section: string, key: string): string {
+  const parts = key.split("_");
+  const index = parseInt(parts[parts.length - 1]);
+  if (isNaN(index)) return "Pertanyaan tidak dikenal";
+  
+  if (section === "bagian_a") return QUESTIONS_BAGIAN_A[index] || "Pertanyaan tidak dikenal";
+  if (section === "bagian_b") return QUESTIONS_BAGIAN_B[index] || "Pertanyaan tidak dikenal";
+  if (section === "bagian_c") return QUESTIONS_BAGIAN_C[index] || "Pertanyaan tidak dikenal";
+  if (section === "bagian_d") return QUESTIONS_BAGIAN_D[index] || "Pertanyaan tidak dikenal";
+  if (section === "bagian_f") return QUESTIONS_BAGIAN_F[index] || "Pertanyaan tidak dikenal";
+  return "Pertanyaan tidak dikenal";
+}
+
+function getResponseCategory(val: string | undefined, isReverse: boolean): "Positif" | "Netral" | "Negatif" {
+  if (!val) return "Netral";
+  const normalized = val.trim().toLowerCase();
+  
+  const isPos = isPositiveResponse(val, isReverse);
+  if (isPos) return "Positif";
+  
+  if (normalized === "kadang-kadang" || normalized === "kadang kadang") {
+    return "Netral";
+  }
+  
+  return "Negatif";
+}
+
+function getResponseValue(val: string | undefined, isReverse: boolean): number {
+  if (!val) return 0;
+  const normalized = val.trim().toLowerCase();
+  let baseValue = 3; // default neutral
+  
+  if (normalized === "sangat tidak setuju" || normalized === "tidak pernah") {
+    baseValue = 1;
+  } else if (normalized === "tidak setuju" || normalized === "jarang sekali") {
+    baseValue = 2;
+  } else if (normalized === "kadang-kadang" || normalized === "kadang kadang") {
+    baseValue = 3;
+  } else if (normalized === "setuju" || normalized === "sering") {
+    baseValue = 4;
+  } else if (normalized === "sangat setuju" || normalized === "selalu") {
+    baseValue = 5;
+  }
+  
+  if (isReverse) {
+    return 6 - baseValue; // reverses 1<->5, 2<->4, 3<->3
+  }
+  return baseValue;
+}
+
+const DIMENSION_RECOMMENDATIONS: Record<number, string[]> = {
+  1: [
+    "Sosialisasikan budaya 'Speak Up' kepada seluruh staf agar berani berbicara demi keselamatan pasien tanpa takut disalahkan.",
+    "Lakukan briefing keselamatan harian (safety huddle) sebelum memulai pelayanan di setiap unit.",
+    "Berikan penghargaan kepada staf atau unit kerja yang secara aktif mengidentifikasi potensi bahaya."
+  ],
+  2: [
+    "Bagikan laporan ringkasan perbaikan keselamatan pasien secara berkala sebagai bentuk akuntabilitas.",
+    "Lakukan Focus Group Discussion (FGD) rutin untuk mendiskusikan tindak lanjut kasus insiden.",
+    "Pasang infografis pembelajaran kasus insiden di area strategis khusus staf."
+  ],
+  3: [
+    "Sederhanakan alur pelaporan insiden keselamatan pasien agar menghemat waktu pengisian staf.",
+    "Berikan pemahaman berkala tentang perbedaan kategori insiden (KTD, KNC, KTC, KPC).",
+    "Fasilitasi pelaporan insiden online yang mudah diakses kapan saja dari unit kerja."
+  ],
+  4: [
+    "Terapkan secara ketat standar serah terima pasien berbasis komunikasi efektif seperti metode SBAR.",
+    "Lakukan audit kepatuhan pengisian berkas transfer atau operan pasien secara rutin.",
+    "Sediakan waktu tenang khusus (quiet time) selama pergantian shift agar konsentrasi terjaga."
+  ],
+  5: [
+    "Jadwalkan ronde keselamatan pasien (patient safety walkround) berkala oleh direksi dan manajemen.",
+    "Pastikan alokasi anggaran yang memadai untuk pemenuhan sarana pendukung keselamatan pasien.",
+    "Libatkan komite mutu dan keselamatan pasien dalam penyusunan kebijakan operasional utama."
+  ],
+  6: [
+    "Deklarasikan komitmen rumah sakit terhadap 'Just Culture' (budaya non-punitive/bebas hukuman).",
+    "Fokuskan investigasi insiden pada perbaikan alur sistem, bukan mencari kesalahan personal.",
+    "Berikan edukasi kepada seluruh pimpinan unit tentang cara merespons laporan error secara konstruktif."
+  ],
+  7: [
+    "Evaluasi dampak dari perubahan sistem atau SOP baru yang diimplementasikan pasca insiden.",
+    "Sediakan pelatihan manajemen risiko klinis secara berkesinambungan bagi semua staf.",
+    "Gunakan rapat pleno bulanan unit sebagai sarana pembelajaran dari insiden yang pernah terjadi."
+  ],
+  8: [
+    "Lakukan survei budaya keselamatan secara berkala untuk memonitor tren perbaikan di rumah sakit.",
+    "Masukkan indikator keselamatan pasien sebagai salah satu komponen utama penilaian kinerja tahunan.",
+    "Tingkatkan kolaborasi fungsional antara Komite Mutu, PPI, dan K3RS."
+  ],
+  9: [
+    "Evaluasi beban kerja (workload analysis) secara berkala di unit-unit dengan tingkat hunian tinggi.",
+    "Terapkan penjadwalan shift kerja yang sehat untuk mencegah kelelahan fisik dan mental staf.",
+    "Bantu kurangi beban administratif perawat dengan optimalisasi sistem informasi rumah sakit."
+  ],
+  10: [
+    "Berikan pembekalan kepemimpinan keselamatan pasien (patient safety leadership) bagi kepala ruangan.",
+    "Apresiasi staf yang konsisten patuh terhadap SOP pelayanan oleh kepala ruangan secara langsung.",
+    "Lakukan mentoring berkala bagi staf yang memerlukan penguatan kepatuhan prosedur klinis."
+  ],
+  11: [
+    "Selenggarakan pertemuan koordinasi rutin antar unit pelayanan untuk meminimalisir sekat birokrasi.",
+    "Integrasikan rekam medis elektronik rumah sakit agar transfer data pasien berjalan instan dan akurat.",
+    "Adakan kegiatan team-building atau simulasi lintas unit untuk memupuk kebersamaan staf."
+  ],
+  12: [
+    "Adakan sesi refleksi berkala di internal unit untuk saling mendukung dan menjaga kekompakan.",
+    "Distribusikan penugasan pelayanan secara adil, proporsional, dan transparan sesuai kompetensi.",
+    "Sediakan pelatihan komunikasi interprofesional untuk mengurangi risiko kesalahpahaman kerja tim."
+  ]
+};
+
+function getRecommendations(id: number, positive: number): string[] {
+  const base = DIMENSION_RECOMMENDATIONS[id] || [
+    "Tingkatkan kepatuhan penerapan SOP keselamatan pasien secara konsisten.",
+    "Lakukan evaluasi berkala mengenai pemahaman staf terhadap prosedur keselamatan.",
+    "Gunakan data survei ini untuk merumuskan prioritas peningkatan mutu unit kerja."
+  ];
+  
+  const additional: string[] = [];
+  if (positive < 50) {
+    additional.push("Segera laksanakan lokakarya (workshop) evaluasi kritis bagi seluruh staf di unit kerja.");
+    additional.push("Mintalah pendampingan khusus dari Komite Mutu dan Keselamatan Pasien untuk mendesain ulang sistem kerja.");
+  } else if (positive < 75) {
+    additional.push("Susun rencana aksi peningkatan berkala (Plan-Do-Study-Act) dengan pemantauan setiap bulan.");
+  }
+  
+  return [...base, ...additional];
+}
+
+function generateAnalysis(dimensionName: string, positive: number, neutral: number, negative: number): string {
+  const roundedPos = Math.round(positive);
+  const roundedNeu = Math.round(neutral);
+  const roundedNeg = Math.round(negative);
+
+  if (positive >= 75) {
+    return `Hasil survei untuk Dimensi "${dimensionName}" menunjukkan tingkat pemahaman yang sangat kuat dengan persentase respon positif mencapai ${roundedPos}%. Mayoritas responden merasa lingkungan kerja telah mendukung standar keselamatan pasien secara optimal, dengan hanya ${roundedNeu}% respon netral dan ${roundedNeg}% respon negatif. Hal ini menandakan budaya kerja yang sangat solid, kolaboratif, dan kondusif dalam menjaga keselamatan pasien di rumah sakit. Pertahankan pencapaian ini dan jadikan praktik baik di dimensi ini sebagai acuan pembelajaran bagi unit atau dimensi lainnya.`;
+  } else if (positive >= 50) {
+    return `Hasil survei untuk Dimensi "${dimensionName}" berada dalam kategori sedang dengan persentase respon positif sebesar ${roundedPos}%, respon netral ${roundedNeu}%, dan respon negatif ${roundedNeg}%. Meskipun sebagian besar elemen keselamatan telah dipahami, masih terdapat area abu-abu atau keraguan di kalangan staf yang ditunjukkan oleh tingginya respon netral atau negatif. Diperlukan sosialisasi lebih lanjut, penyegaran SOP, serta peningkatan diskusi interaktif guna mengubah persepsi netral menjadi respon positif yang lebih mantap demi peningkatan keselamatan pasien.`;
+  } else {
+    return `Peringatan: Hasil survei untuk Dimensi "${dimensionName}" menunjukkan kategori lemah / kritis dengan respon positif hanya sebesar ${roundedPos}%, sementara respon netral sebesar ${roundedNeu}% dan respon negatif mencapai ${roundedNeg}%. Tingginya respon negatif ini menandakan adanya kendala atau hambatan nyata dalam sistem kerja sehari-hari yang berpotensi membahayakan keselamatan pasien. Komite Mutu dan Keselamatan Pasien direkomendasikan untuk segera melakukan investigasi mendalam, merancang ulang prosedur operasional, dan memberikan pembekalan intensif demi menekan risiko terjadinya insiden keselamatan pasien di rumah sakit.`;
+  }
+}
+
 export default function SurveiBudaya() {
   const [view, setView] = useState<"dashboard" | "form">("dashboard");
   const [surveys, setSurveys] = useState<any[]>([]);
@@ -196,6 +413,14 @@ export default function SurveiBudaya() {
   const [resetPasswordInput, setResetPasswordInput] = useState<string>("");
   const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
   const [showResetSuccess, setShowResetSuccess] = useState<boolean>(false);
+
+  // States for selected dimension details
+  const [selectedDimensionId, setSelectedDimensionId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterUnit, setFilterUnit] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const currentYear = useMemo(() => new Date().getFullYear(), []);
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
@@ -215,6 +440,198 @@ export default function SurveiBudaya() {
       return surveyYear === selectedYear;
     });
   }, [surveys, selectedYear]);
+
+  // Memoized detailed dimension analysis calculations
+  const dimensionDetailData = useMemo(() => {
+    if (selectedDimensionId === null) return null;
+    const dim = DIMENSION_MAPPING.find(d => d.id === selectedDimensionId);
+    if (!dim) return null;
+    
+    // 1. Calculate question-by-question stats
+    const questionStats = dim.items.map(item => {
+      let total = 0;
+      let positive = 0;
+      let neutral = 0;
+      let negative = 0;
+      
+      filteredSurveys.forEach(survey => {
+        const sectionData = survey[item.section];
+        if (sectionData) {
+          const val = sectionData[item.key];
+          if (val && val.trim() !== "") {
+            total++;
+            const category = getResponseCategory(val, item.isReverse);
+            if (category === "Positif") positive++;
+            else if (category === "Netral") neutral++;
+            else negative++;
+          }
+        }
+      });
+      
+      return {
+        key: item.key.toUpperCase().replace(/_/g, ""),
+        section: item.section,
+        text: getQuestionText(item.section, item.key),
+        isReverse: item.isReverse,
+        total,
+        positive: total > 0 ? (positive / total) * 100 : 0,
+        neutral: total > 0 ? (neutral / total) * 100 : 0,
+        negative: total > 0 ? (negative / total) * 100 : 0,
+        positiveCount: positive,
+        neutralCount: neutral,
+        negativeCount: negative,
+      };
+    });
+    
+    // 2. Aggregate overall stats for this dimension
+    let totalResponses = 0;
+    let sumPositive = 0;
+    let sumNeutral = 0;
+    let sumNegative = 0;
+    let totalScoreValueSum = 0;
+    let totalScoreValueCount = 0;
+    
+    questionStats.forEach(q => {
+      totalResponses += q.total;
+      sumPositive += q.positiveCount;
+      sumNeutral += q.neutralCount;
+      sumNegative += q.negativeCount;
+    });
+    
+    // 3. Build respondent history rows
+    const respondentRows: any[] = [];
+    filteredSurveys.forEach((survey, sIdx) => {
+      const dateStr = survey.created_at
+        ? new Date(survey.created_at).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric"
+          })
+        : "Penyimpanan Lokal";
+        
+      const unit = survey.unit_kerja || "Unit Tidak Diketahui";
+      const respId = survey.id ? `Resp-${survey.id.slice(0, 5).toUpperCase()}` : `Resp-L${sIdx + 1}`;
+      
+      dim.items.forEach(item => {
+        const sectionData = survey[item.section];
+        if (sectionData) {
+          const val = sectionData[item.key];
+          if (val && val.trim() !== "") {
+            const cat = getResponseCategory(val, item.isReverse);
+            const valNum = getResponseValue(val, item.isReverse);
+            const questionText = getQuestionText(item.section, item.key);
+            
+            totalScoreValueSum += valNum;
+            totalScoreValueCount++;
+            
+            respondentRows.push({
+              id: `${survey.id || sIdx}-${item.key}`,
+              dateStr,
+              rawDate: survey.created_at ? new Date(survey.created_at) : new Date(0),
+              unit,
+              respId,
+              questionKey: item.key.toUpperCase().replace(/_/g, ""),
+              questionText,
+              answer: val,
+              category: cat,
+              value: valNum,
+            });
+          }
+        }
+      });
+    });
+    
+    const uniqueRespondentsCount = new Set(filteredSurveys.map(s => s.id || s.created_at)).size;
+    
+    const overallPositivePercent = totalResponses > 0 ? (sumPositive / totalResponses) * 100 : 0;
+    const overallNeutralPercent = totalResponses > 0 ? (sumNeutral / totalResponses) * 100 : 0;
+    const overallNegativePercent = totalResponses > 0 ? (sumNegative / totalResponses) * 100 : 0;
+    
+    // Average Likert score
+    const averageScoreValue = totalScoreValueCount > 0 ? totalScoreValueSum / totalScoreValueCount : 0;
+    const dimensionScorePercent = averageScoreValue > 0 ? ((averageScoreValue - 1) / 4) * 100 : 0;
+    
+    let cultureCategory: "Kuat / Baik" | "Sedang" | "Lemah / Kritis" = "Sedang";
+    if (overallPositivePercent >= 75) cultureCategory = "Kuat / Baik";
+    else if (overallPositivePercent < 50) cultureCategory = "Lemah / Kritis";
+    
+    const autoAnalysis = generateAnalysis(dim.name, overallPositivePercent, overallNeutralPercent, overallNegativePercent);
+    const recommendations = getRecommendations(dim.id, overallPositivePercent);
+    
+    return {
+      dim,
+      questionStats,
+      respondentRows,
+      uniqueRespondentsCount,
+      totalResponses,
+      overallPositivePercent,
+      overallNeutralPercent,
+      overallNegativePercent,
+      dimensionScorePercent,
+      averageScoreValue,
+      cultureCategory,
+      autoAnalysis,
+      recommendations,
+    };
+  }, [selectedDimensionId, filteredSurveys]);
+
+  const processedRows = useMemo(() => {
+    if (!dimensionDetailData) return [];
+    return dimensionDetailData.respondentRows.filter(row => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery || 
+        row.unit.toLowerCase().includes(q) ||
+        row.respId.toLowerCase().includes(q) ||
+        row.questionText.toLowerCase().includes(q) ||
+        row.answer.toLowerCase().includes(q);
+        
+      const matchesUnit = !filterUnit || row.unit === filterUnit;
+      
+      let matchesMonth = true;
+      if (filterMonth !== "") {
+        const rowMonth = row.rawDate.getMonth();
+        matchesMonth = rowMonth === parseInt(filterMonth);
+      }
+      
+      return matchesSearch && matchesUnit && matchesMonth;
+    });
+  }, [dimensionDetailData, searchQuery, filterUnit, filterMonth]);
+
+  const uniqueUnitsForFilter = useMemo(() => {
+    if (!dimensionDetailData) return [];
+    const units = new Set<string>();
+    dimensionDetailData.respondentRows.forEach(r => units.add(r.unit));
+    return Array.from(units);
+  }, [dimensionDetailData]);
+
+  const totalPages = Math.ceil(processedRows.length / itemsPerPage);
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return processedRows.slice(start, start + itemsPerPage);
+  }, [processedRows, currentPage, itemsPerPage]);
+
+  const handleExportCSV = () => {
+    if (!dimensionDetailData) return;
+    const dimensionName = dimensionDetailData.dim.name;
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += "No;Tanggal Pengisian;Unit;Kode Responden;Pertanyaan;Jawaban;Nilai;Status\n";
+    
+    processedRows.forEach((r, idx) => {
+      const cleanQ = r.questionText.replace(/;/g, ",").replace(/\n/g, " ");
+      const cleanA = r.answer.replace(/;/g, ",").replace(/\n/g, " ");
+      csvContent += `${idx + 1};${r.dateStr};${r.unit};${r.respId};${cleanQ};${cleanA};${r.value};${r.category}\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Riwayat_Dimensi_${dimensionName.replace(/\s+/g, "_")}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
 
   const getLocalSurveys = (): any[] => {
     if (typeof window !== "undefined") {
@@ -779,7 +1196,23 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                     return (
                       <tr key={dim.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="p-4 text-center font-bold text-gray-500 border-r border-gray-200">{idx + 1}</td>
-                        <td className="p-4 font-semibold text-gray-800 border-r border-gray-200">{dim.name}</td>
+                        <td 
+                          className="p-4 font-semibold text-slate-800 hover:text-[#10a37f] border-r border-gray-200 transition-colors duration-200 cursor-pointer group"
+                          onClick={() => {
+                            setSelectedDimensionId(dim.id);
+                            setSearchQuery("");
+                            setFilterUnit("");
+                            setFilterMonth("");
+                            setCurrentPage(1);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="group-hover:translate-x-1.5 transition-transform duration-200">{dim.name}</span>
+                            <span className="text-[#10a37f] opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0 transform translate-x-1 group-hover:translate-x-0">
+                              <Eye size={16} className="inline-block" />
+                            </span>
+                          </div>
+                        </td>
                         <td className={`p-4 text-center font-black ${scoreClass}`}>
                           {roundedScore}%
                         </td>
@@ -1090,6 +1523,449 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
             >
               Selesai
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: DETAIL RIWAYAT PER DIMENSI */}
+      {selectedDimensionId !== null && dimensionDetailData && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-0 md:p-6 bg-slate-950/60 backdrop-blur-xs overflow-y-auto">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #print-area, #print-area * {
+                visibility: visible !important;
+              }
+              #print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+          
+          <div 
+            id="print-area"
+            className="bg-white rounded-none md:rounded-[24px] border border-slate-100 shadow-2xl max-w-5xl w-full flex flex-col my-0 md:my-4 relative overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-300 min-h-screen md:min-h-0"
+          >
+            {/* Header */}
+            <div className="p-6 md:p-8 bg-gradient-to-r from-emerald-600 to-teal-700 text-white relative">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 blur-2xl rounded-full" />
+              
+              <div className="flex justify-between items-start relative z-10">
+                <div className="space-y-1.5 flex-1 pr-6">
+                  <div className="flex items-center gap-2">
+                    <Activity size={16} className="text-emerald-300 animate-pulse" />
+                    <span className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-200">Detail Analisis & Riwayat Pengisian</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black leading-tight text-white tracking-tight">
+                    Dimensi {selectedDimensionId}: {dimensionDetailData.dim.name}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-bold text-emerald-100">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={13} /> Periode Survei: {selectedYear}
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>
+                      Total Pertanyaan: {dimensionDetailData.dim.items.length} butir
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <span>
+                      Jumlah Responden: {dimensionDetailData.uniqueRespondentsCount} orang
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => setSelectedDimensionId(null)}
+                  className="no-print p-2.5 rounded-xl bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer outline-none focus:ring-2 focus:ring-emerald-400"
+                  aria-label="Tutup detail dimensi"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Content Body */}
+            <div className="p-6 md:p-8 space-y-8 overflow-y-auto max-h-[80vh]">
+              
+              {/* Summary Statistics Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex flex-col justify-between">
+                  <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Total Responden</span>
+                  <div className="flex items-baseline gap-1 mt-2">
+                    <span className="text-2xl font-black text-slate-800">{dimensionDetailData.uniqueRespondentsCount}</span>
+                    <span className="text-xs text-slate-500 font-bold">staf</span>
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl flex flex-col justify-between">
+                  <div className="flex justify-between items-center">
+                    <span className="text-emerald-700 font-bold text-[11px] uppercase tracking-wider">Respon Positif</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-2 text-emerald-600">
+                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallPositivePercent)}%</span>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl flex flex-col justify-between">
+                  <div className="flex justify-between items-center">
+                    <span className="text-amber-700 font-bold text-[11px] uppercase tracking-wider">Respon Netral</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-2 text-amber-600">
+                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallNeutralPercent)}%</span>
+                  </div>
+                </div>
+
+                <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-2xl flex flex-col justify-between">
+                  <div className="flex justify-between items-center">
+                    <span className="text-rose-700 font-bold text-[11px] uppercase tracking-wider">Respon Negatif</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-2 text-rose-600">
+                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallNegativePercent)}%</span>
+                  </div>
+                </div>
+
+                <div className="col-span-2 lg:col-span-1 bg-[#10a37f]/5 border border-[#10a37f]/20 p-4 rounded-2xl flex flex-col justify-between">
+                  <span className="text-[#10a37f] font-bold text-[11px] uppercase tracking-wider flex items-center gap-1">
+                    <Award size={12} /> Kategori Budaya
+                  </span>
+                  <div className="mt-2">
+                    <span className={`inline-block text-xs font-black px-2.5 py-1 rounded-lg ${
+                      dimensionDetailData.overallPositivePercent >= 75
+                        ? "bg-emerald-500 text-white"
+                        : dimensionDetailData.overallPositivePercent >= 50
+                        ? "bg-amber-500 text-white"
+                        : "bg-rose-500 text-white"
+                    }`}>
+                      {dimensionDetailData.cultureCategory}
+                    </span>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1.5">Skor: {Math.round(dimensionDetailData.dimensionScorePercent)}%</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Questions List & Chart */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                {/* Questions Details List (Left 7 Columns) */}
+                <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-150 p-5 md:p-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5 mb-4 pb-2 border-b">
+                      <ClipboardList size={14} className="text-emerald-600" />
+                      Daftar Pertanyaan & Distribusi Respon
+                    </h3>
+                    <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+                      {dimensionDetailData.questionStats.map((q, qIdx) => (
+                        <div key={q.key} className="space-y-2 text-xs">
+                          <div className="flex items-start justify-between gap-4">
+                            <span className="font-extrabold text-slate-400 min-w-10 text-left shrink-0">Butir {q.key}</span>
+                            <p className="text-slate-700 font-semibold leading-relaxed text-justify flex-1">
+                              {q.text} {q.isReverse && <span className="text-rose-600 font-black text-[9px] uppercase tracking-wider bg-rose-50 px-1.5 py-0.5 rounded ml-1" title="Pertanyaan Terbalik (Reversed Key) - Skor dibalik saat perhitungan">Reversed</span>}
+                            </p>
+                          </div>
+                          {/* Mini stacked response distribution bar */}
+                          <div className="pl-10 space-y-1">
+                            <div className="w-full h-2.5 rounded-full bg-slate-100 flex overflow-hidden">
+                              <div style={{ width: `${q.positive}%` }} className="h-full bg-emerald-500 transition-all duration-500" title={`Positif: ${Math.round(q.positive)}%`} />
+                              <div style={{ width: `${q.neutral}%` }} className="h-full bg-amber-500 transition-all duration-500" title={`Netral: ${Math.round(q.neutral)}%`} />
+                              <div style={{ width: `${q.negative}%` }} className="h-full bg-rose-500 transition-all duration-500" title={`Negatif: ${Math.round(q.negative)}%`} />
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-slate-400 font-extrabold">
+                              <span className="text-emerald-600">Positif: {Math.round(q.positive)}%</span>
+                              <span className="text-amber-500">Netral: {Math.round(q.neutral)}%</span>
+                              <span className="text-rose-600">Negatif: {Math.round(q.negative)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modern Recharts Grouped Bar Chart (Right 5 Columns) */}
+                <div className="lg:col-span-5 bg-slate-50 rounded-2xl border border-slate-150 p-5 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5 mb-4 pb-2 border-b">
+                      <BarChart2 size={14} className="text-emerald-600" />
+                      Visualisasi Grafik Respon
+                    </h3>
+                    <div className="flex items-center justify-center min-h-[260px] bg-white rounded-xl p-3 border border-slate-100">
+                      <ResponsiveContainer width="100%" height={260}>
+                        <BarChart data={dimensionDetailData.questionStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                            <filter id="barShadow" x="-10%" y="-10%" width="120%" height="120%">
+                              <feDropShadow dx={1} dy={3} stdDeviation={2.5} floodColor="#000000" floodOpacity={0.4} />
+                            </filter>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="key" stroke="#94a3b8" fontSize={11} fontWeight={700} />
+                          <YAxis stroke="#94a3b8" fontSize={11} fontWeight={700} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                          <RechartsTooltip 
+                            content={({ active, payload }: any) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-slate-900/95 backdrop-blur-md text-white p-4 rounded-xl border border-slate-700 shadow-xl max-w-sm text-xs space-y-1.5 font-sans">
+                                    <p className="font-extrabold text-emerald-400">{data.key}</p>
+                                    <p className="text-slate-300 font-semibold leading-relaxed mb-2">&ldquo;{data.text}&rdquo;</p>
+                                    <div className="flex justify-between gap-4 font-bold">
+                                      <span className="text-emerald-400">🟢 Positif: {Math.round(data.positive)}%</span>
+                                      <span className="text-amber-400">🟡 Netral: {Math.round(data.neutral)}%</span>
+                                      <span className="text-rose-400">🔴 Negatif: {Math.round(data.negative)}%</span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }} 
+                          />
+                          <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
+                          <Bar dataKey="positive" name="Positif" fill="#10b981" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
+                          <Bar dataKey="neutral" name="Netral" fill="#f59e0b" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
+                          <Bar dataKey="negative" name="Negatif" fill="#ef4444" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Respondent History Table Section */}
+              <div className="space-y-4 bg-white rounded-2xl border border-slate-150 p-5 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                      <Database size={16} className="text-[#10a37f]" />
+                      Riwayat Pengisian Jawaban Responden
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-bold">Daftar granular seluruh jawaban responden pada pertanyaan dimensi ini.</p>
+                  </div>
+                </div>
+
+                {/* Filters Row (Hidden in Print) */}
+                <div className="no-print grid grid-cols-1 md:grid-cols-12 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  {/* Search Input */}
+                  <div className="md:col-span-5 relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Cari unit, ID responden, pertanyaan atau jawaban..."
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#10a37f] transition-all"
+                    />
+                  </div>
+
+                  {/* Filter Unit */}
+                  <div className="md:col-span-3 relative">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                    <select
+                      value={filterUnit}
+                      onChange={(e) => {
+                        setFilterUnit(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#10a37f] transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Semua Unit</option>
+                      {uniqueUnitsForFilter.map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filter Bulan */}
+                  <div className="md:col-span-4 relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                    <select
+                      value={filterMonth}
+                      onChange={(e) => {
+                        setFilterMonth(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#10a37f] transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="">Semua Bulan</option>
+                      {["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].map((m, mIdx) => (
+                        <option key={m} value={mIdx}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Table container */}
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-center border-collapse min-w-[700px] text-xs border border-slate-200">
+                    <thead>
+                      <tr className="bg-slate-50 font-extrabold text-slate-600">
+                        <th className="p-3 text-center w-12 sticky top-0 bg-slate-50 z-10 border border-slate-200">No</th>
+                        <th className="p-3 text-center w-32 sticky top-0 bg-slate-50 z-10 border border-slate-200">Tanggal</th>
+                        <th className="p-3 text-center w-32 sticky top-0 bg-slate-50 z-10 border border-slate-200">Unit</th>
+                        <th className="p-3 text-center w-20 sticky top-0 bg-slate-50 z-10 border border-slate-200">Butir</th>
+                        <th className="p-3 text-center sticky top-0 bg-slate-50 z-10 border border-slate-200">Jawaban</th>
+                        <th className="p-3 text-center w-20 sticky top-0 bg-slate-50 z-10 border border-slate-200">Nilai</th>
+                        <th className="p-3 text-center w-28 sticky top-0 bg-slate-50 z-10 border border-slate-200">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
+                      {paginatedRows.length > 0 ? (
+                        paginatedRows.map((row, idx) => {
+                          const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
+                          let badgeClass = "bg-rose-50 text-rose-600 border border-rose-100";
+                          if (row.category === "Positif") {
+                            badgeClass = "bg-emerald-50 text-emerald-600 border border-emerald-100";
+                          } else if (row.category === "Netral") {
+                            badgeClass = "bg-amber-50 text-amber-600 border border-amber-100";
+                          }
+                          
+                          return (
+                            <tr key={row.id} className="hover:bg-slate-50/40 even:bg-slate-50/20 transition-all">
+                              <td className="p-3 text-center font-bold text-slate-400 border border-slate-200">{globalIdx}</td>
+                              <td className="p-3 text-center whitespace-nowrap text-slate-500 font-bold border border-slate-200">{row.dateStr}</td>
+                              <td className="p-3 text-center whitespace-nowrap text-slate-800 font-bold border border-slate-200">{row.unit}</td>
+                              <td className="p-3 text-center font-extrabold text-[#10a37f] border border-slate-200">{row.questionKey}</td>
+                              <td className="p-3 text-center text-slate-600 italic leading-relaxed border border-slate-200" title={row.questionText}>
+                                &ldquo;{row.answer}&rdquo;
+                              </td>
+                              <td className="p-3 text-center font-black text-slate-900 border border-slate-200">{row.value}</td>
+                              <td className="p-3 text-center whitespace-nowrap border border-slate-200">
+                                <span className={`inline-block px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${badgeClass}`}>
+                                  {row.category}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400 font-bold italic border border-slate-200">
+                            Tidak ada riwayat pengisian responden yang cocok dengan kriteria filter saat ini.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls (Hidden in Print) */}
+                {totalPages > 1 && (
+                  <div className="no-print flex items-center justify-between pt-4 border-t border-slate-100">
+                    <span className="text-[11px] text-slate-400 font-extrabold uppercase">
+                      Menampilkan {Math.min(processedRows.length, (currentPage - 1) * itemsPerPage + 1)}-
+                      {Math.min(processedRows.length, currentPage * itemsPerPage)} dari {processedRows.length} data
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 border border-slate-200 text-[11px] font-extrabold rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none"
+                      >
+                        Sebelumnya
+                      </button>
+                      
+                      {Array.from({ length: totalPages }).map((_, pIdx) => {
+                        const pNum = pIdx + 1;
+                        const isCurrent = pNum === currentPage;
+                        return (
+                          <button
+                            key={pNum}
+                            onClick={() => setCurrentPage(pNum)}
+                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all cursor-pointer focus:outline-none flex items-center justify-center ${
+                              isCurrent
+                                ? "bg-[#10a37f] text-white shadow-md shadow-emerald-500/10"
+                                : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {pNum}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 border border-slate-200 text-[11px] font-extrabold rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none"
+                      >
+                        Berikutnya
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto Analysis & Recommendation Panel */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Auto Analysis Card */}
+                <div className="bg-emerald-50/30 border border-emerald-500/15 rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-xl rounded-full" />
+                  
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-emerald-500/10">
+                      <Sparkles size={14} className="text-emerald-500" />
+                      Analisis Hasil Dimensi (Otomatis)
+                    </h3>
+                    <p className="text-xs text-slate-700 leading-relaxed font-semibold text-justify">
+                      {dimensionDetailData.autoAnalysis}
+                    </p>
+                  </div>
+                  
+                  <div className="text-[9px] text-slate-400 font-extrabold uppercase mt-6 tracking-wider">
+                    Sistem Analisis Cerdas Mutu OPTIMUS
+                  </div>
+                </div>
+
+                {/* Recommendations Card */}
+                <div className="bg-slate-50 border border-slate-200/60 rounded-2xl p-6 relative flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b">
+                      <TrendingUp size={14} className="text-[#10a37f]" />
+                      Rekomendasi Perbaikan Mutu
+                    </h3>
+                    <ul className="space-y-2.5">
+                      {dimensionDetailData.recommendations.map((rec, rIdx) => (
+                        <li key={rIdx} className="flex items-start gap-2.5 text-xs text-slate-600 font-semibold">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-[#10a37f] font-black text-[10px] flex items-center justify-center shrink-0">
+                            {rIdx + 1}
+                          </span>
+                          <span className="leading-relaxed text-justify">{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="text-[9px] text-slate-400 font-extrabold uppercase mt-6 tracking-wider">
+                    Rekomendasi Berbasis HSOPSC Master Komite Mutu
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="no-print p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setSelectedDimensionId(null)}
+                className="bg-slate-800 hover:bg-slate-900 text-white font-extrabold px-6 py-3 rounded-xl text-xs transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer focus:outline-none"
+              >
+                Selesai & Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
