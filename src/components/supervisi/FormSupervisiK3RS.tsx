@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   ArrowLeft, Save, Printer, Download, Clock, Activity, 
   CheckCircle2, AlertTriangle, ShieldAlert, UploadCloud, FileText, 
-  User, Calendar, MapPin, Briefcase, FileCheck2, Trash2, X
+  User, Calendar, MapPin, Briefcase, FileCheck2, Trash2, X, Camera
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, 
@@ -51,41 +52,52 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
   
   const [activeTab, setActiveTab] = useState<'form' | 'history'>('form');
 
+  // Custom states for Room Selection Modal
+  const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [roomSearch, setRoomSearch] = useState('');
+
+  // Real-time integration of history
+  interface SupervisiHistoryItem {
+    id: string;
+    tanggal: string;
+    unit: string;
+    supervisor: string;
+    persentase: number;
+    status: string;
+    items: K3RSItem[];
+    dokumentasi: string[];
+  }
+
+  const [historyList, setHistoryList] = useState<SupervisiHistoryItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('supervisi_k3rs_history');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return [
+      {
+        id: 'mock1',
+        tanggal: '2024-07-01',
+        unit: 'Ranap Aisyah',
+        supervisor: 'Tim K3RS',
+        persentase: 92,
+        status: 'Selesai',
+        items: INITIAL_ITEMS,
+        dokumentasi: ['dokumentasi_123.jpg']
+      }
+    ];
+  });
+
   const updateItem = (id: string, field: keyof K3RSItem, value: any) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  const handleAddUnit = async () => {
-    const newUnitName = window.prompt("Masukkan nama ruangan baru:");
-    if (!newUnitName || !newUnitName.trim()) return;
-    const newId = Date.now().toString();
-    const newUnitObj = { id: newId, name: newUnitName.trim(), category: 'Umum', status: 'Aktif' as const };
-    addUnit(newUnitObj);
-    setUnit(newUnitObj.name);
-    try {
-      await supabase.from('units').insert(newUnitObj);
-    } catch(e) {
-      console.warn("Supabase insert failed", e);
-    }
-  };
-
-  const handleDeleteUnit = async (id: string, name: string) => {
-    if (!window.confirm(`Hapus ruangan ${name}?`)) return;
-    deleteUnit(id);
-    if (unit === name) setUnit('');
-    try {
-      await supabase.from('units').delete().eq('id', id);
-    } catch(e) {
-      console.warn("Supabase delete failed", e);
-    }
-  };
-
-  const handleDokumentasiUpload = () => {
-    const fileName = `dokumentasi_${Math.floor(Math.random() * 1000)}.jpg`;
-    setDokumentasi([...dokumentasi, fileName]);
-  };
-
-  const stats = useMemo(() => {
+  const stats = (() => {
     let total = items.length;
     let filled = 0;
     let sesuai = 0;
@@ -184,7 +196,78 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
       total, filled, sesuai, sebagian, tidakSesuai, persentase, status, statusColor, icon, 
       radarData, barData, pieData, progress, jumlahTemuan, jumlahRekomendasi, currentScore, maxScore
     };
-  }, [items]);
+  })();
+
+  const handleAddUnit = async () => {
+    const newUnitName = window.prompt("Masukkan nama ruangan baru:");
+    if (!newUnitName || !newUnitName.trim()) return;
+    const newId = Date.now().toString();
+    const newUnitObj = { id: newId, name: newUnitName.trim(), category: 'Umum', status: 'Aktif' as const };
+    addUnit(newUnitObj);
+    setUnit(newUnitObj.name);
+    try {
+      await supabase.from('units').insert(newUnitObj);
+    } catch(e) {
+      console.warn("Supabase insert failed", e);
+    }
+  };
+
+  const handleDeleteUnit = async (id: string, name: string) => {
+    if (!window.confirm(`Hapus ruangan ${name}?`)) return;
+    deleteUnit(id);
+    if (unit === name) setUnit('');
+    try {
+      await supabase.from('units').delete().eq('id', id);
+    } catch(e) {
+      console.warn("Supabase delete failed", e);
+    }
+  };
+
+  const handleDokumentasiUpload = (type: 'gallery' | 'camera') => {
+    const prefix = type === 'gallery' ? 'galeri' : 'kamera';
+    const fileName = `${prefix}_${Math.floor(Math.random() * 10000)}.jpg`;
+    setDokumentasi([...dokumentasi, fileName]);
+  };
+
+  const handleSave = useCallback(() => {
+    if (!unit) {
+      alert("Silakan pilih Unit / Ruangan terlebih dahulu!");
+      return;
+    }
+    const newRecord: SupervisiHistoryItem = {
+      id: Date.now().toString(),
+      tanggal,
+      unit,
+      supervisor,
+      persentase: stats.persentase,
+      status: 'Selesai',
+      items: [...items],
+      dokumentasi: [...dokumentasi]
+    };
+
+    const updatedHistory = [newRecord, ...historyList];
+    setHistoryList(updatedHistory);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('supervisi_k3rs_history', JSON.stringify(updatedHistory));
+    }
+    alert('Data Supervisi K3RS Berhasil Disimpan!');
+    
+    // Reset form after saving
+    setItems(INITIAL_ITEMS.map(it => ({ ...it, nilai: null, temuan: '', rekomendasi: '' })));
+    setDokumentasi([]);
+    setActiveTab('history');
+  }, [unit, tanggal, supervisor, stats.persentase, items, dokumentasi, historyList]);
+
+  const handleViewDetail = useCallback((record: SupervisiHistoryItem) => {
+    setTanggal(record.tanggal);
+    setUnit(record.unit);
+    setSupervisor(record.supervisor);
+    setItems(record.items);
+    setDokumentasi(record.dokumentasi);
+    setActiveTab('form');
+  }, []);
+
+
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -224,27 +307,15 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
              </div>
              <div className="flex items-center gap-4">
                 <label className="text-sm font-bold text-slate-500 w-32 shrink-0">Unit / Ruangan</label>
-                <div className="flex-1 font-bold text-slate-800 flex items-center gap-2"> 
+                <div className="flex-1 font-bold text-slate-800 flex items-center">
                    :
-                   <select value={unit} onChange={(e) => {
-                     if (e.target.value === 'ADD_NEW') {
-                       handleAddUnit();
-                     } else {
-                       setUnit(e.target.value);
-                     }
-                   }} className="ml-2 flex-1 outline-none border-b border-dashed border-slate-300 focus:border-[#007A4D] bg-transparent cursor-pointer">
-                     <option value="">-- Pilih Unit --</option>
-                     {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                     <option value="ADD_NEW" className="font-bold text-[#007A4D]">+ Tambah Ruangan Baru</option>
-                   </select>
-                   {unit && unit !== 'ADD_NEW' && (
-                     <button onClick={() => {
-                       const found = units.find(u => u.name === unit);
-                       if (found) handleDeleteUnit(found.id, found.name);
-                     }} className="text-rose-500 hover:text-rose-600 px-2" title="Hapus Unit">
-                       <Trash2 size={16} />
-                     </button>
-                   )}
+                   <button 
+                     type="button"
+                     onClick={() => setIsRoomModalOpen(true)}
+                     className="ml-2 flex-1 text-left outline-none border-b border-dashed border-slate-300 focus:border-[#007A4D] bg-transparent cursor-pointer py-0.5 font-bold text-slate-800 hover:text-slate-900"
+                   >
+                     {unit || <span className="text-slate-400 font-medium">-- Pilih Unit / Ruangan --</span>}
+                   </button>
                 </div>
              </div>
              <div className="flex items-center gap-4">
@@ -406,16 +477,27 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
                     </div>
                  )}
               </div>
-              <button onClick={handleDokumentasiUpload} className="mt-4 w-full py-2.5 flex items-center justify-center gap-2 bg-emerald-50 text-[#007A4D] font-bold text-xs rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-colors">
-                 <UploadCloud size={14} /> Tambah Foto/Dokumen
-              </button>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                 <button 
+                   onClick={() => handleDokumentasiUpload('gallery')} 
+                   className="py-2.5 flex items-center justify-center gap-1.5 bg-emerald-50 text-[#007A4D] font-extrabold text-[11px] rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                 >
+                    <UploadCloud size={14} /> Upload Galeri
+                 </button>
+                 <button 
+                   onClick={() => handleDokumentasiUpload('camera')} 
+                   className="py-2.5 flex items-center justify-center gap-1.5 bg-emerald-50 text-[#007A4D] font-extrabold text-[11px] rounded-xl border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                 >
+                    <Camera size={14} /> Ambil Kamera
+                 </button>
+              </div>
            </div>
         </div>
 
         {/* Footer Actions */}
         <div className="flex justify-end gap-4 pt-6 mt-4 border-t border-slate-200">
            <button 
-             onClick={() => { alert('Data Supervisi K3RS Berhasil Disimpan!'); }} 
+             onClick={handleSave} 
              disabled={stats.progress < 100}
              className={`flex items-center justify-center gap-2 px-8 py-3 font-bold rounded-xl shadow-lg transition-all ${stats.progress === 100 ? 'bg-[#007A4D] text-white hover:bg-[#005F3A] shadow-emerald-500/30' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
            >
@@ -460,28 +542,130 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-100">
-                    <tr className="hover:bg-slate-50 transition-colors">
-                       <td className="p-4 text-sm font-bold text-slate-700">{tanggal}</td>
-                       <td className="p-4 text-sm font-bold text-slate-700">{unit || 'IGD'}</td>
-                       <td className="p-4 text-sm font-semibold text-slate-600">{supervisor}</td>
-                       <td className="p-4 text-center">
-                          <span className="text-sm font-black text-[#007A4D]">{stats.persentase > 0 ? stats.persentase : 92}%</span>
-                       </td>
-                       <td className="p-4 text-center">
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider">
-                             Selesai
-                          </span>
-                       </td>
-                       <td className="p-4 text-right">
-                          <button className="text-xs font-bold text-[#007A4D] hover:underline mr-4">Lihat Detail</button>
-                          <button className="text-xs font-bold text-slate-500 hover:underline">Download PDF</button>
-                       </td>
-                    </tr>
+                    {historyList.map((item) => (
+                       <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-4 text-sm font-bold text-slate-700">{item.tanggal}</td>
+                          <td className="p-4 text-sm font-bold text-slate-700">{item.unit}</td>
+                          <td className="p-4 text-sm font-semibold text-slate-600">{item.supervisor}</td>
+                          <td className="p-4 text-center">
+                             <span className="text-sm font-black text-[#007A4D]">{item.persentase}%</span>
+                          </td>
+                          <td className="p-4 text-center">
+                             <span className="px-3 py-1 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                {item.status}
+                             </span>
+                          </td>
+                          <td className="p-4 text-right">
+                             <button 
+                               onClick={() => handleViewDetail(item)}
+                               className="text-xs font-bold text-[#007A4D] hover:underline mr-4 cursor-pointer"
+                             >
+                               Lihat Detail
+                             </button>
+                             <button className="text-xs font-bold text-slate-500 hover:underline">Download PDF</button>
+                          </td>
+                       </tr>
+                    ))}
+                    {historyList.length === 0 && (
+                       <tr>
+                          <td colSpan={6} className="p-8 text-center text-sm font-bold text-slate-400">
+                             Belum ada riwayat supervisi K3RS
+                          </td>
+                        </tr>
+                     )}
                  </tbody>
               </table>
            </div>
         </div>
       )}
+
+      {/* ROOM SELECTION POPUP MODAL */}
+      <AnimatePresence>
+        {isRoomModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <MapPin className="text-[#007A4D] w-5 h-5" />
+                  <h3 className="font-extrabold text-slate-800 text-sm tracking-wider uppercase">Pilih Unit / Ruangan</h3>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setIsRoomModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="p-4 border-b border-slate-50">
+                <input
+                  type="text"
+                  placeholder="Cari ruangan..."
+                  value={roomSearch}
+                  onChange={(e) => setRoomSearch(e.target.value)}
+                  className="w-full px-4 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-[#007A4D]/20 focus:border-[#007A4D] transition-all text-gray-700 font-bold"
+                />
+              </div>
+
+              {/* Room List */}
+              <div className="max-h-60 overflow-y-auto p-4 space-y-1.5">
+                {units
+                  .filter(u => u.name.toLowerCase().includes(roomSearch.toLowerCase()))
+                  .map((u) => (
+                    <div 
+                      key={u.id}
+                      className="flex items-center justify-between p-3 rounded-xl hover:bg-emerald-50/50 border border-transparent hover:border-emerald-100 group transition-all"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUnit(u.name);
+                          setIsRoomModalOpen(false);
+                        }}
+                        className="flex-1 text-left text-xs font-bold text-slate-700 cursor-pointer"
+                      >
+                        {u.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUnit(u.id, u.name)}
+                        className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all cursor-pointer opacity-100"
+                        title="Hapus Ruangan"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                }
+                {units.filter(u => u.name.toLowerCase().includes(roomSearch.toLowerCase())).length === 0 && (
+                  <p className="text-center text-xs font-bold text-slate-400 py-4 font-bold">Tidak ada ruangan ditemukan</p>
+                )}
+              </div>
+
+              {/* Footer / Add New Room */}
+              <div className="p-4 bg-slate-50 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAddUnit();
+                  }}
+                  className="w-full py-3 bg-[#007A4D] hover:bg-[#005F3A] text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  + Tambah Ruangan Baru
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

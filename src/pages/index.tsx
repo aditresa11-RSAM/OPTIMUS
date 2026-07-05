@@ -183,7 +183,7 @@ export default function WelcomePage() {
   return (
     <motion.div 
       id="welcome-fullscreen-canvas" 
-      className="relative min-h-screen text-white flex flex-col justify-between overflow-hidden origin-center bg-slate-950"
+      className="relative min-h-screen text-white flex flex-col justify-between overflow-y-auto lg:overflow-hidden origin-center bg-slate-950"
       animate={isExiting ? { scale: 3.5 } : { scale: 1 }}
       transition={{ duration: 1.2, ease: [0.32, 0.72, 0, 1] }}
     >
@@ -304,33 +304,33 @@ export default function WelcomePage() {
       <motion.main 
         animate={isExiting ? { opacity: 0, y: 30 } : { opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeIn" }}
-        className="relative z-10 w-full px-6 md:px-12 pb-12 md:pb-16 flex-1 flex flex-col md:flex-row items-start md:items-end justify-end md:justify-between gap-8 md:gap-12"
+        className="relative z-10 w-full px-6 md:px-12 pb-12 md:pb-16 flex-1 flex flex-col lg:flex-row items-start lg:items-end justify-end lg:justify-between gap-8 lg:gap-6 xl:gap-12"
       >
         <style dangerouslySetInnerHTML={{ __html: `
           .glass-emboss-text {
             color: #ffffff;
             text-shadow: 
-              1px 1px 2px rgba(0, 0, 0, 0.8),
-              2px 2px 4px rgba(0, 0, 0, 0.6),
-              0 10px 25px rgba(0, 0, 0, 0.5);
+            1px 1px 2px rgba(0, 0, 0, 0.8),
+            2px 2px 4px rgba(0, 0, 0, 0.6),
+            0 10px 25px rgba(0, 0, 0, 0.5);
           }
           .glass-emboss-sub {
             color: rgba(255, 255, 255, 0.95);
             text-shadow: 
-              1px 1px 2px rgba(0, 0, 0, 0.8),
-              0 4px 12px rgba(0, 0, 0, 0.5);
+            1px 1px 2px rgba(0, 0, 0, 0.8),
+            0 4px 12px rgba(0, 0, 0, 0.5);
           }
         `}} />
         
         {/* LEFT COLUMN: TITLE & CONTROLS */}
-        <div className="w-full md:max-w-xl space-y-5 text-left flex flex-col justify-end mt-auto md:mt-0">
+        <div className="w-full lg:max-w-[440px] xl:max-w-xl space-y-5 text-left flex flex-col justify-end mt-auto lg:mt-0">
           
           <div className="space-y-3">
             <motion.h1 
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-7xl sm:text-8xl lg:text-[110px] font-black tracking-normal leading-none select-none text-[#2dd96e] glass-emboss-text"
+              className="text-5xl min-[360px]:text-6xl sm:text-8xl lg:text-[85px] lg:leading-[85px] xl:text-[110px] xl:leading-none font-black tracking-normal leading-none select-none text-[#2dd96e] glass-emboss-text"
               style={{
                 fontFamily: "Poppins, sans-serif",
                 fontStyle: "italic",
@@ -343,23 +343,20 @@ export default function WelcomePage() {
               OPTIMUS
             </motion.h1>
             <h2 
-              className="whitespace-nowrap text-[10px] min-[360px]:text-[11px] min-[400px]:text-xs sm:text-lg lg:text-xl font-bold tracking-normal leading-tight glass-emboss-sub"
+              className="font-bold tracking-normal leading-tight glass-emboss-sub text-[14px] sm:text-[18px] lg:text-[16px] xl:text-[21px] whitespace-normal xl:whitespace-nowrap"
               style={{
                 marginBottom: "6px",
                 color: "#2dd96e",
-                textShadow: "0px 2px 4px rgba(0, 0, 0, 0.95), 0px 4px 12px rgba(0, 0, 0, 0.85)",
-                fontSize: "21px"
+                textShadow: "0px 2px 4px rgba(0, 0, 0, 0.95), 0px 4px 12px rgba(0, 0, 0, 0.85)"
               }}
             >
               Optimalisasi Sistem Pelaporan Mutu Rumah Sakit
             </h2>
             <p 
-              className="text-[12px] sm:text-xs md:text-sm text-slate-200/85 font-medium leading-relaxed glass-emboss-sub"
+              className="text-[13px] sm:text-xs md:text-sm lg:text-[14px] text-slate-200/85 font-medium leading-relaxed glass-emboss-sub w-full lg:max-w-[420px] xl:max-w-[555px] h-auto"
               style={{
                 fontSize: "14px",
-                lineHeight: "22.75px",
-                height: "45.5px",
-                width: "555px"
+                lineHeight: "22.75px"
               }}
             >
               Sistem terintegrasi untuk meningkatkan kualitas laporan, keselamatan pasien dan tata kelola mutu rumah sakit secara berkelanjutan.
@@ -384,7 +381,7 @@ export default function WelcomePage() {
         </div>
 
         {/* RIGHT COLUMN: GLASSMORPHISM ANALYTICS WIDGETS */}
-        <div className="hidden md:flex flex-col sm:flex-row items-stretch sm:items-end gap-5 w-full md:w-auto shrink-0 justify-end">
+        <div className="hidden lg:flex flex-col sm:flex-row items-stretch sm:items-end gap-4 xl:gap-5 w-full lg:w-auto shrink-0 justify-center lg:justify-end">
           
           {/* Widget 1: Capaian Mutu (Floating Bar Chart) */}
           <motion.div 
@@ -395,7 +392,7 @@ export default function WelcomePage() {
               ease: "easeInOut" 
             }}
             whileHover={{ scale: 1.03 }}
-            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full sm:w-[280px] min-h-[200px]"
+            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 xl:p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full lg:w-[240px] xl:w-[280px] min-h-[200px]"
           >
             <div className="flex justify-between items-start">
               <div>
@@ -408,7 +405,7 @@ export default function WelcomePage() {
             </div>
 
             {/* Custom Interactive rounded wide bars with bounce animations */}
-            <div className="h-28 flex items-end justify-between gap-2.5 px-0.5 mt-5">
+            <div className="h-28 flex items-end justify-between gap-2 px-0.5 mt-5">
               {[
                 { month: "Jan", pct: "62%", hRange: ["45%", "65%"], duration: 2.2, delay: 0.1, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
                 { month: "Feb", pct: "74%", hRange: ["55%", "78%"], duration: 2.5, delay: 0.3, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
@@ -458,7 +455,7 @@ export default function WelcomePage() {
               delay: 0.5
             }}
             whileHover={{ scale: 1.03 }}
-            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full sm:w-56 min-h-[180px]"
+            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 xl:p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full lg:w-44 xl:w-56 min-h-[180px]"
           >
             <div className="flex justify-between items-start">
               <div>
