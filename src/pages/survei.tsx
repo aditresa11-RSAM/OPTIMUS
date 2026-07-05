@@ -13,6 +13,9 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { 
   Activity, 
@@ -34,7 +37,13 @@ import {
   Calendar,
   Award,
   TrendingUp,
-  BarChart2
+  BarChart2,
+  Clock,
+  Briefcase,
+  UserCheck,
+  Users,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
 import SurveiForm from "@/components/survei/SurveiForm";
 import { supabase } from "@/lib/supabase";
@@ -53,7 +62,7 @@ interface DimensionDefinition {
 const DIMENSION_MAPPING: DimensionDefinition[] = [
   {
     id: 1,
-    name: "Keterbukaam dalam komunikasi",
+    name: "Keterbukaan dalam komunikasi",
     shortName: "Komunikasi Terbuka",
     items: [
       { section: "bagian_c", key: "c_1", isReverse: false },
@@ -103,7 +112,7 @@ const DIMENSION_MAPPING: DimensionDefinition[] = [
   },
   {
     id: 6,
-    name: "Respon nonhukuman (nonpunitive) terhadap kesalahan",
+    name: "Respon non hukuman (nonpunitive) terhadap kesalahan",
     shortName: "Respon Nonhukuman",
     items: [
       { section: "bagian_a", key: "a_7", isReverse: true },
@@ -401,6 +410,133 @@ function generateAnalysis(dimensionName: string, positive: number, neutral: numb
   }
 }
 
+function mapLamaKerja(val: string | undefined): string {
+  if (!val) return "Tidak Diisi";
+  const normalized = val.trim().toLowerCase();
+  if (normalized.includes("kurang") || normalized.includes("<")) {
+    return "< 1 Tahun";
+  }
+  if (normalized.includes("1 - 5") || normalized.includes("1-5") || normalized.includes("1 – 5") || normalized.includes("1 -5")) {
+    return "1–5 Tahun";
+  }
+  if (normalized.includes("6 - 10") || normalized.includes("6-10") || normalized.includes("6 – 10")) {
+    return "6–10 Tahun";
+  }
+  if (normalized.includes("11 - 15") || normalized.includes("11-15") || normalized.includes("11 – 15")) {
+    return "11–15 Tahun";
+  }
+  if (normalized.includes("16 - 20") || normalized.includes("16-20") || normalized.includes("16 – 20")) {
+    return "16–20 Tahun";
+  }
+  if (normalized.includes("21") || normalized.includes(">") || normalized.includes("lebih") || normalized.includes("20")) {
+    return "> 20 Tahun";
+  }
+  return val;
+}
+
+function mapJamKerja(val: string | undefined): string {
+  if (!val) return "Tidak Diisi";
+  const normalized = val.trim().toLowerCase();
+  if (normalized.includes("kurang") || normalized.includes("<")) {
+    return "<20 Jam";
+  }
+  if (normalized.includes("20 - 39") || normalized.includes("20-39") || normalized.includes("20 – 39")) {
+    return "20–39 Jam";
+  }
+  if (normalized.includes("40") || normalized.includes(">") || normalized.includes("lebih")) {
+    return "> 40 Jam";
+  }
+  return val;
+}
+
+function mapBerhubunganPasien(val: string | undefined): string {
+  if (!val) return "Tidak Diisi";
+  const normalized = val.trim().toLowerCase();
+  if (normalized === "ya") return "Ya";
+  if (normalized === "tidak") return "Tidak";
+  return val;
+}
+
+function mapPosisiJabatan(val: string | undefined): string {
+  if (!val) return "Tidak Diisi";
+  const v = val.trim();
+  const normalized = v.toLowerCase();
+  if (normalized === "dokter") return "Dokter";
+  if (normalized === "perawat") return "Perawat";
+  if (normalized === "bidan") return "Bidan";
+  if (normalized === "apoteker") return "Apoteker";
+  if (
+    normalized.includes("asisten") || 
+    normalized.includes("analis") || 
+    normalized.includes("radiografer") || 
+    normalized.includes("penunjang") ||
+    normalized.includes("laboratorium")
+  ) {
+    return "Tenaga Penunjang";
+  }
+  if (normalized.includes("manajemen")) return "Manajemen";
+  if (normalized.includes("administrasi") || normalized.includes("staff adm")) return "Staff Administrasi";
+  if (normalized.includes("lainnya") || normalized.includes("nakes")) return "Nakes Lainnya";
+  return v;
+}
+
+const PALETTE_RS = ["#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#059669", "#047857"];
+const PALETTE_UNIT = ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#2563eb", "#1d4ed8"];
+const PALETTE_PASIEN = ["#10b981", "#ef4444"];
+const PALETTE_JABATAN = ["#10b981", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#64748b", "#a855f7"];
+const PALETTE_JAM = ["#10b981", "#f59e0b", "#ef4444"];
+const PALETTE_PROFESI = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#7c3aed", "#6d28d9"];
+
+const generateDemographicNarrative = (title: string, data: { name: string; value: number }[], total: number) => {
+  if (total === 0 || data.length === 0 || data.every(x => x.value === 0)) {
+    return "Belum ada data responden untuk menghasilkan analisis otomatis.";
+  }
+  
+  const sortedDesc = [...data].sort((a, b) => b.value - a.value);
+  const sortedAscNonZero = [...data].filter(x => x.value > 0).sort((a, b) => a.value - b.value);
+  
+  const largest = sortedDesc[0];
+  const smallest = sortedAscNonZero[0] || sortedDesc[sortedDesc.length - 1];
+  
+  const largestPct = total > 0 ? Math.round((largest.value / total) * 100) : 0;
+  const smallestPct = total > 0 ? Math.round((smallest.value / total) * 100) : 0;
+  
+  if (title === "Lama Kerja di Rumah Sakit") {
+    return `Berdasarkan hasil survei terhadap ${total} responden, sebagian besar responden memiliki lama kerja di RS ${largest.name} sebanyak ${largestPct}% (${largest.value} responden), sedangkan kategori paling sedikit adalah ${smallest.name} sebanyak ${smallestPct}% (${smallest.value} responden). Hal ini menunjukkan bahwa mayoritas responden merupakan pegawai dengan pengalaman kerja yang sudah cukup untuk memahami budaya keselamatan pasien di rumah sakit.`;
+  }
+  if (title === "Lama Kerja di Unit") {
+    return `Dari total ${total} responden yang berpartisipasi, kelompok responden terbanyak berdasarkan lama kerja di unit adalah ${largest.name} dengan proporsi ${largestPct}% (${largest.value} responden). Kategori paling rendah adalah ${smallest.name} dengan ${smallestPct}% (${smallest.value} responden). Masa kerja di unit yang cukup lama membantu meningkatkan pemahaman prosedur internal dan kebiasaan kerja yang mengutamakan keselamatan pasien.`;
+  }
+  if (title === "Profesi Berhubungan Langsung dengan Pasien") {
+    const yaItem = data.find(x => x.name === "Ya");
+    const yaPct = yaItem ? Math.round((yaItem.value / total) * 100) : 0;
+    const yaVal = yaItem ? yaItem.value : 0;
+    
+    if (yaPct > 50) {
+      return `Sebagian besar responden (${yaPct}% / ${yaVal} responden) merupakan tenaga yang berhubungan langsung dengan pasien, sehingga hasil survei mencerminkan kondisi budaya keselamatan pasien dari petugas pelayanan langsung secara akurat di rumah sakit.`;
+    } else {
+      return `Berdasarkan data, sekitar ${yaPct}% (${yaVal} responden) berhubungan langsung dengan pasien. Meskipun banyak yang tidak kontak langsung, peran dari seluruh staf sangat krusial dalam menciptakan sinergi budaya keselamatan pasien yang menyeluruh.`;
+    }
+  }
+  if (title === "Posisi / Jabatan") {
+    const secondLargest = sortedDesc[1];
+    let narrative = `Berdasarkan hasil survei, responden terbanyak berasal dari profesi ${largest.name} sebanyak ${largestPct}% (${largest.value} responden)`;
+    if (secondLargest && secondLargest.value > 0) {
+      const secondPct = Math.round((secondLargest.value / total) * 100);
+      narrative += `, diikuti oleh ${secondLargest.name} sebanyak ${secondPct}%`;
+    }
+    narrative += `, sedangkan profesi dengan jumlah paling sedikit adalah ${smallest.name} sebanyak ${smallestPct}% (${smallest.value} responden).`;
+    return narrative;
+  }
+  if (title === "Jam Kerja Dalam Seminggu") {
+    return `Analisis jam kerja mingguan dari ${total} responden menunjukkan bahwa mayoritas bekerja dalam kategori ${largest.name} yaitu sebanyak ${largestPct}% (${largest.value} responden). Pengaturan jam kerja yang optimal dan tidak berlebihan sangat penting dalam meminimalisir burnout serta kesalahan kesalahan medis yang tidak disengaja.`;
+  }
+  if (title === "Lama Kerja Sesuai Profesi") {
+    return `Distribusi masa kerja sesuai profesi menunjukkan bahwa mayoritas responden telah berpraktik selama ${largest.name} dengan persentase mencapai ${largestPct}% (${largest.value} responden). Pengalaman profesi yang matang merupakan modal berharga bagi rumah sakit dalam memitigasi risiko klinis secara proaktif.`;
+  }
+  return `Hasil pengolahan data menunjukkan kategori tertinggi adalah ${largest.name} (${largestPct}%) dan terendah adalah ${smallest.name} (${smallestPct}%).`;
+};
+
 export default function SurveiBudaya() {
   const [view, setView] = useState<"dashboard" | "form">("dashboard");
   const [surveys, setSurveys] = useState<any[]>([]);
@@ -441,6 +577,133 @@ export default function SurveiBudaya() {
     });
   }, [surveys, selectedYear]);
 
+  const [hiddenCategories, setHiddenCategories] = useState<Record<string, string[]>>({});
+  const [fullscreenChartId, setFullscreenChartId] = useState<string | null>(null);
+
+  const toggleCategoryVisibility = (chartKey: string, categoryName: string) => {
+    setHiddenCategories(prev => {
+      const current = prev[chartKey] || [];
+      const updated = current.includes(categoryName)
+        ? current.filter(c => c !== categoryName)
+        : [...current, categoryName];
+      return { ...prev, [chartKey]: updated };
+    });
+  };
+
+  const respondentProfileStats = useMemo(() => {
+    const lamaKerjaRS: Record<string, number> = {
+      "< 1 Tahun": 0,
+      "1–5 Tahun": 0,
+      "6–10 Tahun": 0,
+      "11–15 Tahun": 0,
+      "16–20 Tahun": 0,
+      "> 20 Tahun": 0,
+    };
+
+    const lamaKerjaUnit: Record<string, number> = {
+      "< 1 Tahun": 0,
+      "1–5 Tahun": 0,
+      "6–10 Tahun": 0,
+      "11–15 Tahun": 0,
+      "16–20 Tahun": 0,
+      "> 20 Tahun": 0,
+    };
+
+    const hubunganPasien: Record<string, number> = {
+      "Ya": 0,
+      "Tidak": 0,
+    };
+
+    const posisiJabatan: Record<string, number> = {
+      "Dokter": 0,
+      "Perawat": 0,
+      "Bidan": 0,
+      "Apoteker": 0,
+      "Tenaga Penunjang": 0,
+      "Manajemen": 0,
+      "Staff Administrasi": 0,
+      "Nakes Lainnya": 0,
+    };
+
+    const jamKerja: Record<string, number> = {
+      "<20 Jam": 0,
+      "20–39 Jam": 0,
+      "> 40 Jam": 0,
+    };
+
+    const lamaKerjaProfesi: Record<string, number> = {
+      "< 1 Tahun": 0,
+      "1–5 Tahun": 0,
+      "6–10 Tahun": 0,
+      "11–15 Tahun": 0,
+      "16–20 Tahun": 0,
+      "> 20 Tahun": 0,
+    };
+
+    let totalResponders = 0;
+
+    filteredSurveys.forEach(survey => {
+      const h = survey.bagian_h || {};
+      totalResponders++;
+
+      // 1. Lama Kerja RS (h_0)
+      const rsVal = mapLamaKerja(h.h_0);
+      if (rsVal !== "Tidak Diisi") {
+        if (lamaKerjaRS[rsVal] !== undefined) lamaKerjaRS[rsVal]++;
+        else lamaKerjaRS[rsVal] = 1;
+      }
+
+      // 2. Lama Kerja Unit (h_1)
+      const unitVal = mapLamaKerja(h.h_1);
+      if (unitVal !== "Tidak Diisi") {
+        if (lamaKerjaUnit[unitVal] !== undefined) lamaKerjaUnit[unitVal]++;
+        else lamaKerjaUnit[unitVal] = 1;
+      }
+
+      // 3. Berhubungan Pasien (h_4)
+      const hubVal = mapBerhubunganPasien(h.h_4);
+      if (hubVal !== "Tidak Diisi") {
+        if (hubunganPasien[hubVal] !== undefined) hubunganPasien[hubVal]++;
+        else hubunganPasien[hubVal] = 1;
+      }
+
+      // 4. Posisi Jabatan (h_3)
+      const posVal = mapPosisiJabatan(h.h_3);
+      if (posVal !== "Tidak Diisi") {
+        if (posisiJabatan[posVal] !== undefined) posisiJabatan[posVal]++;
+        else posisiJabatan[posVal] = 1;
+      }
+
+      // 5. Jam Kerja (h_2)
+      const jamVal = mapJamKerja(h.h_2);
+      if (jamVal !== "Tidak Diisi") {
+        if (jamKerja[jamVal] !== undefined) jamKerja[jamVal]++;
+        else jamKerja[jamVal] = 1;
+      }
+
+      // 6. Lama Kerja Profesi (h_5)
+      const profVal = mapLamaKerja(h.h_5);
+      if (profVal !== "Tidak Diisi") {
+        if (lamaKerjaProfesi[profVal] !== undefined) lamaKerjaProfesi[profVal]++;
+        else lamaKerjaProfesi[profVal] = 1;
+      }
+    });
+
+    const formatChartData = (obj: Record<string, number>) => {
+      return Object.entries(obj).map(([name, value]) => ({ name, value }));
+    };
+
+    return {
+      total: totalResponders,
+      lamaKerjaRS: formatChartData(lamaKerjaRS),
+      lamaKerjaUnit: formatChartData(lamaKerjaUnit),
+      hubunganPasien: formatChartData(hubunganPasien),
+      posisiJabatan: formatChartData(posisiJabatan),
+      jamKerja: formatChartData(jamKerja),
+      lamaKerjaProfesi: formatChartData(lamaKerjaProfesi),
+    };
+  }, [filteredSurveys]);
+
   // Memoized detailed dimension analysis calculations
   const dimensionDetailData = useMemo(() => {
     if (selectedDimensionId === null) return null;
@@ -469,7 +732,7 @@ export default function SurveiBudaya() {
       });
       
       return {
-        key: item.key.toUpperCase().replace(/_/g, ""),
+        key: item.key.toUpperCase().replace("_", ""),
         section: item.section,
         text: getQuestionText(item.section, item.key),
         isReverse: item.isReverse,
@@ -530,7 +793,7 @@ export default function SurveiBudaya() {
               rawDate: survey.created_at ? new Date(survey.created_at) : new Date(0),
               unit,
               respId,
-              questionKey: item.key.toUpperCase().replace(/_/g, ""),
+              questionKey: item.key.toUpperCase().replace("_", ""),
               questionText,
               answer: val,
               category: cat,
@@ -989,7 +1252,7 @@ export default function SurveiBudaya() {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 md:gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-[#10a37f] tracking-tight">
+          <h1 className="font-black text-[#10a37f] tracking-tight" style={{ fontSize: "32px" }}>
             Survei Budaya Keselamatan Pasien
           </h1>
           <p className="text-gray-900 mt-1 text-[12px] font-semibold">
@@ -1238,15 +1501,15 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                 Tabel di atas merupakan data hasil survey budaya keselamatan pasien di UOBK RSUD Al-Mulk dikategorikan dalam 12 dimensi.
               </p>
               <ul className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs font-bold">
-                <li className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-2.5 rounded-xl border border-emerald-100">
+                <li className="flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 px-3 py-2.5 rounded-xl border border-emerald-100 text-center">
                   <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
                   <span>{counts.baik} dimensi baik (&gt;75%)</span>
                 </li>
-                <li className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-2.5 rounded-xl border border-amber-100">
+                <li className="flex items-center justify-center gap-2 text-amber-700 bg-amber-50 px-3 py-2.5 rounded-xl border border-amber-100 text-center">
                   <AlertTriangle size={16} className="text-amber-500 shrink-0" />
                   <span>{counts.sedang} dimensi sedang (50-75%)</span>
                 </li>
-                <li className="flex items-center gap-2 text-rose-700 bg-rose-50 px-3 py-2.5 rounded-xl border border-rose-100">
+                <li className="flex items-center justify-center gap-2 text-rose-700 bg-rose-50 px-3 py-2.5 rounded-xl border border-rose-100 text-center">
                   <XCircle size={16} className="text-rose-500 shrink-0" />
                   <span>{counts.lemah} dimensi lemah (&lt;50%)</span>
                 </li>
@@ -1326,6 +1589,268 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
             </div>
             
           </div>
+
+          {/* DASHBOARD GRAFIK PROFIL RESPONDEN SECTION */}
+          <div className="bg-[#10a37f]/5/30 backdrop-blur-md rounded-3xl border border-gray-200/60 p-5 md:p-8 space-y-6 w-full">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-200/80 pb-5">
+              <div>
+                <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: "#10a37f" }}>
+                  <BarChart2 className="text-[#10a37f]" size={24} />
+                  DASHBOARD GRAFIK PROFIL RESPONDEN
+                </h2>
+                <p className="text-xs text-slate-500 font-extrabold mt-0.5">
+                  Analisis karakteristik responden kuesioner Budaya Keselamatan Pasien secara dinamis dan real-time.
+                </p>
+              </div>
+              <div className="bg-[#10a37f]/10 text-[#10a37f] border border-[#10a37f]/20 px-4 py-2 rounded-2xl text-xs font-black shrink-0 flex items-center gap-1.5 shadow-sm">
+                <Database size={13} />
+                <span>Responden : {respondentProfileStats.total} orang</span>
+              </div>
+            </div>
+
+            {respondentProfileStats.total === 0 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center text-slate-400 font-bold shadow-xs">
+                Belum ada data demografi responden. Silakan isi kuesioner atau simulasikan data.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  {
+                    id: "lamaKerjaRS",
+                    title: "Lama Kerja di Rumah Sakit",
+                    icon: <Calendar className="text-emerald-500" size={18} />,
+                    data: respondentProfileStats.lamaKerjaRS,
+                    palette: PALETTE_RS,
+                    isDonut: true,
+                    titleColor: "#00bc7d",
+                  },
+                  {
+                    id: "lamaKerjaUnit",
+                    title: "Lama Kerja di Unit",
+                    icon: <Users className="text-blue-500" size={18} />,
+                    data: respondentProfileStats.lamaKerjaUnit,
+                    palette: PALETTE_UNIT,
+                    isDonut: true,
+                    titleColor: "#497fc3",
+                  },
+                  {
+                    id: "hubunganPasien",
+                    title: "Profesi Berhubungan Langsung dengan Pasien",
+                    icon: <UserCheck className="text-rose-500" size={18} />,
+                    data: respondentProfileStats.hubunganPasien,
+                    palette: PALETTE_PASIEN,
+                    isDonut: false,
+                    titleColor: "#ff2056",
+                  },
+                  {
+                    id: "posisiJabatan",
+                    title: "Posisi / Jabatan",
+                    icon: <Briefcase className="text-amber-500" size={18} />,
+                    data: respondentProfileStats.posisiJabatan,
+                    palette: PALETTE_JABATAN,
+                    isDonut: false,
+                    titleColor: "#fe9a00",
+                  },
+                  {
+                    id: "jamKerja",
+                    title: "Jam Kerja Dalam Seminggu",
+                    icon: <Clock className="text-red-500" size={18} />,
+                    data: respondentProfileStats.jamKerja,
+                    palette: PALETTE_JAM,
+                    isDonut: true,
+                    titleColor: "#fb2c36",
+                  },
+                  {
+                    id: "lamaKerjaProfesi",
+                    title: "Lama Kerja Sesuai Profesi",
+                    icon: <Award className="text-purple-500" size={18} />,
+                    data: respondentProfileStats.lamaKerjaProfesi,
+                    palette: PALETTE_PROFESI,
+                    isDonut: true,
+                    titleColor: "#ad46ff",
+                  }
+                ].map(chart => {
+                  const hidden = hiddenCategories[chart.id] || [];
+                  const activeData = chart.data.filter(item => !hidden.includes(item.name));
+                  const totalVal = chart.data.reduce((sum, item) => sum + item.value, 0);
+
+                  const exportPNG = () => {
+                    const wrapper = document.getElementById(`chart-container-${chart.id}`);
+                    const svgEl = wrapper?.querySelector("svg");
+                    if (!svgEl) return;
+                    
+                    const svgString = new XMLSerializer().serializeToString(svgEl);
+                    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+                    const blobURL = URL.createObjectURL(svgBlob);
+                    
+                    const image = new window.Image();
+                    image.onload = () => {
+                      const canvas = document.createElement("canvas");
+                      canvas.width = svgEl.clientWidth * 2 || 1000;
+                      canvas.height = svgEl.clientHeight * 2 || 600;
+                      const context = canvas.getContext("2d");
+                      if (context) {
+                        context.fillStyle = "#ffffff";
+                        context.fillRect(0, 0, canvas.width, canvas.height);
+                        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                        const png = canvas.toDataURL("image/png");
+                        const link = document.createElement("a");
+                        link.href = png;
+                        link.download = `Grafik_${chart.title.replace(/\s+/g, "_")}.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                      URL.revokeObjectURL(blobURL);
+                    };
+                    image.src = blobURL;
+                  };
+
+                  const downloadCSV = () => {
+                    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                    csvContent += "Kategori;Jumlah;Persentase\n";
+                    chart.data.forEach(item => {
+                      const pct = totalVal > 0 ? ((item.value / totalVal) * 100).toFixed(1) : "0";
+                      csvContent += `"${item.name}";${item.value};${pct}%\n`;
+                    });
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.href = encodedUri;
+                    link.download = `Data_${chart.title.replace(/\s+/g, "_")}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  };
+
+                  return (
+                    <div 
+                      key={chart.id}
+                      id={`chart-card-${chart.id}`}
+                      className="bg-white rounded-[24px] border border-gray-100 shadow-md shadow-gray-200/40 p-5 md:p-6 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
+                    >
+                      {/* Card Header */}
+                      <div className="relative flex justify-between items-start gap-3 border-b border-gray-50 pb-3 mb-4 min-h-[56px]">
+                        <div className="flex items-center gap-2.5 flex-1 pr-6">
+                          <span className="p-2 bg-slate-50 rounded-xl shrink-0">
+                            {chart.icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-xs md:text-sm font-black leading-tight break-words" style={{ color: chart.titleColor }}>
+                              {chart.title}
+                            </h4>
+                            <p className="text-[10px] font-extrabold mt-0.5" style={{ color: "#758295" }}>
+                              Responden : {totalVal} orang
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Chart Utilities: Only Fullscreen Button */}
+                        <div className="absolute top-0 right-0">
+                          <button
+                            onClick={() => setFullscreenChartId(chart.id)}
+                            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-[#10a37f] rounded-lg transition-colors cursor-pointer"
+                            title="Fullscreen"
+                          >
+                            <Maximize2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Recharts Pie Chart Wrapper */}
+                      <div id={`chart-container-${chart.id}`} className="relative h-44 w-full flex items-center justify-center overflow-hidden mb-2">
+                        {activeData.length === 0 || activeData.every(x => x.value === 0) ? (
+                          <div className="text-center text-xs text-slate-400 font-bold">
+                            Tidak ada kategori aktif.<br />Aktifkan melalui legenda di bawah.
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <defs>
+                                <filter id={`shadow-${chart.id}`} height="140%" width="140%" x="-20%" y="-20%">
+                                  <feDropShadow dx="2" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.15" />
+                                </filter>
+                              </defs>
+                              <Pie
+                                data={activeData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={chart.isDonut ? "75%" : "70%"}
+                                innerRadius={chart.isDonut ? "45%" : "0%"}
+                                fill="#8884d8"
+                                dataKey="value"
+                                isAnimationActive={true}
+                              >
+                                {activeData.map((entry, index) => {
+                                  const originalIdx = chart.data.findIndex(x => x.name === entry.name);
+                                  const color = chart.palette[originalIdx % chart.palette.length];
+                                  return <Cell key={`cell-${index}`} fill={color} filter={`url(#shadow-${chart.id})`} />;
+                                })}
+                              </Pie>
+                              <RechartsTooltip 
+                                formatter={(value: any, name: any) => [
+                                  `${value} Responden (${totalVal > 0 ? ((value / totalVal) * 100).toFixed(1) : 0}%)`, 
+                                  name
+                                ]}
+                                contentStyle={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.95)",
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "12px",
+                                  fontSize: "11px",
+                                  fontWeight: "bold",
+                                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)"
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+
+                      {/* Interactive Legend List: Rata Kiri Rapi & Proporsional */}
+                      <div className="mt-2 flex flex-col gap-1.5 h-[110px] overflow-y-auto pr-1 w-full text-left">
+                        {chart.data.map((item, idx) => {
+                          const isHidden = hidden.includes(item.name);
+                          const color = chart.palette[idx % chart.palette.length];
+                          const pct = totalVal > 0 ? ((item.value / totalVal) * 100).toFixed(1) : "0";
+
+                          return (
+                            <button
+                              key={item.name}
+                              onClick={() => toggleCategoryVisibility(chart.id, item.name)}
+                              className={`flex items-start gap-2 text-[10px] font-extrabold transition-all hover:translate-x-0.5 select-none cursor-pointer focus:outline-none text-left leading-normal w-full ${
+                                isHidden ? "opacity-35 line-through text-slate-400" : "text-slate-600"
+                              }`}
+                              title="Klik untuk menyembunyikan/menampilkan"
+                            >
+                              <span 
+                                className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 shadow-xs" 
+                                style={{ backgroundColor: isHidden ? "#cbd5e1" : color }}
+                              />
+                              <div className="flex-1 flex justify-between items-baseline gap-2">
+                                <span className="break-words max-w-[70%]">{item.name}</span>
+                                <span className="text-[9px] text-slate-400 font-bold shrink-0">{item.value} orang ({pct}%)</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Footer Analisa Otomatis */}
+                      <div className="mt-auto pt-3 border-t border-gray-100 bg-emerald-50/40 rounded-xl p-3 border-l-4 border-[#10a37f]">
+                        <h5 className="text-[10px] font-black text-[#10a37f] uppercase tracking-wider mb-1">
+                          Analisa Data
+                        </h5>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-bold italic text-justify">
+                          &ldquo;{generateDemographicNarrative(chart.title, chart.data, totalVal)}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
@@ -1403,6 +1928,257 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
             </div>
           </div>
         </div>
+      )}
+
+      {/* FULLSCREEN CHART MODAL */}
+      {fullscreenChartId && (
+        (() => {
+          const allCharts = [
+            {
+              id: "lamaKerjaRS",
+              title: "Lama Kerja di Rumah Sakit",
+              icon: <Calendar className="text-emerald-500" size={24} />,
+              data: respondentProfileStats.lamaKerjaRS,
+              palette: PALETTE_RS,
+              isDonut: true,
+              titleColor: "#00bc7d",
+            },
+            {
+              id: "lamaKerjaUnit",
+              title: "Lama Kerja di Unit",
+              icon: <Users className="text-blue-500" size={24} />,
+              data: respondentProfileStats.lamaKerjaUnit,
+              palette: PALETTE_UNIT,
+              isDonut: true,
+              titleColor: "#497fc3",
+            },
+            {
+              id: "hubunganPasien",
+              title: "Profesi Berhubungan Langsung dengan Pasien",
+              icon: <UserCheck className="text-rose-500" size={24} />,
+              data: respondentProfileStats.hubunganPasien,
+              palette: PALETTE_PASIEN,
+              isDonut: false,
+              titleColor: "#ff2056",
+            },
+            {
+              id: "posisiJabatan",
+              title: "Posisi / Jabatan",
+              icon: <Briefcase className="text-amber-500" size={24} />,
+              data: respondentProfileStats.posisiJabatan,
+              palette: PALETTE_JABATAN,
+              isDonut: false,
+              titleColor: "#fe9a00",
+            },
+            {
+              id: "jamKerja",
+              title: "Jam Kerja Dalam Seminggu",
+              icon: <Clock className="text-red-500" size={24} />,
+              data: respondentProfileStats.jamKerja,
+              palette: PALETTE_JAM,
+              isDonut: true,
+              titleColor: "#fb2c36",
+            },
+            {
+              id: "lamaKerjaProfesi",
+              title: "Lama Kerja Sesuai Profesi",
+              icon: <Award className="text-purple-500" size={24} />,
+              data: respondentProfileStats.lamaKerjaProfesi,
+              palette: PALETTE_PROFESI,
+              isDonut: true,
+              titleColor: "#ad46ff",
+            }
+          ];
+          const activeChart = allCharts.find(c => c.id === fullscreenChartId);
+          if (!activeChart) return null;
+
+          const hidden = hiddenCategories[activeChart.id] || [];
+          const activeData = activeChart.data.filter(item => !hidden.includes(item.name));
+          const totalVal = activeChart.data.reduce((sum, item) => sum + item.value, 0);
+
+          const exportPNG = () => {
+            const wrapper = document.getElementById(`fullscreen-chart-wrapper`);
+            const svgEl = wrapper?.querySelector("svg");
+            if (!svgEl) return;
+            
+            const svgString = new XMLSerializer().serializeToString(svgEl);
+            const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+            const blobURL = URL.createObjectURL(svgBlob);
+            
+            const image = new window.Image();
+            image.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = svgEl.clientWidth * 2 || 1200;
+              canvas.height = svgEl.clientHeight * 2 || 800;
+              const context = canvas.getContext("2d");
+              if (context) {
+                context.fillStyle = "#ffffff";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const png = canvas.toDataURL("image/png");
+                const link = document.createElement("a");
+                link.href = png;
+                link.download = `Grafik_Fullscreen_${activeChart.title.replace(/\s+/g, "_")}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+              URL.revokeObjectURL(blobURL);
+            };
+            image.src = blobURL;
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+              <div className="bg-white rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl border border-slate-100 flex flex-col md:flex-row gap-8 relative max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => setFullscreenChartId(null)}
+                  className="absolute top-5 right-5 p-2 bg-slate-100 text-slate-500 hover:text-slate-800 rounded-full transition-all cursor-pointer focus:outline-none"
+                  title="Tutup Fullscreen"
+                >
+                  <X size={20} />
+                </button>
+
+                {/* Left Side: Large Interactive Chart */}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-3 self-start mb-6">
+                    <span className="p-3 bg-slate-100 rounded-2xl shrink-0">
+                      {activeChart.icon}
+                    </span>
+                    <div>
+                      <h3 className="text-xl font-black" style={{ color: activeChart.titleColor }}>
+                        {activeChart.title}
+                      </h3>
+                      <p className="text-xs font-bold" style={{ color: "#758295" }}>
+                        Responden : {totalVal} orang
+                      </p>
+                    </div>
+                  </div>
+
+                  <div id="fullscreen-chart-wrapper" className="w-full h-72 md:h-80 flex items-center justify-center relative">
+                    {activeData.length === 0 || activeData.every(x => x.value === 0) ? (
+                      <div className="text-center text-sm text-slate-400 font-bold">
+                        Tidak ada kategori aktif.<br />Aktifkan melalui legenda di samping.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <defs>
+                            <filter id={`shadow-modal-${activeChart.id}`} height="140%" width="140%" x="-20%" y="-20%">
+                              <feDropShadow dx="2" dy="4" stdDeviation="3" floodColor="#000000" floodOpacity="0.2" />
+                            </filter>
+                          </defs>
+                          <Pie
+                            data={activeData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={true}
+                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                            outerRadius="80%"
+                            innerRadius={activeChart.isDonut ? "50%" : "0%"}
+                            fill="#8884d8"
+                            dataKey="value"
+                            isAnimationActive={true}
+                          >
+                            {activeData.map((entry, index) => {
+                              const originalIdx = activeChart.data.findIndex(x => x.name === entry.name);
+                              const color = activeChart.palette[originalIdx % activeChart.palette.length];
+                              return <Cell key={`cell-${index}`} fill={color} filter={`url(#shadow-modal-${activeChart.id})`} />;
+                            })}
+                          </Pie>
+                          <RechartsTooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+
+                  {/* Interactive Legend inside Modal: Rata Kiri Rapi & Proporsional */}
+                  <div className="mt-6 flex flex-col gap-1.5 max-w-lg w-full text-left">
+                    {activeChart.data.map((item, idx) => {
+                      const isHidden = hidden.includes(item.name);
+                      const color = activeChart.palette[idx % activeChart.palette.length];
+                      const pct = totalVal > 0 ? ((item.value / totalVal) * 100).toFixed(1) : "0";
+
+                      return (
+                        <button
+                          key={item.name}
+                          onClick={() => toggleCategoryVisibility(activeChart.id, item.name)}
+                          className={`flex items-start gap-2 text-xs font-bold transition-all hover:translate-x-0.5 cursor-pointer focus:outline-none text-left leading-normal w-full ${
+                            isHidden ? "opacity-35 line-through text-slate-400" : "text-slate-700"
+                          }`}
+                        >
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full shrink-0 mt-1 shadow-xs" 
+                            style={{ backgroundColor: isHidden ? "#cbd5e1" : color }}
+                          />
+                          <div className="flex-1 flex justify-between items-baseline gap-2">
+                            <span className="break-words">{item.name}</span>
+                            <span className="text-[10px] text-slate-400 font-bold shrink-0">{item.value} orang ({pct}%)</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Side: Analisa Data & Actions */}
+                <div className="w-full md:w-80 shrink-0 flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-6">
+                  <div className="space-y-5 flex-1">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 border-l-4 border-[#10a37f]">
+                      <h4 className="text-xs font-black text-[#10a37f] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Activity size={14} />
+                        Analisa Data
+                      </h4>
+                      <p className="text-xs text-slate-700 leading-relaxed font-bold italic text-justify">
+                        &ldquo;{generateDemographicNarrative(activeChart.title, activeChart.data, totalVal)}&rdquo;
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-2xl p-4">
+                      <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">
+                        Metrik Utama
+                      </h4>
+                      <ul className="text-xs font-bold text-slate-600 space-y-2">
+                        <li className="flex justify-between">
+                          <span>Total Responden:</span>
+                          <span className="text-slate-800">{totalVal} orang</span>
+                        </li>
+                        <li className="flex justify-between">
+                          <span>Kategori Dominan:</span>
+                          <span className="text-emerald-600">
+                            {[...activeChart.data].sort((a,b)=>b.value-a.value)[0]?.name || "-"}
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col gap-2.5">
+                    <button
+                      onClick={exportPNG}
+                      className="flex items-center justify-center gap-2 bg-[#10a37f] hover:bg-[#0e8f6e] text-white py-3 px-5 rounded-xl font-bold transition-all text-sm shadow-md cursor-pointer focus:outline-none"
+                    >
+                      <Download size={16} />
+                      Ekspor PNG resolusi tinggi
+                    </button>
+                    <button
+                      onClick={() => {
+                        window.print();
+                      }}
+                      className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 px-5 rounded-xl font-bold transition-all text-sm cursor-pointer focus:outline-none"
+                    >
+                      <Printer size={16} />
+                      Ekspor PDF (Cetak Halaman)
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()
       )}
 
       {/* MODAL 1: RESET CONFIRMATION */}
@@ -1564,12 +2340,8 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
               
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1.5 flex-1 pr-6">
-                  <div className="flex items-center gap-2">
-                    <Activity size={16} className="text-emerald-300 animate-pulse" />
-                    <span className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-200">Detail Analisis & Riwayat Pengisian</span>
-                  </div>
                   <h2 className="text-xl sm:text-2xl font-black leading-tight text-white tracking-tight">
-                    Dimensi {selectedDimensionId}: {dimensionDetailData.dim.name}
+                    Dimensi {selectedDimensionId} : {dimensionDetailData.dim.name}
                   </h2>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-bold text-emerald-100">
                     <span className="flex items-center gap-1">
@@ -1578,10 +2350,6 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span>
                       Total Pertanyaan: {dimensionDetailData.dim.items.length} butir
-                    </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>
-                      Jumlah Responden: {dimensionDetailData.uniqueRespondentsCount} orang
                     </span>
                   </div>
                 </div>
@@ -1604,8 +2372,8 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                 <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex flex-col justify-between">
                   <span className="text-slate-500 font-bold text-[11px] uppercase tracking-wider">Total Responden</span>
                   <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-2xl font-black text-slate-800">{dimensionDetailData.uniqueRespondentsCount}</span>
-                    <span className="text-xs text-slate-500 font-bold">staf</span>
+                    <span className="text-[32px] italic font-black text-slate-800">{dimensionDetailData.uniqueRespondentsCount}</span>
+                    <span className="text-[16px] italic text-slate-500 font-bold">staf</span>
                   </div>
                 </div>
 
@@ -1615,7 +2383,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
                   <div className="flex items-baseline gap-1 mt-2 text-emerald-600">
-                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallPositivePercent)}%</span>
+                    <span className="text-[32px] italic font-black">{Math.round(dimensionDetailData.overallPositivePercent)}%</span>
                   </div>
                 </div>
 
@@ -1625,7 +2393,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                   </div>
                   <div className="flex items-baseline gap-1 mt-2 text-amber-600">
-                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallNeutralPercent)}%</span>
+                    <span className="text-[32px] italic font-black">{Math.round(dimensionDetailData.overallNeutralPercent)}%</span>
                   </div>
                 </div>
 
@@ -1635,7 +2403,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   </div>
                   <div className="flex items-baseline gap-1 mt-2 text-rose-600">
-                    <span className="text-2xl font-black">{Math.round(dimensionDetailData.overallNegativePercent)}%</span>
+                    <span className="text-[32px] italic font-black">{Math.round(dimensionDetailData.overallNegativePercent)}%</span>
                   </div>
                 </div>
 
@@ -1706,8 +2474,8 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                       <ResponsiveContainer width="100%" height={260}>
                         <BarChart data={dimensionDetailData.questionStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
-                            <filter id="barShadow" x="-10%" y="-10%" width="120%" height="120%">
-                              <feDropShadow dx={1} dy={3} stdDeviation={2.5} floodColor="#000000" floodOpacity={0.4} />
+                            <filter id="bar-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="1.5" dy="2.5" stdDeviation="2.5" floodColor="#0f172a" floodOpacity="0.4" />
                             </filter>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -1733,9 +2501,9 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                             }} 
                           />
                           <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600 }} />
-                          <Bar dataKey="positive" name="Positif" fill="#10b981" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
-                          <Bar dataKey="neutral" name="Netral" fill="#f59e0b" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
-                          <Bar dataKey="negative" name="Negatif" fill="#ef4444" radius={[4, 4, 0, 0]} filter="url(#barShadow)" />
+                          <Bar dataKey="positive" name="Positif" fill="#10b981" radius={[4, 4, 0, 0]} filter="url(#bar-shadow)" />
+                          <Bar dataKey="neutral" name="Netral" fill="#f59e0b" radius={[4, 4, 0, 0]} filter="url(#bar-shadow)" />
+                          <Bar dataKey="negative" name="Negatif" fill="#ef4444" radius={[4, 4, 0, 0]} filter="url(#bar-shadow)" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1751,7 +2519,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                       <Database size={16} className="text-[#10a37f]" />
                       Riwayat Pengisian Jawaban Responden
                     </h3>
-                    <p className="text-[11px] text-slate-500 font-bold">Daftar granular seluruh jawaban responden pada pertanyaan dimensi ini.</p>
+                    <p className="text-[11px] text-slate-500 font-bold">Tabel data seluruh jawaban responden pada pertanyaan dimensi ini</p>
                   </div>
                 </div>
 
@@ -1767,7 +2535,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                         setSearchQuery(e.target.value);
                         setCurrentPage(1);
                       }}
-                      placeholder="Cari unit, ID responden, pertanyaan atau jawaban..."
+                      placeholder="Cari unit, butir, atau jawaban..."
                       className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-slate-700 outline-none focus:border-[#10a37f] transition-all"
                     />
                   </div>
@@ -1811,19 +2579,19 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
 
                 {/* Table container */}
                 <div className="overflow-x-auto rounded-xl border border-slate-200">
-                  <table className="w-full text-center border-collapse min-w-[700px] text-xs border border-slate-200">
+                  <table className="w-full text-center border-collapse min-w-[700px] text-xs">
                     <thead>
-                      <tr className="bg-slate-50 font-extrabold text-slate-600">
+                      <tr className="bg-slate-50 border-b border-slate-200 font-extrabold text-slate-600">
                         <th className="p-3 text-center w-12 sticky top-0 bg-slate-50 z-10 border border-slate-200">No</th>
                         <th className="p-3 text-center w-32 sticky top-0 bg-slate-50 z-10 border border-slate-200">Tanggal</th>
                         <th className="p-3 text-center w-32 sticky top-0 bg-slate-50 z-10 border border-slate-200">Unit</th>
-                        <th className="p-3 text-center w-20 sticky top-0 bg-slate-50 z-10 border border-slate-200">Butir</th>
+                        <th className="p-3 text-center w-16 sticky top-0 bg-slate-50 z-10 border border-slate-200">Butir</th>
                         <th className="p-3 text-center sticky top-0 bg-slate-50 z-10 border border-slate-200">Jawaban</th>
-                        <th className="p-3 text-center w-20 sticky top-0 bg-slate-50 z-10 border border-slate-200">Nilai</th>
-                        <th className="p-3 text-center w-28 sticky top-0 bg-slate-50 z-10 border border-slate-200">Status</th>
+                        <th className="p-3 text-center w-16 sticky top-0 bg-slate-50 z-10 border border-slate-200">Nilai</th>
+                        <th className="p-3 text-center w-24 sticky top-0 bg-slate-50 z-10 border border-slate-200">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
+                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                       {paginatedRows.length > 0 ? (
                         paginatedRows.map((row, idx) => {
                           const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
@@ -1840,7 +2608,7 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                               <td className="p-3 text-center whitespace-nowrap text-slate-500 font-bold border border-slate-200">{row.dateStr}</td>
                               <td className="p-3 text-center whitespace-nowrap text-slate-800 font-bold border border-slate-200">{row.unit}</td>
                               <td className="p-3 text-center font-extrabold text-[#10a37f] border border-slate-200">{row.questionKey}</td>
-                              <td className="p-3 text-center text-slate-600 italic leading-relaxed border border-slate-200" title={row.questionText}>
+                              <td className="p-3 text-center text-slate-600 pr-4 italic leading-relaxed border border-slate-200" title={row.questionText}>
                                 &ldquo;{row.answer}&rdquo;
                               </td>
                               <td className="p-3 text-center font-black text-slate-900 border border-slate-200">{row.value}</td>
@@ -1918,15 +2686,11 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                   <div className="space-y-3">
                     <h3 className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-emerald-500/10">
                       <Sparkles size={14} className="text-emerald-500" />
-                      Analisis Hasil Dimensi (Otomatis)
+                      Analisis Hasil Dimensi
                     </h3>
                     <p className="text-xs text-slate-700 leading-relaxed font-semibold text-justify">
                       {dimensionDetailData.autoAnalysis}
                     </p>
-                  </div>
-                  
-                  <div className="text-[9px] text-slate-400 font-extrabold uppercase mt-6 tracking-wider">
-                    Sistem Analisis Cerdas Mutu OPTIMUS
                   </div>
                 </div>
 
@@ -1947,10 +2711,6 @@ CREATE POLICY "Public All survei_budaya" ON public.survei_budaya FOR ALL USING (
                         </li>
                       ))}
                     </ul>
-                  </div>
-
-                  <div className="text-[9px] text-slate-400 font-extrabold uppercase mt-6 tracking-wider">
-                    Rekomendasi Berbasis HSOPSC Master Komite Mutu
                   </div>
                 </div>
               </div>
