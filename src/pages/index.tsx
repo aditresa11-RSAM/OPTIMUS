@@ -223,6 +223,7 @@ export default function WelcomePage() {
             muted
             loop
             playsInline
+            preload="auto"
             className="w-full h-full object-cover opacity-[0.6]"
           />
         ) : isImage ? (
