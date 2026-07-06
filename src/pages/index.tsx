@@ -48,11 +48,8 @@ export default function WelcomePage() {
   const backgroundImageSrc = settings.image_url;
 
   const handleEnterDashboard = () => {
-    setIsExiting(true);
     localStorage.setItem("welcome_seen", "true");
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 1100); // Smooth transition before routing
+    router.push("/dashboard");
   };
 
   // Sync real-time compliance score animation from 90% to 100%
@@ -184,16 +181,10 @@ export default function WelcomePage() {
     <motion.div 
       id="welcome-fullscreen-canvas" 
       className="relative min-h-screen text-white flex flex-col justify-between overflow-y-auto lg:overflow-hidden origin-center bg-slate-950"
-      animate={isExiting ? { scale: 3.5 } : { scale: 1 }}
-      transition={{ duration: 1.2, ease: [0.32, 0.72, 0, 1] }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
     >
-      <motion.div 
-        className="absolute inset-0 z-50 bg-black pointer-events-none"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isExiting ? 1 : 0 }}
-        transition={{ duration: 0.9, ease: "easeIn" }}
-      />
-      
       {/* CINEMATIC MEDIA BACKDROP SCREEN */}
       <div className="absolute inset-0 z-0 select-none overflow-hidden bg-slate-950">
         
@@ -252,8 +243,9 @@ export default function WelcomePage() {
 
       {/* TOPHEADER TICKER BAR */}
       <motion.header 
-        animate={isExiting ? { opacity: 0, y: -20 } : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeIn" }}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative z-10 w-full px-6 py-5 md:px-12 flex justify-between items-center font-sans"
       >
         <div className="flex items-center gap-2.5">
@@ -302,8 +294,9 @@ export default function WelcomePage() {
 
       {/* CONTENT LAYER */}
       <motion.main 
-        animate={isExiting ? { opacity: 0, y: 30 } : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeIn" }}
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative z-10 w-full px-6 md:px-12 pb-12 md:pb-16 flex-1 flex flex-col lg:flex-row items-start lg:items-end justify-end lg:justify-between gap-8 lg:gap-6 xl:gap-12"
       >
         <style dangerouslySetInnerHTML={{ __html: `

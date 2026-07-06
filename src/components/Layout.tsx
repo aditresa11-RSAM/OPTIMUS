@@ -10,11 +10,8 @@ interface LayoutProps {
   router?: NextRouter;
 }
 
-export default function Layout({ children, router }: LayoutProps) {
-  const hospitalLogo = useStore((state) => state.hospitalLogo);
-  const sidebarMinimized = useStore((state) => state.sidebarMinimized);
-
-  // High-precision clock & Indonesian calendar state
+// High-precision isolated clock component to prevent Layout re-renders
+const ClockWidget = React.memo(function ClockWidget() {
   const [timeString, setTimeString] = useState<string>("");
   const [dateString, setDateString] = useState<string>("");
   const [tickToggle, setTickToggle] = useState<boolean>(false);
@@ -23,13 +20,11 @@ export default function Layout({ children, router }: LayoutProps) {
     const updateDateTime = () => {
       const now = new Date();
       
-      // Formatting time to HH:mm:ss
       const hh = String(now.getHours()).padStart(2, "0");
       const mm = String(now.getMinutes()).padStart(2, "0");
       const ss = String(now.getSeconds()).padStart(2, "0");
       setTimeString(`${hh}:${mm}:${ss}`);
 
-      // Formatting date in Indonesian locale (e.g. Kamis, 28 Mei 2026)
       const options: Intl.DateTimeFormatOptions = {
         weekday: "long",
         day: "numeric",
@@ -44,6 +39,34 @@ export default function Layout({ children, router }: LayoutProps) {
     const intervalId = setInterval(updateDateTime, 1000);
     return () => clearInterval(intervalId);
   }, []);
+
+  if (!timeString) return null;
+
+  return (
+    <motion.div
+      key={timeString}
+      animate={{
+        y: tickToggle ? [-0.2, 0.2, 0] : [0.2, -0.2, 0],
+      }}
+      transition={{ duration: 0.2, ease: "easeInOut" }}
+      className="flex items-center bg-white/40 backdrop-blur-md border border-white/20 rounded-full px-3.5 py-2 text-xs font-bold text-gray-700 shadow-[0_8px_32px_0_rgba(16,163,127,0.05)] select-none hover:shadow-[0_8px_24px_rgba(16,163,127,0.08)] transition-all duration-300 gap-2"
+    >
+      {dateString && (
+        <span className="hidden sm:inline text-gray-600 text-[11px] md:text-xs font-semibold">
+          {dateString}
+        </span>
+      )}
+      {dateString && <span className="hidden sm:inline text-emerald-400/80 font-semibold font-mono">•</span>}
+      <span className="font-mono tracking-tight text-emerald-600 text-xs md:text-sm font-black">
+        {timeString}
+      </span>
+    </motion.div>
+  );
+});
+
+export default function Layout({ children, router }: LayoutProps) {
+  const hospitalLogo = useStore((state) => state.hospitalLogo);
+  const sidebarMinimized = useStore((state) => state.sidebarMinimized);
 
   // Safely check router to avoid SSG not-mounted errors
   const isWelcomePage = router?.pathname === "/";
@@ -102,26 +125,7 @@ export default function Layout({ children, router }: LayoutProps) {
 
           {/* Right Side: High-Precision Calendar & Clock Widget */}
           <div className="flex items-center">
-            {timeString && (
-              <motion.div
-                key={timeString}
-                animate={{
-                  y: tickToggle ? [-0.2, 0.2, 0] : [0.2, -0.2, 0],
-                }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="flex items-center bg-white/40 backdrop-blur-md border border-white/20 rounded-full px-3.5 py-2 text-xs font-bold text-gray-700 shadow-[0_8px_32px_0_rgba(16,163,127,0.05)] select-none hover:shadow-[0_8px_24px_rgba(16,163,127,0.08)] transition-all duration-300 gap-2"
-              >
-                {dateString && (
-                  <span className="hidden sm:inline text-gray-600 text-[11px] md:text-xs font-semibold">
-                    {dateString}
-                  </span>
-                )}
-                {dateString && <span className="hidden sm:inline text-emerald-400/80 font-semibold font-mono">•</span>}
-                <span className="font-mono tracking-tight text-emerald-600 text-xs md:text-sm font-black">
-                  {timeString}
-                </span>
-              </motion.div>
-            )}
+            <ClockWidget />
           </div>
         </header>
 
