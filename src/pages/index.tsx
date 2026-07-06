@@ -38,7 +38,18 @@ export default function WelcomePage() {
   const router = useRouter();
   const hospitalLogo = useStore((state) => state.hospitalLogo);
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
-  const [settings, setSettings] = useState<WelcomeSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<WelcomeSettings>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("welcome_settings_cache");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {}
+      }
+    }
+    return DEFAULT_SETTINGS;
+  });
+
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -115,6 +126,11 @@ export default function WelcomePage() {
         const { data } = await supabase.from("welcome_settings").select("*").eq("id", "1");
         if (data && data.length > 0) {
           setSettings(data[0]);
+          try {
+            localStorage.setItem("welcome_settings_cache", JSON.stringify(data[0]));
+          } catch (e) {
+            console.warn("Could not write welcome settings to cache (Quota exceeded?)");
+          }
         }
       } catch (e) {
         console.warn("Could not query dynamic welcome media", e);
@@ -134,6 +150,11 @@ export default function WelcomePage() {
         (payload: any) => {
           if (payload.new) {
             setSettings(payload.new);
+            try {
+              localStorage.setItem("welcome_settings_cache", JSON.stringify(payload.new));
+            } catch (e) {
+              console.warn("Could not write real-time welcome settings to cache (Quota exceeded?)");
+            }
           }
         }
       )
@@ -178,12 +199,9 @@ export default function WelcomePage() {
   const videoUrl = settings.video_url;
 
   return (
-    <motion.div 
+    <div 
       id="welcome-fullscreen-canvas" 
       className="relative min-h-screen text-white flex flex-col justify-between overflow-y-auto lg:overflow-hidden origin-center bg-slate-950"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
     >
       {/* CINEMATIC MEDIA BACKDROP SCREEN */}
       <div className="absolute inset-0 z-0 select-none overflow-hidden bg-slate-950">
@@ -216,6 +234,10 @@ export default function WelcomePage() {
               if (el) {
                 el.defaultMuted = true;
                 el.muted = muted;
+                // Force play if browser defers autoplay
+                if (el.paused) {
+                  el.play().catch(() => {});
+                }
               }
             }}
             src={videoUrl}
@@ -479,6 +501,6 @@ export default function WelcomePage() {
 
       </motion.main>
 
-    </motion.div>
+    </div>
   );
 }
