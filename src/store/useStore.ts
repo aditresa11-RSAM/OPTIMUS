@@ -190,7 +190,20 @@ export const useStore = create<RootState>((set) => ({
       indicatorProfiles: state.indicatorProfiles.filter((p) => p.id !== id),
     })),
   units: initialUnits,
-  addUnit: (unit) => set((state) => ({ units: [...state.units, unit] })),
+  addUnit: (unit) =>
+    set((state) => {
+      const existingIdx = state.units.findIndex(
+        (u) =>
+          u.id === unit.id ||
+          (unit.name && u.name.trim().toLowerCase() === unit.name.trim().toLowerCase()),
+      );
+      if (existingIdx !== -1) {
+        const nextUnits = [...state.units];
+        nextUnits[existingIdx] = { ...nextUnits[existingIdx], ...unit };
+        return { units: nextUnits };
+      }
+      return { units: [...state.units, unit] };
+    }),
   updateUnit: (id, data) =>
     set((state) => ({
       units: state.units.map((u) => (u.id === id ? { ...u, ...data } : u)),

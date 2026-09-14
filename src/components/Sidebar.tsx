@@ -57,36 +57,31 @@ export default function Sidebar() {
         className={`hidden md:flex fixed inset-y-0 left-0 z-40 ${sidebarMinimized ? 'w-20' : 'w-64'} bg-gradient-to-b from-[#007A4D] to-[#005F3A] text-white flex-col justify-between border-r border-[#005F3A]/50 shadow-[4px_0_24px_rgba(0,122,77,0.15)] transition-all duration-300 font-sans`}
       >
         {/* Header & Logo */}
-        <div className="relative h-[88px] flex items-center justify-center border-b border-[#005F3A]/30 bg-white/5 backdrop-blur-sm transition-all duration-300 w-full">
+        <div className={`relative h-[88px] flex items-center ${sidebarMinimized ? 'justify-center px-2' : 'px-4'} border-b border-[#005F3A]/30 bg-white/5 backdrop-blur-sm transition-all duration-300 w-full`}>
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#f59e0b] via-[#ded92d] to-[#f59e0b] shadow-[0_2px_15px_rgba(222,217,45,0.8)] z-40" />
-          <div className="flex items-center justify-center w-full">
-            <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'gap-3'} min-w-0 transition-all duration-300`} style={{ height: '44px', width: sidebarMinimized ? '44px' : '207.781px' }}>
-              <div className="h-11 w-11 rounded-xl bg-white border border-emerald-500/10 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg p-0.5" style={{ marginRight: sidebarMinimized ? '0' : '-9px', height: '44px', marginLeft: sidebarMinimized ? '0' : '11px' }}>
-                {hospitalLogo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={hospitalLogo}
-                    alt="Logo RS"
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <Hospital className="text-emerald-600 h-6 w-6" />
-                )}
-              </div>
-              {!sidebarMinimized && (
-                <div className="flex flex-col min-w-0 transition-opacity duration-300">
-                  <span className="font-extrabold text-sm tracking-tight text-white leading-tight truncate" style={{ paddingRight: '7px', marginRight: '-10px', marginLeft: '6px' }}>
-                    UOBK RSUD AL-MULK
-                  </span>
-                  <span 
-                    className="leading-none"
-                    style={{ color: "#ded92d", fontWeight: "bold", fontSize: "12px", marginLeft: "6px" }}
-                  >
-                    Kota Sukabumi
-                  </span>
-                </div>
+          <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'gap-3'} w-full min-w-0 transition-all duration-300`}>
+            <div className="h-10 w-10 rounded-xl bg-white border border-emerald-500/10 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg p-0.5">
+              {hospitalLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={hospitalLogo}
+                  alt="Logo RS"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <Hospital className="text-emerald-600 h-5 w-5" />
               )}
             </div>
+            {!sidebarMinimized && (
+              <div className="flex flex-col min-w-0">
+                <span className="font-extrabold text-[15px] tracking-tight text-white leading-tight truncate drop-shadow-sm">
+                  UOBK RSUD AL-MULK
+                </span>
+                <span className="text-[12.5px] font-bold leading-none mt-1 text-[#ded92d] drop-shadow-sm">
+                  Kota Sukabumi
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -100,30 +95,40 @@ export default function Sidebar() {
                 key={item.path}
                 href={item.path}
                 onClick={() => setCurrentPath(item.path)}
-                className={`group relative flex items-center gap-3.5 px-3.5 py-2.5 rounded-[14px] text-sm font-semibold transition-all duration-200 ease-in-out border overflow-hidden ${
+                className={`group relative flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ease-in-out select-none overflow-hidden ${
                   isActive
-                    ? "bg-white/10 text-[#ded92d] shadow-[0_0_15px_rgba(222,217,45,0.15)] font-bold border-white/5 backdrop-blur-md"
-                    : "text-emerald-50/80 hover:text-white hover:bg-white/5 border-transparent"
+                    ? "bg-white/[0.07] text-[#ded92d] font-bold shadow-[0_4px_12px_rgba(0,30,15,0.3),0_1px_3px_rgba(0,0,0,0.15)] border border-white/10"
+                    : "text-emerald-50/80 hover:text-white hover:bg-white/5 border border-transparent"
                 }`}
               >
                 {isActive && (
-                  <div className="absolute left-0 top-[15%] bottom-[15%] w-[3px] rounded-r-md bg-gradient-to-b from-[#ded92d] to-[#f59e0b] shadow-[0_0_14px_rgba(222,217,45,1)]"></div>
+                  <div className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-md bg-gradient-to-b from-[#ded92d] to-[#f59e0b] shadow-[0_0_10px_rgba(222,217,45,0.7)]"></div>
                 )}
                 <motion.div
-                  animate={isActive ? { y: [0, -3, 0] } : { y: 0 }}
+                  animate={isActive ? { y: [0, -2, 0] } : { y: 0 }}
                   transition={
                     isActive
                       ? { repeat: Infinity, duration: 2.2, ease: "easeInOut" }
                       : undefined
                   }
-                  className={`flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 group-hover:opacity-100 opacity-90 ${sidebarMinimized ? 'mx-auto' : ''}`}
+                  className={`flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105 opacity-90 ${
+                    sidebarMinimized ? "mx-auto" : ""
+                  }`}
                 >
                   <Icon
-                    className={`h-5 w-5 transition-colors duration-200 ${isActive ? "text-[#ded92d] drop-shadow-[0_0_4px_rgba(222,217,45,0.4)]" : "text-white"}`}
+                    className={`h-5 w-5 transition-colors duration-200 ${
+                      isActive
+                        ? "text-[#ded92d] drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+                        : "text-white"
+                    }`}
                     strokeWidth={2.2}
                   />
                 </motion.div>
-                {!sidebarMinimized && <span className="transition-opacity duration-300">{item.name}</span>}
+                {!sidebarMinimized && (
+                  <span className="transition-opacity duration-300">
+                    {item.name}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -190,16 +195,27 @@ export default function Sidebar() {
                 key={item.path}
                 href={item.path}
                 onClick={() => setCurrentPath(item.path)}
-                className={`group snap-center shrink-0 flex flex-col items-center justify-center min-w-[76px] px-2 py-2 rounded-xl transition-all ${
+                className={`group snap-center shrink-0 flex flex-col items-center justify-center min-w-[76px] px-2 py-2 rounded-xl transition-all select-none ${
                   isActive
-                    ? "text-[#ded92d] bg-white/10 shadow-[0_0_12px_rgba(222,217,45,0.15)]"
-                    : "text-emerald-50/80 hover:bg-white/5 hover:text-white"
+                    ? "text-[#ded92d] bg-white/[0.07] font-bold shadow-[0_3px_8px_rgba(0,30,15,0.3),0_1px_2px_rgba(0,0,0,0.15)] border border-white/10"
+                    : "text-emerald-50/80 hover:bg-white/5 hover:text-white border border-transparent"
                 }`}
               >
                 <div className="flex items-center justify-center mb-1 transition-transform group-hover:-translate-y-0.5">
-                  <Icon className={`h-5 w-5 ${isActive ? "text-[#ded92d]" : "text-white"}`} strokeWidth={isActive ? 2.5 : 2} />
+                  <Icon
+                    className={`h-5 w-5 ${
+                      isActive
+                        ? "text-[#ded92d] drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+                        : "text-white"
+                    }`}
+                    strokeWidth={2.2}
+                  />
                 </div>
-                <span className={`text-[10px] text-center leading-tight ${isActive ? "font-bold text-[#ded92d]" : "font-semibold"}`}>
+                <span
+                  className={`text-[10px] text-center leading-tight ${
+                    isActive ? "font-bold text-[#ded92d]" : "font-semibold"
+                  }`}
+                >
                   {item.name}
                 </span>
               </Link>

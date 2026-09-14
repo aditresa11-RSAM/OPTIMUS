@@ -169,23 +169,26 @@ export default function InputData() {
 
   // Fetch newest units from Supabase if active
   useEffect(() => {
+    let isMounted = true;
     const fetchSupabaseUnits = async () => {
       try {
         const { data, error } = await supabase.from("units").select("*");
-        if (data && data.length > 0) {
-          // If Supabase contains values, load them into the application
+        if (data && data.length > 0 && isMounted) {
+          const uniqueDbUnits = new Map<string, any>();
           data.forEach((dbUnit: any) => {
-            const exists = units.some(
-              (u) => u.id === dbUnit.id || u.name === dbUnit.name,
-            );
-            if (!exists) {
-              addUnit({
-                id: dbUnit.id || String(Math.random()),
-                name: dbUnit.name,
-                category: dbUnit.category || "Umum",
-                status: dbUnit.status === "Nonaktif" ? "Nonaktif" : "Aktif",
-              });
+            const key = dbUnit.id || (dbUnit.name || "").trim().toLowerCase();
+            if (key && !uniqueDbUnits.has(key)) {
+              uniqueDbUnits.set(key, dbUnit);
             }
+          });
+
+          uniqueDbUnits.forEach((dbUnit) => {
+            addUnit({
+              id: String(dbUnit.id || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`),
+              name: dbUnit.name,
+              category: dbUnit.category || "Umum",
+              status: dbUnit.status === "Nonaktif" ? "Nonaktif" : "Aktif",
+            });
           });
         }
       } catch (err) {
@@ -196,7 +199,10 @@ export default function InputData() {
       }
     };
     fetchSupabaseUnits();
-  }, [addUnit, units]);
+    return () => {
+      isMounted = false;
+    };
+  }, [addUnit]);
 
   // Keyboard navigation click outside handler
   useEffect(() => {
@@ -430,11 +436,16 @@ export default function InputData() {
 
   // Real-time unit list filtering
   const filteredUnits = useMemo(() => {
-    return units.filter(
-      (u) =>
+    const seen = new Set<string>();
+    return units.filter((u) => {
+      const uniqueKey = u.id || u.name;
+      if (seen.has(uniqueKey)) return false;
+      seen.add(uniqueKey);
+      return (
         u.name.toLowerCase().includes(unitSearch.toLowerCase()) &&
-        u.status === "Aktif",
-    );
+        u.status === "Aktif"
+      );
+    });
   }, [units, unitSearch]);
 
   // Interactive functions to manage units via modal (Admin)
@@ -461,7 +472,7 @@ export default function InputData() {
 
     if (modalMode === "add") {
       const newUnit: Unit = {
-        id: String(Math.random().toString(36).substring(7)),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: roomNameInput.trim(),
         category: roomCategoryInput,
         status: roomStatusInput,
@@ -524,7 +535,7 @@ export default function InputData() {
     setVisiteGrid([
       ...visiteGrid,
       {
-        id: Math.random().toString(36).substring(7),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         tanggal: new Date().toISOString().split("T")[0],
         nama_pasien: "",
         jam_visite_kurang_14: false,
@@ -564,7 +575,7 @@ export default function InputData() {
     setFornasGrid([
       ...fornasGrid,
       {
-        id: Math.random().toString(36).substring(7),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         tanggal: new Date().toISOString().split("T")[0],
         jumlah_resep: "",
         jumlah_sesuai: "",
@@ -589,7 +600,7 @@ export default function InputData() {
     setJatuhGrid([
       ...jatuhGrid,
       {
-        id: Math.random().toString(36).substring(7),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         tanggal: new Date().toISOString().split("T")[0],
         nama_pasien: "",
         no_rm: "",
@@ -617,7 +628,7 @@ export default function InputData() {
     setIdentifikasiGrid([
       ...identifikasiGrid,
       {
-        id: Math.random().toString(36).substring(7),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         tanggal_observasi: new Date().toISOString().split("T")[0],
         jam_observasi: "",
         nama_observer: "",
@@ -726,7 +737,7 @@ export default function InputData() {
     setWaktuTungguGrid([
       ...waktuTungguGrid,
       {
-        id: Math.random().toString(36).substring(7),
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         tanggal: new Date().toISOString().split("T")[0],
         nama_pasien: "",
         no_rm: "",
@@ -1068,7 +1079,7 @@ export default function InputData() {
       </div>
 
       {/* Primary Input Panel */}
-      <div className="bg-white rounded-[32px] shadow-[0_4px_30px_-5px_rgba(0,0,0,0.03)] border border-gray-100 p-8 md:p-10 space-y-8">
+      <div className="bg-[#f8fafc] rounded-[32px] shadow-[12px_12px_28px_rgba(160,175,195,0.22),-12px_-12px_28px_rgba(255,255,255,0.95)] border border-white/80 p-8 md:p-10 space-y-8">
         {successMsg && (
           <div className="p-5 bg-emerald-50 text-emerald-800 rounded-2xl flex items-center gap-3 border border-emerald-100/75 animate-in fade-in duration-500">
             <div className="bg-emerald-600 text-white p-1 rounded-full">
@@ -1101,7 +1112,7 @@ export default function InputData() {
                 <button
                   type="button"
                   onClick={handleOpenAddRoom}
-                  className="text-xs font-black text-[#10a37f] hover:text-emerald-800 flex items-center justify-center bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1 rounded-lg border border-emerald-100 transition-colors w-7 h-7"
+                  className="text-xs font-black text-[#10a37f] hover:text-emerald-800 flex items-center justify-center bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1 rounded-lg border border-emerald-100 transition-colors w-7 h-7 shadow-[2px_2px_5px_rgba(160,175,195,0.25),-2px_-2px_5px_rgba(255,255,255,0.9)]"
                   title="Tambah Ruangan"
                 >
                   <Plus size={14} className="stroke-[3]" />
@@ -1112,7 +1123,7 @@ export default function InputData() {
               <div className="relative">
                 <div
                   onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                  className="w-full h-[56px] px-5 rounded-2xl border border-gray-200 outline-none transition-all text-slate-800 bg-white hover:border-[#10a37f]/50 cursor-pointer flex items-center justify-between shadow-xs select-none focus-within:border-[#10a37f] focus-within:ring-2 focus-within:ring-[#10a37f]/20"
+                  className="w-full h-[56px] px-5 rounded-2xl border border-slate-200/90 outline-none transition-all text-slate-800 bg-[#f8fafc] hover:bg-[#f1f5f9] cursor-pointer flex items-center justify-between shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] select-none focus-within:border-[#10a37f] focus-within:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)]"
                 >
                   <span
                     className={
@@ -1129,8 +1140,8 @@ export default function InputData() {
                 </div>
 
                 {showUnitDropdown && (
-                  <div className="absolute z-50 left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200 max-h-80 flex flex-col">
-                    <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-[#fcfdfd]">
+                  <div className="absolute z-50 left-0 right-0 mt-2 bg-[#f8fafc] border border-white rounded-2xl shadow-[8px_8px_20px_rgba(160,175,195,0.3),-8px_-8px_20px_rgba(255,255,255,0.95)] overflow-hidden animate-in fade-in duration-200 max-h-80 flex flex-col">
+                    <div className="p-3 border-b border-slate-200/50 flex items-center gap-2 bg-[#f1f5f9]/70 mx-2 my-2 rounded-xl shadow-[inset_2px_2px_4px_rgba(160,175,195,0.25),inset_-2px_-2px_4px_rgba(255,255,255,0.9)]">
                       <Search size={14} className="text-gray-400" />
                       <input
                         type="text"
@@ -1148,9 +1159,9 @@ export default function InputData() {
                           Unit tidak ditemukan
                         </div>
                       ) : (
-                        filteredUnits.map((u) => (
+                        filteredUnits.map((u, idx) => (
                           <div
-                            key={u.id}
+                            key={`${u.id}-${idx}`}
                             onClick={() => {
                               setSelectedUnit(u);
                               setFormValue("unit", u.name);
@@ -1206,7 +1217,7 @@ export default function InputData() {
               <label className="flex items-center text-sm font-extrabold text-slate-800 tracking-wide h-8">
                 <span>2. Tanggal Input</span>
               </label>
-              <div className="relative flex items-center h-[56px] w-full bg-white border border-gray-200 hover:border-[#10a37f]/50 focus-within:border-[#10a37f] focus-within:ring-2 focus-within:ring-[#10a37f]/20 rounded-2xl px-5 shadow-xs transition-all ring-offset-background">
+              <div className="relative flex items-center h-[56px] w-full bg-[#f8fafc] border border-slate-200/90 hover:bg-[#f1f5f9] focus-within:border-[#10a37f] rounded-2xl px-5 shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus-within:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] transition-all ring-offset-background">
                 <input
                   type="date"
                   {...register("tanggal")}
@@ -1223,11 +1234,11 @@ export default function InputData() {
 
           {/* DYNAMIC SUB UNIT: RAWAT JALAN SUB SPECIFICATION */}
           {selectedUnit?.name === "Rawat Jalan" && (
-            <div className="bg-emerald-50/35 border border-emerald-100/50 rounded-2xl p-6 space-y-3 animate-in slide-in-from-top-2 duration-300">
+            <div className="bg-[#f8fafc] border border-white rounded-2xl p-6 space-y-3 shadow-[6px_6px_16px_rgba(160,175,195,0.2),-6px_-6px_16px_rgba(255,255,255,0.95)] animate-in slide-in-from-top-2 duration-300">
               <label className="text-xs font-black text-emerald-950 uppercase tracking-wider">
                 Pilih Sub-Pelayanan Poli (Rawat Jalan)
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {subUnitsRawatJalan.map((poli) => (
                   <button
                     key={poli}
@@ -1238,8 +1249,8 @@ export default function InputData() {
                     }}
                     className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition-all text-center ${
                       selectedSubUnit === poli
-                        ? "bg-emerald-600 text-white border-emerald-600/50 shadow-xs scale-[1.02]"
-                        : "bg-white text-slate-700 border-gray-100 hover:border-emerald-200"
+                        ? "bg-emerald-600 text-white border-emerald-700 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.25),inset_-2px_-2px_4px_rgba(255,255,255,0.2)] scale-[1.02]"
+                        : "bg-[#f8fafc] text-slate-700 border-slate-200/80 shadow-[3px_3px_6px_rgba(160,175,195,0.25),-3px_-3px_6px_rgba(255,255,255,0.95)] hover:shadow-[1px_1px_3px_rgba(160,175,195,0.2)]"
                     }`}
                   >
                     {poli}
@@ -1262,7 +1273,7 @@ export default function InputData() {
                   setFormValue("indikator_id", "");
                   setUploadedProofName("");
                 }}
-                className="w-full px-5 py-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all text-slate-800 font-bold bg-slate-50/50 hover:bg-white cursor-pointer shadow-xs text-sm"
+                className="w-full px-5 py-4 rounded-2xl border border-slate-200/90 focus:border-[#10a37f] outline-none transition-all text-slate-800 font-bold bg-[#f8fafc] hover:bg-[#f1f5f9] cursor-pointer shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] text-sm"
               >
                 <option value="INM">INM</option>
                 <option value="IMP-RS">IMP-RS</option>
@@ -1282,15 +1293,15 @@ export default function InputData() {
               <div className="relative">
                 <select
                   {...register("indikator_id")}
-                  className={`w-full px-5 py-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all font-bold bg-slate-50/50 hover:bg-white cursor-pointer shadow-xs text-sm ${
+                  className={`w-full px-5 py-4 rounded-2xl border border-slate-200/90 focus:border-[#10a37f] outline-none transition-all font-bold bg-[#f8fafc] hover:bg-[#f1f5f9] cursor-pointer shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] text-sm ${
                     watchIndikatorId ? "text-slate-900" : "text-gray-400/80"
                   }`}
                 >
                   <option value="" className="text-gray-400">
                     Pilih indikator
                   </option>
-                  {filteredIndikators.map((i) => (
-                    <option key={i.id} value={i.id} className="text-slate-900">
+                  {filteredIndikators.map((i, idx) => (
+                    <option key={`${i.id}-${idx}`} value={i.id} className="text-slate-900">
                       {i.indicator_title}
                     </option>
                   ))}
@@ -1307,7 +1318,7 @@ export default function InputData() {
           {/* STEP 7: DYNAMIC MEDICAL FORM FIELDS AND SPECIAL CLINICAL GRIDS */}
           {/* A. If Patient Safety Incidents (IKP) */}
           {watchKategori === "IKP" && (
-            <div className="bg-red-50/20 border border-red-100 rounded-[28px] p-6 md:p-8 space-y-6 animate-in slide-in-from-top-2 duration-300">
+            <div className="bg-[#f8fafc] border border-red-100 rounded-[28px] p-6 md:p-8 space-y-6 shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in slide-in-from-top-2 duration-300">
               <div className="flex items-center gap-3 border-b border-red-100 pb-4">
                 <ShieldAlert className="text-red-500 w-6 h-6" />
                 <h3 className="text-lg font-bold text-red-900">
@@ -1326,10 +1337,10 @@ export default function InputData() {
                     label: "Sentinel",
                     sub: "Kejadian Sentinel",
                   },
-                ].map((ikpItem) => (
+                ].map((ikpItem, idx) => (
                   <div
-                    key={ikpItem.id}
-                    className="bg-white border border-red-100/50 rounded-2xl p-4 text-center hover:border-red-200 hover:shadow-xs transition-all focus-within:ring-2 focus-within:ring-red-500/20"
+                    key={`${ikpItem.id}-${idx}`}
+                    className="bg-[#f8fafc] border border-white rounded-2xl p-4 text-center shadow-[4px_4px_10px_rgba(160,175,195,0.25),-4px_-4px_10px_rgba(255,255,255,0.95)] hover:shadow-[5px_5px_12px_rgba(140,160,180,0.3),-5px_-5px_12px_rgba(255,255,255,1)] transition-all"
                   >
                     <label className="block text-[#0c2415] font-extrabold text-sm mb-1">
                       {ikpItem.label}
@@ -1341,7 +1352,7 @@ export default function InputData() {
                       type="number"
                       min="0"
                       {...register(ikpItem.id as any, { valueAsNumber: true })}
-                      className="w-full text-center px-3 py-2.5 bg-red-50/30 rounded-xl border border-red-100 focus:outline-none focus:border-red-300 focus:bg-red-50 transition-colors text-red-900 font-bold text-lg"
+                      className="w-full text-center px-3 py-2.5 bg-[#fef2f2]/60 rounded-xl border border-red-200/70 shadow-[inset_2px_2px_5px_rgba(252,165,165,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.95)] focus:outline-none focus:border-red-400 font-bold text-lg text-red-900 focus:shadow-[inset_3px_3px_6px_rgba(248,113,113,0.4),inset_-3px_-3px_6px_rgba(255,255,255,1)] transition-all"
                     />
                   </div>
                 ))}
@@ -1356,7 +1367,7 @@ export default function InputData() {
                   {...register("keterangan")}
                   rows={3}
                   placeholder="Tambahkan catatan ringkas lokasi kejadian, tindakan penanganan awal, atau rujukan investigasi..."
-                  className="w-full px-5 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition-all text-slate-800 font-medium bg-white resize-none"
+                  className="w-full px-5 py-3.5 rounded-2xl border border-slate-200/90 bg-[#f8fafc] shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] focus:border-red-400 outline-none transition-all text-slate-800 font-medium resize-none"
                 />
               </div>
             </div>
@@ -1367,7 +1378,7 @@ export default function InputData() {
             <div className="space-y-6">
               {/* Specialized Form For Visite Dokter (ID "7") */}
               {isVisiteDokter && (
-                <div className="bg-white border border-emerald-100 rounded-[28px] overflow-hidden shadow-xs animate-in fade-in">
+                <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Activity size={20} className="text-white" />
@@ -1429,7 +1440,7 @@ export default function InputData() {
                         ) : (
                           visiteGrid.map((row, idx) => (
                             <tr
-                              key={row.id}
+                              key={`${row.id}-${idx}`}
                               className="border-b border-gray-50 hover:bg-emerald-50/10 transition-colors"
                             >
                               <td className="py-3 px-4 text-center text-sm font-semibold text-gray-400 border-r border-emerald-50">
@@ -1583,7 +1594,7 @@ export default function InputData() {
               {/* Specialized Form For Upaya Risiko Jatuh (ID "11") */}
               {isRisikoJatuh && (
                 <div className="space-y-6 animate-in fade-in">
-                  <div className="bg-white border border-emerald-100 rounded-[28px] overflow-hidden shadow-xs">
+                  <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)]">
                     <div className="bg-emerald-600 p-5 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Activity size={20} className="text-white" />
@@ -1641,7 +1652,7 @@ export default function InputData() {
                           ) : (
                             jatuhGrid.map((row, idx) => (
                               <tr
-                                key={row.id}
+                                key={`${row.id}-${idx}`}
                                 className="border-b border-gray-50 hover:bg-emerald-50/10 transition-colors"
                               >
                                 <td className="py-3 px-4 text-center text-sm font-semibold text-gray-400 border-r border-emerald-50">
@@ -1790,7 +1801,7 @@ export default function InputData() {
                   <div className="space-y-4">
                       {identifikasiGrid.map((row, idx) => (
                         <div
-                          key={row.id}
+                          key={`${row.id}-${idx}`}
                           className="bg-white border text-left border-gray-200 rounded-2xl shadow-sm p-4 sm:p-5 flex flex-col gap-4 group hover:border-[#10a37f] transition-all relative overflow-hidden"
                         >
                           <div className="absolute top-0 left-0 w-1 h-full bg-[#10a37f] opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -2299,7 +2310,7 @@ export default function InputData() {
 
                             return (
                               <tr
-                                key={row.id}
+                                key={`${row.id}-${idx}`}
                                 className={`border-b border-gray-50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-[#F9FAFB]"} hover:bg-emerald-50/20`}
                               >
                                 <td className="py-3 px-4 text-center text-sm font-semibold text-gray-800 border-r border-gray-100">
@@ -2496,7 +2507,7 @@ export default function InputData() {
 
                             return (
                               <tr
-                                key={row.id}
+                                key={`${row.id}-${idx}`}
                                 className="border-b border-slate-100 hover:bg-[#f0fdf4] transition-colors"
                               >
                                 <td className="py-2.5 px-4 text-xs font-bold text-slate-500 text-center">
@@ -2636,8 +2647,8 @@ export default function InputData() {
                 !isIdentifikasiPasien &&
                 !isWaktuTunggu &&
                 !isFornas && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-emerald-100/10 pt-4">
-                    <div className="bg-[#fbFdfC] border border-emerald-50 rounded-3xl p-6 md:p-8 flex flex-col justify-between hover:shadow-xs hover:border-emerald-100 transition-all duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-slate-200/60 pt-6">
+                    <div className="bg-[#f8fafc] border border-white rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-[8px_8px_22px_rgba(160,175,195,0.22),-8px_-8px_22px_rgba(255,255,255,0.95)] hover:shadow-[10px_10px_26px_rgba(140,160,180,0.26),-10px_-10px_26px_rgba(255,255,255,1)] transition-all duration-300">
                       <div>
                         <div className="flex items-center gap-2.5 mb-4">
                           <Activity
@@ -2661,14 +2672,14 @@ export default function InputData() {
                           {...register("numerator_val", {
                             valueAsNumber: true,
                           })}
-                          className="w-full px-5 py-3.5 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 font-extrabold text-base"
+                          className="w-full px-5 py-3.5 bg-[#f8fafc] rounded-2xl border border-slate-200/90 shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] focus:border-emerald-500 outline-none text-slate-800 font-extrabold text-base transition-all"
                           min="0"
                           required
                         />
                       </div>
                     </div>
 
-                    <div className="bg-[#fbFdfC] border border-emerald-50 rounded-3xl p-6 md:p-8 flex flex-col justify-between hover:shadow-xs hover:border-emerald-100 transition-all duration-300">
+                    <div className="bg-[#f8fafc] border border-white rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-[8px_8px_22px_rgba(160,175,195,0.22),-8px_-8px_22px_rgba(255,255,255,0.95)] hover:shadow-[10px_10px_26px_rgba(140,160,180,0.26),-10px_-10px_26px_rgba(255,255,255,1)] transition-all duration-300">
                       <div>
                         <div className="flex items-center gap-2.5 mb-4">
                           <Layers
@@ -2692,7 +2703,7 @@ export default function InputData() {
                           {...register("denominator_val", {
                             valueAsNumber: true,
                           })}
-                          className="w-full px-5 py-3.5 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-800 font-extrabold text-base"
+                          className="w-full px-5 py-3.5 bg-[#f8fafc] rounded-2xl border border-slate-200/90 shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] focus:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)] focus:border-emerald-500 outline-none text-slate-800 font-extrabold text-base transition-all"
                           min="1"
                           required
                         />
@@ -2705,7 +2716,7 @@ export default function InputData() {
 
           {/* REALTIME SCORE PREVIEW & CALCULATION INSIGHT BAR */}
           {watchKategori !== "IKP" && selectedIndikatorProfile && (
-            <div className="bg-white rounded-[24px] border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 md:p-10 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)] transition-all max-w-2xl mx-auto w-full">
+            <div className="bg-[#f8fafc] rounded-[28px] border border-white shadow-[10px_10px_25px_rgba(160,175,195,0.22),-10px_-10px_25px_rgba(255,255,255,0.95)] p-6 md:p-10 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500 max-w-2xl mx-auto w-full">
               <span className="text-sm md:text-base font-semibold text-gray-500 tracking-wide md:mb-1">
                 Persentase Capaian
               </span>
@@ -2724,7 +2735,7 @@ export default function InputData() {
                 </span>
 
                 <span
-                  className={`px-6 py-2.5 rounded-full text-sm md:text-base font-bold shadow-sm transition-colors duration-500 ${
+                  className={`px-6 py-2.5 rounded-full text-sm md:text-base font-bold shadow-[inset_1px_1px_3px_rgba(0,0,0,0.06),2px_2px_6px_rgba(160,175,195,0.2)] transition-colors duration-500 ${
                     achievementStatus === "Tercapai"
                       ? "bg-emerald-50 text-[#10a37f] border border-emerald-100/50"
                       : achievementStatus === "Mendekati"
@@ -2745,10 +2756,10 @@ export default function InputData() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full md:w-auto px-12 py-4 rounded-xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 shadow-lg ${
+              className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 ${
                 watchKategori === "IKP"
-                  ? "bg-red-600 hover:bg-red-700 shadow-red-500/10"
-                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/15"
+                  ? "bg-red-600 hover:bg-red-700 shadow-[4px_4px_14px_rgba(220,38,38,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)]"
+                  : "bg-emerald-600 hover:bg-emerald-700 shadow-[4px_4px_14px_rgba(16,163,127,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25)]"
               }`}
             >
               {isSubmitting ? (

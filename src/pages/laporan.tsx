@@ -784,7 +784,7 @@ export default function Laporan() {
                     {/* Indicators */}
                     {categoryIndicators.map((row, idx) => (
                       <tr
-                        key={row.id}
+                        key={`${row.id}-${idx}`}
                         className="border-b border-gray-100 hover:bg-gray-50/40 transition-colors bg-white"
                       >
                         <td className="py-4 px-6 text-sm font-semibold text-gray-500 text-center">
@@ -1073,7 +1073,7 @@ export default function Laporan() {
                                           "-";
                                         return (
                                           <tr
-                                            key={v.id || i}
+                                            key={`${v.id || i}-${i}`}
                                             className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
                                           >
                                             <td className="px-4 py-3 text-slate-600 font-semibold">
@@ -1174,7 +1174,7 @@ export default function Laporan() {
 
                                         return (
                                           <tr
-                                            key={v.id || i}
+                                            key={`${v.id || i}-${i}`}
                                             className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
                                           >
                                             <td className="px-4 py-3 text-slate-600 font-semibold text-center">
@@ -1258,7 +1258,7 @@ export default function Laporan() {
                                     {activeJatuhFiltered.length > 0 ? (
                                       activeJatuhFiltered.map((v, i) => (
                                         <tr
-                                          key={v.id || i}
+                                          key={`${v.id || i}-${i}`}
                                           className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
                                         >
                                           <td className="px-4 py-3 text-slate-600 font-semibold text-center">
@@ -1363,7 +1363,7 @@ export default function Laporan() {
                                   {activeIdentifikasiFiltered.length > 0 ? (
                                     activeIdentifikasiFiltered.map((v, i) => (
                                       <tr
-                                        key={v.id || i}
+                                        key={`${v.id || i}-${i}`}
                                         className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
                                       >
                                         <td className="px-4 py-3 text-slate-600 font-semibold text-center">
@@ -1569,7 +1569,7 @@ export default function Laporan() {
                                       }
                                       return (
                                         <tr
-                                          key={u.id || i}
+                                          key={`${u.id || i}-${i}`}
                                           className="hover:bg-slate-50/40 border-b border-gray-50"
                                         >
                                           <td className="px-5 py-4 text-slate-600 font-bold text-center align-middle whitespace-nowrap">

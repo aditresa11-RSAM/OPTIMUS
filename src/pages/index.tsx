@@ -119,6 +119,23 @@ export default function WelcomePage() {
     };
   }, []);
 
+  // Safe helper to cache settings without exceeding browser localStorage quota
+  const saveWelcomeCache = (data: WelcomeSettings) => {
+    if (typeof window === "undefined") return;
+    try {
+      // Do not store massive base64 media data strings in localStorage (avoids QuotaExceededError)
+      const isLargeData = (str?: string) => Boolean(str && (str.startsWith("data:") || str.length > 2000));
+      const cleanData: WelcomeSettings = {
+        ...data,
+        image_url: isLargeData(data.image_url) ? "" : (data.image_url || ""),
+        video_url: isLargeData(data.video_url) ? "" : (data.video_url || "")
+      };
+      localStorage.setItem("welcome_settings_cache", JSON.stringify(cleanData));
+    } catch {
+      // Silently ignore storage quota limits
+    }
+  };
+
   // Fetch Welcome Page Assets Configuration
   useEffect(() => {
     const loadSettings = async () => {
@@ -126,14 +143,10 @@ export default function WelcomePage() {
         const { data } = await supabase.from("welcome_settings").select("*").eq("id", "1");
         if (data && data.length > 0) {
           setSettings(data[0]);
-          try {
-            localStorage.setItem("welcome_settings_cache", JSON.stringify(data[0]));
-          } catch (e) {
-            console.warn("Could not write welcome settings to cache (Quota exceeded?)");
-          }
+          saveWelcomeCache(data[0]);
         }
-      } catch (e) {
-        console.warn("Could not query dynamic welcome media", e);
+      } catch {
+        // Fallback silently without warning spam
       } finally {
         setLoading(false);
       }
@@ -150,11 +163,7 @@ export default function WelcomePage() {
         (payload: any) => {
           if (payload.new) {
             setSettings(payload.new);
-            try {
-              localStorage.setItem("welcome_settings_cache", JSON.stringify(payload.new));
-            } catch (e) {
-              console.warn("Could not write real-time welcome settings to cache (Quota exceeded?)");
-            }
+            saveWelcomeCache(payload.new);
           }
         }
       )

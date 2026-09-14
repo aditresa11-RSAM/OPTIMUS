@@ -42,9 +42,9 @@ import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
 
 // --- Types & Interfaces ---
-export type RiskGrading = 'Low' | 'Moderate' | 'High' | 'Extreme';
+type RiskGrading = 'Low' | 'Moderate' | 'High' | 'Extreme';
 
-export interface RiskRecord {
+interface RiskRecord {
   id: string;
   tahun: string;
   unit: string;
@@ -61,7 +61,7 @@ export interface RiskRecord {
 }
 
 // --- Helpers ---
-export const getRiskGrading = (p: number, s: number): RiskGrading => {
+const getRiskGrading = (p: number, s: number): RiskGrading => {
   if (p <= 2) {
     if (s <= 2) return 'Low';
     if (s === 3) return 'Moderate';
@@ -184,24 +184,32 @@ export default function ManajemenRisiko() {
               await supabase.from('manajemen_risiko').insert(payload);
             }
           } else {
-            const mapped = data.map(d => ({
-              id: d.id,
-              tahun: d.tahun,
-              unit: d.unit,
-              risiko: d.risiko,
-              penyebab: d.penyebab,
-              severity: d.severity,
-              probability: d.probability,
-              riskScore: d.risk_score,
-              pengelolaan: d.pengelolaan,
-              pic: d.pic,
-              grading: d.grading,
-              createdAt: d.created_at,
-              updatedAt: d.updated_at
-            }));
-            setRecords(mapped);
+            const seenIds = new Set<string>();
+            const uniqueRecords: RiskRecord[] = [];
+            data.forEach(d => {
+              const uniqueId = String(d.id || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+              if (!seenIds.has(uniqueId)) {
+                seenIds.add(uniqueId);
+                uniqueRecords.push({
+                  id: uniqueId,
+                  tahun: d.tahun,
+                  unit: d.unit,
+                  risiko: d.risiko,
+                  penyebab: d.penyebab,
+                  severity: d.severity,
+                  probability: d.probability,
+                  riskScore: d.risk_score,
+                  pengelolaan: d.pengelolaan,
+                  pic: d.pic,
+                  grading: d.grading,
+                  createdAt: d.created_at,
+                  updatedAt: d.updated_at
+                });
+              }
+            });
+            setRecords(uniqueRecords);
             if (typeof window !== "undefined") {
-              localStorage.setItem("manajemen_risiko", JSON.stringify(mapped));
+              localStorage.setItem("manajemen_risiko", JSON.stringify(uniqueRecords));
             }
           }
           setSupabaseError(null);
@@ -287,7 +295,7 @@ export default function ManajemenRisiko() {
     const grade = getRiskGrading(p, s);
     
     const newRecord: RiskRecord = {
-      id: editingId || Date.now().toString(),
+      id: editingId || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       tahun: formData.tahun || new Date().getFullYear().toString(),
       unit: formData.unit || '',
       risiko: formData.risiko || '',
@@ -746,7 +754,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
                       className="px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium text-slate-700 bg-white"
                     >
                       <option value="All">Semua Unit</option>
-                      {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                      {units.map((u, idx) => <option key={`${u.id || idx}-${idx}`} value={u.name}>{u.name}</option>)}
                     </select>
                   </div>
                   
@@ -778,7 +786,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredRecords.length > 0 ? filteredRecords.map((record, index) => (
-                        <tr key={record.id} className="hover:bg-emerald-50/30 transition-colors group">
+                        <tr key={`${record.id || index}-${index}`} className="hover:bg-emerald-50/30 transition-colors group">
                           <td className="px-4 py-3.5 text-sm font-semibold text-slate-500 text-center">{index + 1}</td>
                           <td className="px-4 py-3.5 text-sm text-slate-700 font-medium text-center">{record.tahun}</td>
                           <td className="px-4 py-3.5 text-sm text-slate-700 font-semibold">{record.unit}</td>
@@ -878,7 +886,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
                           className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-700"
                         >
                           <option value="" disabled>Pilih Unit</option>
-                          {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                          {units.map((u, idx) => <option key={`${u.id || idx}-${idx}`} value={u.name}>{u.name}</option>)}
                         </select>
                         <button 
                           onClick={() => setIsUnitModalOpen(true)}
@@ -1336,7 +1344,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
                   <button 
                     onClick={() => {
                       if (newUnitName.trim()) {
-                        const newId = Date.now().toString();
+                        const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
                         addUnit({ id: newId, name: newUnitName.trim(), category: 'Umum', status: 'Aktif' });
                         supabase.from('units').insert({ id: newId, name: newUnitName.trim(), category: 'Umum', status: 'Aktif' }).then();
                         setNewUnitName('');
@@ -1352,8 +1360,8 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
                 <div className="max-h-[300px] overflow-y-auto rounded-xl border border-gray-100">
                   <table className="w-full text-left text-sm">
                     <tbody className="divide-y divide-gray-100">
-                      {units.map((u) => (
-                        <tr key={u.id} className="hover:bg-slate-50">
+                      {units.map((u, idx) => (
+                        <tr key={`${u.id || idx}-${idx}`} className="hover:bg-slate-50">
                           <td className="px-4 py-3 font-semibold text-slate-700">{u.name}</td>
                           <td className="px-4 py-3 text-right">
                             <button 

@@ -9,6 +9,7 @@ import "@/styles/globals.css";
 
 // Prevents Next.js HMR TypeError: Cannot read properties of undefined (reading 'components') during dynamic hot-reloading
 if (typeof window !== "undefined") {
+  // 1. Guard __NEXT_DATA__
   let currentNextData = (window as any).__NEXT_DATA__ || { components: {} };
   if (!currentNextData.components) {
     currentNextData.components = {};
@@ -32,6 +33,34 @@ if (typeof window !== "undefined") {
   } catch (e) {
     // Fallback if defineProperty fails
     (window as any).__NEXT_DATA__ = currentNextData;
+  }
+
+  // 2. Guard window.next.router.components for Next.js hot-reloader
+  const win = window as any;
+  if (!win.next) {
+    win.next = {};
+  }
+  let currentRouter = win.next.router || { components: {}, pathname: "" };
+  if (!currentRouter.components) {
+    currentRouter.components = {};
+  }
+  try {
+    Object.defineProperty(win.next, "router", {
+      get() {
+        return currentRouter;
+      },
+      set(newRouter) {
+        if (newRouter) {
+          if (!newRouter.components) {
+            newRouter.components = {};
+          }
+          currentRouter = newRouter;
+        }
+      },
+      configurable: true,
+    });
+  } catch (e) {
+    win.next.router = currentRouter;
   }
 }
 

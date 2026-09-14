@@ -201,7 +201,7 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
   const handleAddUnit = async () => {
     const newUnitName = window.prompt("Masukkan nama ruangan baru:");
     if (!newUnitName || !newUnitName.trim()) return;
-    const newId = Date.now().toString();
+    const newId = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const newUnitObj = { id: newId, name: newUnitName.trim(), category: 'Umum', status: 'Aktif' as const };
     addUnit(newUnitObj);
     setUnit(newUnitObj.name);
@@ -235,7 +235,7 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
       return;
     }
     const newRecord: SupervisiHistoryItem = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       tanggal,
       unit,
       supervisor,
@@ -342,7 +342,7 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {items.map((item, idx) => (
-                  <React.Fragment key={item.id}>
+                  <React.Fragment key={`${item.id}-${idx}`}>
                     {/* Render Category Header if it's the first item of the category */}
                     {(idx === 0 || items[idx - 1].kategori !== item.kategori) && (
                       <tr className="bg-slate-50">
@@ -542,8 +542,8 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-100">
-                    {historyList.map((item) => (
-                       <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                    {historyList.map((item, idx) => (
+                       <tr key={`${item.id}-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="p-4 text-sm font-bold text-slate-700">{item.tanggal}</td>
                           <td className="p-4 text-sm font-bold text-slate-700">{item.unit}</td>
                           <td className="p-4 text-sm font-semibold text-slate-600">{item.supervisor}</td>
@@ -619,9 +619,9 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
               <div className="max-h-60 overflow-y-auto p-4 space-y-1.5">
                 {units
                   .filter(u => u.name.toLowerCase().includes(roomSearch.toLowerCase()))
-                  .map((u) => (
+                  .map((u, idx) => (
                     <div 
-                      key={u.id}
+                      key={`${u.id}-${idx}`}
                       className="flex items-center justify-between p-3 rounded-xl hover:bg-emerald-50/50 border border-transparent hover:border-emerald-100 group transition-all"
                     >
                       <button

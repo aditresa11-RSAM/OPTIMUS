@@ -76,8 +76,7 @@ export default function WelcomePage() {
             });
           }
         }
-      } catch (e) {
-        console.warn("Could not query dynamic welcome media", e);
+      } catch {
         const localImage = localStorage.getItem("welcome_bg_image");
         const localVideo = localStorage.getItem("welcome_bg_video");
         if (localImage || localVideo) {
