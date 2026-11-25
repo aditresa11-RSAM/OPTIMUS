@@ -67,36 +67,78 @@ if (typeof window !== "undefined") {
 function GlobalInitializer() {
   const setHospitalLogo = useStore((state) => state.setHospitalLogo);
   const setIndicatorProfiles = useStore((state) => state.setIndicatorProfiles);
+  const addUnit = useStore((state) => state.addUnit);
 
   useEffect(() => {
-    const savedLogo = localStorage.getItem("hospital_logo");
-    if (savedLogo) {
-      setHospitalLogo(savedLogo);
-    }
+    // 1. Auto-migrate any legacy localStorage data to local computer DB
+    const migrateLegacyData = async () => {
+      try {
+        const rawRisiko = localStorage.getItem("manajemen_risiko");
+        const rawSurvei = localStorage.getItem("survei_budaya_local");
+        const rawSupervisi = localStorage.getItem("supervisi_k3rs_history");
+        const rawLogo = localStorage.getItem("hospital_logo");
 
+        const payload: any = {};
+        if (rawRisiko) {
+          try { payload.manajemen_risiko = JSON.parse(rawRisiko); } catch (e) {}
+        }
+        if (rawSurvei) {
+          try { payload.survei_budaya = JSON.parse(rawSurvei); } catch (e) {}
+        }
+        if (rawSupervisi) {
+          try { payload.supervisi_k3rs = JSON.parse(rawSupervisi); } catch (e) {}
+        }
+        if (rawLogo) {
+          payload.hospital_logo = rawLogo;
+        }
+
+        if (Object.keys(payload).length > 0) {
+          await fetch("/api/db", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "migrate_localStorage", payload }),
+          });
+        }
+      } catch (e) {
+        console.warn("Auto-migrate legacy data skipped:", e);
+      }
+    };
+    migrateLegacyData();
+
+    // 2. Load Logo from Local Database
     const loadGlobalSettings = async () => {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("welcome_settings")
           .select("image_url")
           .eq("id", "logo")
           .single();
-          
+
         if (data && data.image_url) {
           localStorage.setItem("hospital_logo", data.image_url);
           setHospitalLogo(data.image_url);
+        } else {
+          const savedLogo = localStorage.getItem("hospital_logo");
+          if (savedLogo) setHospitalLogo(savedLogo);
         }
       } catch (err) {}
     };
     loadGlobalSettings();
 
-    // Central Data Synchronization
+    // 3. Central Data Synchronization for Master Indikator & Units
     const syncMasterData = async () => {
       try {
+        // Sync Units
+        const { data: unitsData } = await supabase.from("units").select("*");
+        if (unitsData && Array.isArray(unitsData) && unitsData.length > 0) {
+          unitsData.forEach((u: any) => addUnit(u));
+        }
+
+        // Sync Master Indikator
         const { data, error } = await supabase
-          .from('master_indikator')
-          .select('*')
-          .order('created_at', { ascending: true });
+          .from("master_indikator")
+          .select("*")
+          .order("created_at", { ascending: true });
 
         if (data && !error) {
           const adapted = data.map((d: any) => ({
@@ -148,19 +190,23 @@ function GlobalInitializer() {
     return () => {
       supabase.removeChannel(psqlChannel);
     };
-  }, [setHospitalLogo, setIndicatorProfiles]);
+  }, [setHospitalLogo, setIndicatorProfiles, addUnit]);
 
   return null;
 }
 
 export default function App({ Component, pageProps, router }: AppProps) {
   const [queryClient] = useState(() => new QueryClient());
+  const hospitalLogo = useStore((state) => state.hospitalLogo);
 
   return (
     <QueryClientProvider client={queryClient}>
       <Head>
         <title>UOBK RSUD AL-MULK - Sistem Pelaporan Mutu</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href={hospitalLogo || "/favicon.png"} />
+        <link rel="shortcut icon" href={hospitalLogo || "/favicon.png"} />
+        <link rel="apple-touch-icon" href={hospitalLogo || "/favicon.png"} />
       </Head>
       <GlobalInitializer />
       <Layout router={router}>

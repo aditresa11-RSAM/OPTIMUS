@@ -1,7 +1,21 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
-import { Upload, Check, AlertCircle, Building2, Trash2, Image as ImageIcon } from "lucide-react";
+import { 
+  Database as PhDatabase, 
+  CloudArrowDown, 
+  CloudArrowUp, 
+  CheckCircle as PhCheckCircle, 
+  ArrowsClockwise, 
+  ShieldCheck as PhShieldCheck, 
+  FolderSimple, 
+  HardDrives,
+  FileText as PhFileText
+} from "@phosphor-icons/react";
+import { 
+  Upload, Check, AlertCircle, Building2, Trash2, Image as ImageIcon,
+  Download, Database, Server, Wifi, Copy, Shield, Users, RefreshCw
+} from "lucide-react";
 
 export default function Pengaturan() {
   const hospitalLogo = useStore((state) => state.hospitalLogo);
@@ -23,6 +37,132 @@ export default function Pengaturan() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
+
+  // Backup & Restore State
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isSyncingGdrive, setIsSyncingGdrive] = useState(false);
+  const [gdriveSyncMsg, setGdriveSyncMsg] = useState("");
+  const [backupMsg, setBackupMsg] = useState("");
+  const [copiedLan, setCopiedLan] = useState(false);
+  const [backupStats, setBackupStats] = useState<{
+    lastModified: string | null;
+    fileSizeKb: number;
+    realtimeBackupExists: boolean;
+    totalTables: number;
+    totalRecords: number;
+    realtimeBackupPath: string;
+    gdriveMounted?: boolean;
+    gdriveBackupPath?: string;
+  } | null>(null);
+
+  const localIp = "192.168.100.23:3002";
+
+  const fetchBackupStats = async () => {
+    try {
+      const res = await fetch("/api/db?getBackupStatus=true");
+      if (res.ok) {
+        const json = await res.json();
+        setBackupStats(json);
+      }
+    } catch (e) {
+      console.warn("Could not fetch backup stats", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchBackupStats();
+  }, []);
+
+  const handleSyncGdriveNow = async () => {
+    setIsSyncingGdrive(true);
+    setGdriveSyncMsg("");
+    try {
+      const res = await fetch("/api/db?syncGdriveNow=true");
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Gagal sinkronisasi ke Google Drive");
+      }
+      setGdriveSyncMsg("Sinkronisasi Berhasil! Database telah disalin langsung ke Google Drive (G:\\My Drive\\BACKUP_OPTIMUS_RSUD_ALMULK)");
+      fetchBackupStats();
+    } catch (err: any) {
+      alert("Peringatan Sinkronisasi: " + err.message);
+    } finally {
+      setIsSyncingGdrive(false);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    setIsBackingUp(true);
+    setBackupMsg("");
+    try {
+      const res = await fetch("/api/db?exportAll=true");
+      if (!res.ok) throw new Error("Gagal mengambil data dari server");
+      const data = await res.json();
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const now = new Date();
+      const dateStr = now.toISOString().split("T")[0];
+      const timeStr = `${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}`;
+      a.href = url;
+      a.download = `BACKUP_OPTIMUS_RSUD_ALMULK_${dateStr}_${timeStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setBackupMsg("Cadangan database berhasil diunduh! File ini siap disimpan di Google Drive Anda.");
+      fetchBackupStats();
+    } catch (e: any) {
+      alert("Gagal mengunduh cadangan: " + e.message);
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm(`PENTING: Anda akan memulihkan database dari file "${file.name}". Seluruh data yang ada saat ini akan digantikan dengan data dari file cadangan ini. Lanjutkan?`)) {
+      e.target.value = "";
+      return;
+    }
+
+    setIsRestoring(true);
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+
+      const res = await fetch("/api/db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "restore",
+          payload,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Gagal memulihkan database");
+
+      alert("SUKSES: " + json.message + ` (${json.tablesRestored.length} tabel dipulihkan). Halaman akan dimuat ulang.`);
+      window.location.reload();
+    } catch (e: any) {
+      alert("Gagal memulihkan database: " + e.message);
+    } finally {
+      setIsRestoring(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleCopyLan = () => {
+    navigator.clipboard.writeText(`http://${localIp}`);
+    setCopiedLan(true);
+    setTimeout(() => setCopiedLan(false), 3000);
+  };
 
   // Load current logo from store / localStorage
   useEffect(() => {
@@ -92,13 +232,13 @@ export default function Pengaturan() {
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      setErrorMsg("Format berkas harus berupa gambar (PNG, JPG, JPEG)!");
+      setErrorMsg("Format berkas harus berupa gambar (PNG, JPG, JPEG, WEBP)!");
       return;
     }
     
-    // Check size limit: 2MB max
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg("Ukuran gambar terlalu besar! Maksimal adalah 2MB.");
+    // Check size limit: 20MB max
+    if (file.size > 20 * 1024 * 1024) {
+      setErrorMsg("Ukuran logo terlalu besar! Maksimal adalah 20MB.");
       return;
     }
 
@@ -107,97 +247,34 @@ export default function Pengaturan() {
       setErrorMsg("");
       setSuccessMsg("");
 
-      // Read as base64 for real-time reactivity and local fallback
-      const base64String = await fileToBase64(file);
+      const fileExt = file.name.split(".").pop() || "png";
+      const fileName = `hospital-logo-${Date.now()}.${fileExt}`;
+      const bucketName = "logos";
 
-      // Check if Supabase URL is placeholder
-      const isPlaceholderSupabase =
-        process.env.NEXT_PUBLIC_SUPABASE_URL === undefined ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === undefined ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder-key");
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
 
-      if (isPlaceholderSupabase) {
-        // Safe sandbox fallback
-        localStorage.setItem("hospital_logo", base64String);
-        setHospitalLogo(base64String);
-        setSuccessMsg(
-          "Logo berhasil diperbarui dan disimpan secara lokal! (Supabase menggunakan kredensial default/placeholder)."
-        );
-      } else {
-        // Attempt genuine Supabase upload to storage bucket
-        const fileExt = file.name.split(".").pop();
-        const fileName = `hospital-logo-${Date.now()}.${fileExt}`;
-        const bucketName = "logos";
-        let logoUrl = "";
-        let storageSuccess = false;
-
-        try {
-          // Step 1: Upload the file
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(fileName, file, {
-              cacheControl: "3600",
-              upsert: true,
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          // Step 2: Retrieve the public URL
-          const { data: urlData } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(fileName);
-
-          logoUrl = urlData.publicUrl;
-          storageSuccess = true;
-        } catch (storageErr: any) {
-          console.warn("Storage upload failed, falling back to base64 encoding", storageErr);
-          logoUrl = base64String;
-        }
-
-        // Step 3: Save setting metadata in dynamic settings table
-        let dbSuccess = false;
-        try {
-          const { error: dbError } = await supabase.from("welcome_settings").upsert(
-            { id: "logo", image_url: logoUrl },
-            { onConflict: "id" }
-          );
-
-          if (dbError) {
-            throw dbError;
-          }
-          dbSuccess = true;
-        } catch (dbErr: any) {
-          console.warn("Database welcome_settings table upsert failed:", dbErr);
-        }
-
-        // Always save to state and localStorage to keep it loaded and reactive across refreshes/restarts
-        localStorage.setItem("hospital_logo", logoUrl);
-        setHospitalLogo(logoUrl);
-
-        if (storageSuccess && dbSuccess) {
-          setSuccessMsg("Logo RS berhasil diunggah ke Supabase Storage & Database Settings secara permanen!");
-        } else if (dbSuccess) {
-          setSuccessMsg("Logo berhasil disimpan di Supabase Database! (Pengunggahan ke Storage Bucket dialihkan karena limitasi bucket).");
-        } else if (storageSuccess) {
-          setSuccessMsg("Logo berhasil diunggah ke Supabase Storage! (Penyimpanan database dialihkan karena pembatasan tabel).");
-        } else {
-          setSuccessMsg("Logo berhasil diubah dan disimpan secara lokal di browser Anda!");
-          setErrorMsg("Catatan: Integrasi cloud penuh gagal (Invalid path/nama bucket/tabel tidak ditemukan). Silakan cek panduan Supabase di bawah.");
-          setShowGuide(true);
-        }
+      if (uploadError) {
+        throw new Error(uploadError.message || "Gagal mengunggah logo");
       }
+
+      const logoUrl = (uploadData as any)?.url || (uploadData as any)?.publicUrl || (uploadData as any)?.fullUrl || ((uploadData as any)?.path ? `/uploads/${(uploadData as any).path}` : `/uploads/${fileName}`);
+
+      await supabase.from("welcome_settings").upsert(
+        { id: "logo", image_url: logoUrl },
+        { onConflict: "id" }
+      );
+
+      localStorage.setItem("hospital_logo", logoUrl);
+      setHospitalLogo(logoUrl);
+      setSuccessMsg("Logo RS berhasil diperbarui dan disimpan secara permanen!");
     } catch (err: any) {
       console.error("Upload error:", err);
-      setErrorMsg(`Gagal mengunggah ke Supabase (${err.message || err.toString()}). Menyimpan secara lokal di browser.`);
-      setShowGuide(true);
-      try {
-        const base64String = await fileToBase64(file);
-        localStorage.setItem("hospital_logo", base64String);
-        setHospitalLogo(base64String);
-      } catch (localErr) {}
+      setErrorMsg(`Gagal mengunggah logo: ${err.message || err.toString()}`);
     } finally {
       setUploading(false);
     }
@@ -208,7 +285,7 @@ export default function Pengaturan() {
     const isImage = file.type.startsWith("image/");
 
     if (!isImage && !isVideo) {
-      setBgErrorMsg("Format berkas harus berupa gambar (PNG, JPG, JPEG) atau video MP4!");
+      setBgErrorMsg("Format berkas harus berupa gambar (PNG, JPG, JPEG, WEBP) atau video MP4!");
       return;
     }
 
@@ -217,17 +294,14 @@ export default function Pengaturan() {
       return;
     }
 
-    // Size limit verification
-    if (isVideo) {
-      if (file.size > 20 * 1024 * 1024) {
-        setBgErrorMsg("Ukuran video terlalu besar! Maksimal adalah 20MB.");
-        return;
-      }
-    } else {
-      if (file.size > 2 * 1024 * 1024) {
-        setBgErrorMsg("Ukuran gambar terlalu besar! Maksimal adalah 2MB.");
-        return;
-      }
+    // Size limit verification: 20MB max for both image and video
+    if (file.size > 20 * 1024 * 1024) {
+      setBgErrorMsg(
+        isVideo
+          ? "Ukuran video terlalu besar! Maksimal adalah 20MB."
+          : "Ukuran gambar terlalu besar! Maksimal adalah 20MB."
+      );
+      return;
     }
 
     try {
@@ -235,71 +309,50 @@ export default function Pengaturan() {
       setBgErrorMsg("");
       setBgSuccessMsg("");
 
-      const base64String = await fileToBase64(file);
+      const fileExt = file.name.split(".").pop() || (isVideo ? "mp4" : "png");
+      const fileName = `welcome-bg-${Date.now()}.${fileExt}`;
+      const bucketName = "backgrounds";
 
-      const isPlaceholderSupabase =
-        process.env.NEXT_PUBLIC_SUPABASE_URL === undefined ||
-        process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === undefined ||
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.includes("placeholder-key");
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, { cacheControl: "3600", upsert: true });
 
-      if (isPlaceholderSupabase) {
-        if (isVideo) {
-          setBgVideo(base64String);
-          setBgImage("");
-          localStorage.setItem("welcome_bg_video", base64String);
-          localStorage.removeItem("welcome_bg_image");
-        } else {
-          setBgImage(base64String);
-          setBgVideo("");
-          localStorage.setItem("welcome_bg_image", base64String);
-          localStorage.removeItem("welcome_bg_video");
-        }
-        setBgSuccessMsg("Latar belakang berhasil diperbarui secara lokal (Supabase menggunakan kredensial placeholder).");
-      } else {
-        const fileExt = file.name.split(".").pop();
-        const fileName = `welcome-bg-${Date.now()}.${fileExt}`;
-        const bucketName = "backgrounds";
-        let uploadedUrl = "";
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(bucketName)
-          .upload(fileName, file, { cacheControl: "3600", upsert: true });
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-          uploadedUrl = urlData.publicUrl;
-        } else {
-          uploadedUrl = base64String;
-        }
-
-        const updatePayload = isVideo
-          ? { id: "1", video_url: uploadedUrl, image_url: "", youtube_url: "", google_drive_url: "" }
-          : { id: "1", image_url: uploadedUrl, video_url: "", youtube_url: "", google_drive_url: "" };
-
-        const { error: dbError } = await supabase.from("welcome_settings").upsert(
-          updatePayload,
-          { onConflict: "id" }
-        );
-
-        if (dbError) throw dbError;
-
-        if (isVideo) {
-          setBgVideo(uploadedUrl);
-          setBgImage("");
-          localStorage.setItem("welcome_bg_video", uploadedUrl);
-          localStorage.removeItem("welcome_bg_image");
-        } else {
-          setBgImage(uploadedUrl);
-          setBgVideo("");
-          localStorage.setItem("welcome_bg_image", uploadedUrl);
-          localStorage.removeItem("welcome_bg_video");
-        }
-        setBgSuccessMsg(isVideo ? "Video background berhasil diunggah ke Supabase!" : "Gambar background berhasil diunggah ke Supabase!");
+      if (uploadError) {
+        throw new Error(uploadError.message || "Gagal mengunggah berkas");
       }
+
+      const uploadedUrl = (uploadData as any)?.url || (uploadData as any)?.publicUrl || (uploadData as any)?.fullUrl || ((uploadData as any)?.path ? `/uploads/${(uploadData as any).path}` : `/uploads/${fileName}`);
+
+      const updatePayload = isVideo
+        ? { id: "1", video_url: uploadedUrl, image_url: "", youtube_url: "", google_drive_url: "" }
+        : { id: "1", image_url: uploadedUrl, video_url: "", youtube_url: "", google_drive_url: "" };
+
+      const { error: dbError } = await supabase.from("welcome_settings").upsert(
+        updatePayload,
+        { onConflict: "id" }
+      );
+
+      if (dbError) throw dbError;
+
+      if (isVideo) {
+        setBgVideo(uploadedUrl);
+        setBgImage("");
+        localStorage.setItem("welcome_bg_video", uploadedUrl);
+        localStorage.removeItem("welcome_bg_image");
+      } else {
+        setBgImage(uploadedUrl);
+        setBgVideo("");
+        localStorage.setItem("welcome_bg_image", uploadedUrl);
+        localStorage.removeItem("welcome_bg_video");
+      }
+      setBgSuccessMsg(
+        isVideo
+          ? "Video background berhasil diunggah dan disimpan!"
+          : "Gambar background resolusi tinggi berhasil diunggah dan disimpan!"
+      );
     } catch (err: any) {
       console.error("BG Upload error:", err);
-      setBgErrorMsg(`Gagal memproses background (${err.message}).`);
+      setBgErrorMsg(`Gagal memproses background (${err.message || err.toString()}).`);
     } finally {
       setBgUploading(false);
     }
@@ -355,14 +408,57 @@ export default function Pengaturan() {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-extrabold text-emerald-900 tracking-tight">
-          Pengaturan Sistem
-        </h1>
-        <p className="text-gray-900 mt-1 text-[15px] font-medium">
-          Kelola aset rumah sakit, logo institusi, dan konfigurasi data terintegrasi.
-        </p>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-5xl mx-auto">
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Pengaturan Sistem) */}
+      <div id="pengaturan-header-panel" className="relative pt-0 group">
+        {/* Card Main Body */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
+          </div>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Pengaturan Sistem OPTIMUS
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                Kelola Profil Rumah Sakit, Backup/Restore Database, dan Pengaturan Aplikasi
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Pusat kendali integrasi database, manajemen logo instansi, serta pemeliharaan sistem terpadu UOBK RSUD Al-Mulk.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
+        </div>
+
+        {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/pengaturan_character_popout.png"
+            alt="Pengaturan Sistem 3D"
+            className="h-[145px] sm:h-[160px] lg:h-[174px] xl:h-[182px] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-[0_4px_30px_-5px_rgba(0,0,0,0.05)] border border-gray-100 p-8 space-y-8">
@@ -372,7 +468,7 @@ export default function Pengaturan() {
             Identitas & Logo Rumah Sakit
           </h2>
           <p className="text-gray-500 text-sm">
-            Logo ini akan diintegrasikan langsung pada menu bilah sisi (Sidebar) dan kop laporan dinamis UOBK RSUD AL-MULK Kota Sukabumi.
+            Logo ini akan diintegrasikan langsung pada tab browser (Favicon), menu bilah sisi (Sidebar), dan kop laporan dinamis UOBK RSUD AL-MULK Kota Sukabumi.
           </p>
         </div>
 
@@ -455,7 +551,7 @@ export default function Pengaturan() {
                 )}
               </p>
               <p className="text-xs text-gray-400 mt-1.5 font-medium">
-                Format PNG, JPG, atau WEBP (Maks. 2MB)
+                Format PNG, JPG, atau WEBP (Maks. 20MB)
               </p>
             </div>
           </div>
@@ -564,68 +660,244 @@ export default function Pengaturan() {
                 )}
               </p>
               <p className="text-xs text-gray-400 mt-1.5 font-medium">
-                Pilih Gambar (Maks. 2MB) atau Video MP4 (Maks. 20MB)
+                Pilih Gambar Resolusi Tinggi (Maks. 20MB) atau Video MP4 (Maks. 20MB)
               </p>
             </div>
           </div>
         </div>
 
-        {/* Supabase Permanent Configuration Guide */}
-        <div className="border-t border-gray-100 pt-8 mt-6">
-          <button
-            onClick={() => setShowGuide(!showGuide)}
-            className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-[#10a37f] transition-colors"
-          >
-            <span className={`transform transition-transform duration-200 ${showGuide ? "rotate-90" : ""}`}>▶</span>
-            {showGuide ? "Sembunyikan Panduan Integrasi Permanen Supabase" : "Tampilkan Panduan Integrasi Permanen Supabase"}
-          </button>
-          {showGuide && (
-            <div className="mt-4 p-5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 animate-in fade-in duration-300 space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="h-2 w-2 rounded-full bg-[#10a37f] animate-pulse" />
-                <h3 className="font-bold text-sm text-slate-800">Panduan Konfigurasi Supabase Mandiri</h3>
+        {/* 1. Cadangan & Pemulihan Database (Backup & Restore Otomatis) */}
+        <div className="border-t border-gray-100 pt-8 mt-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-2xl shadow-xs">
+                <PhDatabase weight="duotone" size={26} className="text-[#007A4D]" />
               </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Agar unggahan logo tersimpan secara cloud-permanen dan terintegrasi penuh di Supabase (sehingga tidak hilang setelah refresh/login ulang/beda peramban), silakan lakukan konfigurasi singkat berikut pada akun Supabase Anda:
-              </p>
-              
-              <div className="space-y-4 text-xs font-medium">
-                <div>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded mr-1.5">Langkah 1</span>
-                  <strong className="text-slate-800">Buat Tabel settings di SQL Editor</strong>
-                  <pre className="bg-slate-950 text-emerald-400 p-3 rounded-lg overflow-x-auto mt-1.5 font-mono text-[11px] select-all">
-{`CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-);
-
--- Izinkan akses publik untuk dibaca dan ditulis
-ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Read Settings" ON settings FOR SELECT USING (true);
-CREATE POLICY "Public All Settings" ON settings FOR ALL USING (true) WITH CHECK (true);`}
-                  </pre>
-                </div>
-
-                <div>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded mr-1.5">Langkah 2</span>
-                  <strong className="text-slate-800">Buat Bucket logos di Storage</strong>
-                  <ul className="list-disc pl-5 mt-1.5 space-y-1 text-slate-600">
-                    <li>Masuk ke dasbor Supabase Anda, pilih menu <strong className="text-slate-700">Storage</strong>.</li>
-                    <li>Klik <strong className="text-slate-700">New Bucket</strong>, masukkan nama bucket: <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-slate-800">logos</code>.</li>
-                    <li>Pastikan untuk mengaktifkan opsi <strong className="text-slate-700">Public bucket</strong> agar URL gambar logo dapat diakses tanpa token.</li>
-                    <li>Di bagian <strong className="text-slate-700">Policies</strong>, tambahkan kebijakan agar user anonim/publik diperbolehkan melakukan tindakan <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">SELECT</code> dan <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">INSERT/UPDATE</code>.</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-200/50 rounded-xl text-amber-900 text-xs flex items-start gap-2.5">
-                <AlertCircle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="leading-relaxed">
-                  <strong>Catatan Sistem:</strong> Selagi Anda mengonfigurasi Supabase, logo Anda saat ini telah <strong>disimpan secara aman di peramban lokal (localStorage)</strong> dan tetap aktif menampilkan identitas rumah sakit.
+              <div>
+                <h3 className="font-extrabold text-lg text-slate-800 tracking-tight">
+                  Cadangan & Pemulihan Database (Backup & Restore Otomatis)
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Amankan seluruh data mutu ke Google Drive secara otomatis & realtime, atau pulihkan data kapan saja.
                 </p>
               </div>
             </div>
+
+            {/* Realtime Status Badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200/80 rounded-xl shrink-0 self-start sm:self-auto">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              <span className="text-xs font-bold text-emerald-800">
+                Auto-Backup Realtime: <strong className="text-emerald-950 font-black">Aktif</strong>
+              </span>
+            </div>
+          </div>
+
+          {/* Database Live Stats Banner */}
+          <div className="bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/70 border border-emerald-200/60 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs shadow-xs">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pembaruan Terakhir</p>
+              <p className="font-extrabold text-slate-800 mt-0.5">
+                {backupStats?.lastModified 
+                  ? new Date(backupStats.lastModified).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) 
+                  : "Baru Saja"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ukuran Database</p>
+              <p className="font-extrabold text-slate-800 mt-0.5">
+                {backupStats?.fileSizeKb || 0} KB
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Rekaman Data</p>
+              <p className="font-extrabold text-slate-800 mt-0.5">
+                {backupStats?.totalRecords || 0} Data ({backupStats?.totalTables || 0} Tabel)
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Snapshot Realtime</p>
+              <p className="font-extrabold text-emerald-700 flex items-center gap-1 mt-0.5">
+                <PhCheckCircle weight="duotone" size={14} className="text-emerald-600" />
+                Tersimpan Otomatis
+              </p>
+            </div>
+          </div>
+
+          {backupMsg && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2.5 animate-in fade-in duration-300">
+              <Check size={18} className="text-emerald-600 shrink-0" />
+              <span>{backupMsg}</span>
+            </div>
           )}
+
+          {/* 2 Main Action Cards: Download & Restore */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Download Backup */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-emerald-300 transition-colors">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                    Cadangan Mandiri
+                  </span>
+                  <HardDrives weight="duotone" size={20} className="text-emerald-600" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm mt-1">Unduh Salinan Cadangan Lengkap (.JSON)</h4>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Ekspor seluruh data (profil indikator, capaian bulanan, insiden IKP, manajemen risiko, dan supervisi) ke file JSON bertanggal. File ini bisa langsung Anda simpan di <strong>Google Drive</strong> atau flashdisk.
+                </p>
+              </div>
+              <button
+                onClick={handleDownloadBackup}
+                disabled={isBackingUp}
+                className="mt-5 flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/15 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <CloudArrowDown weight="duotone" size={18} />
+                {isBackingUp ? "Mengekspor Database..." : "Unduh Cadangan Database (.JSON)"}
+              </button>
+            </div>
+
+            {/* Restore Database */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between hover:border-amber-300 transition-colors">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-md">
+                    Pemulihan Darurat
+                  </span>
+                  <ArrowsClockwise weight="duotone" size={20} className="text-amber-600" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm mt-1">Pulihkan Database dari File Cadangan</h4>
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Pilih file cadangan JSON dari <strong>Google Drive</strong> atau komputer Anda untuk mengembalikan seluruh data jika Anda ganti laptop baru atau setelah melakukan install ulang sistem.
+                </p>
+              </div>
+              <input
+                type="file"
+                ref={restoreInputRef}
+                onChange={handleRestoreFile}
+                accept=".json,application/json"
+                className="hidden"
+              />
+              <button
+                onClick={() => restoreInputRef.current?.click()}
+                disabled={isRestoring}
+                className="mt-5 flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 active:bg-black text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                <CloudArrowUp weight="duotone" size={18} className={isRestoring ? "animate-spin" : ""} />
+                {isRestoring ? "Memulihkan Database..." : "Pilih File Cadangan untuk Dipulihkan"}
+              </button>
+            </div>
+          </div>
+
+          {/* Google Drive Realtime Integration Card */}
+          <div className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-indigo-50/50 border border-blue-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-xs shrink-0 mt-0.5">
+                  <FolderSimple weight="duotone" size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-sm text-blue-950">
+                      Integrasi Google Drive Realtime (Drive G:)
+                    </h4>
+                    {backupStats?.gdriveMounted ? (
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full flex items-center gap-1.5 shadow-xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        Drive G: Terhubung & Aktif
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-full">
+                        Drive G: Belum Terdeteksi
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    Setiap kali Anda menambah, mengubah, atau menghapus data di aplikasi OPTIMUS, sistem akan <strong>secara otomatis menduplikasi data ke Google Drive G: secara realtime</strong> tanpa perlu menunggu atau mengklik tombol apa pun.
+                  </p>
+                </div>
+              </div>
+
+              {/* Instant Manual Sync Button */}
+              <button
+                onClick={handleSyncGdriveNow}
+                disabled={isSyncingGdrive}
+                className="shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <ArrowsClockwise weight="duotone" size={17} className={isSyncingGdrive ? "animate-spin" : ""} />
+                {isSyncingGdrive ? "Menyinkronkan..." : "Sinkronkan ke Google Drive (G:) Sekarang"}
+              </button>
+            </div>
+
+            {gdriveSyncMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-300">
+                <Check size={16} className="text-emerald-600 shrink-0" />
+                <span>{gdriveSyncMsg}</span>
+              </div>
+            )}
+
+            {/* Folder location & Desktop Shortcut Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-xs">
+              <div className="bg-white/80 border border-blue-200/60 rounded-xl p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-900 mb-1">
+                  Lokasi Penyimpanan Google Drive
+                </p>
+                <code className="text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded block break-all">
+                  G:\My Drive\BACKUP_OPTIMUS_RSUD_ALMULK\
+                </code>
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">
+                  File <code>db_latest.json</code> dan <code>db_YYYY-MM-DD.json</code> otomatis selalu sinkron dan bisa dibuka/dipulihkan kapan saja di laptop mana pun.
+                </p>
+              </div>
+
+              <div className="bg-white/80 border border-blue-200/60 rounded-xl p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-900 mb-1">
+                  Pencadangan Total Termasuk Koding Aplikasi
+                </p>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  Sudah tersedia shortcut <strong>BACKUP_OPTIMUS_KE_GDRIVE.bat</strong> di Desktop Anda. Cukup klik ganda (double-click) untuk mencadangkan seluruh kodingan ke Google Drive menjadi berkas zip ringan (~115 MB) dalam waktu 30 detik tanpa perlu menyalin <code>node_modules</code> yang lama.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Akses Jaringan Lokal RSUD Al-Mulk (LAN / Wi-Fi) */}
+        <div className="border-t border-gray-100 pt-8 mt-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 bg-sky-100 text-sky-700 rounded-xl">
+              <Wifi size={20} />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base text-slate-800">Akses Jaringan Lokal RSUD Al-Mulk (LAN / Wi-Fi)</h3>
+              <p className="text-xs text-slate-500">Bagikan alamat ini agar staf di ruangan lain bisa membuka aplikasi dari laptop/tablet mereka.</p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-sky-50 to-indigo-50/50 p-5 rounded-2xl border border-sky-100 mt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-[11px] font-extrabold uppercase text-sky-700 tracking-wider">Alamat Jaringan Komputer Ini</p>
+              <div className="flex items-center gap-3">
+                <code className="text-base font-black text-slate-900 bg-white px-3 py-1.5 rounded-lg border border-sky-200/80 font-mono">
+                  http://{localIp}
+                </code>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-100/60 px-2.5 py-1 rounded-md">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Aktif
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Perangkat lain harus terhubung ke jaringan Wi-Fi atau kabel LAN yang sama dengan komputer ini.
+              </p>
+            </div>
+
+            <button
+              onClick={handleCopyLan}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white text-sky-800 border border-sky-200 hover:bg-sky-50 font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+            >
+              {copiedLan ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+              {copiedLan ? "Tersalin ke Clipboard!" : "Salin Alamat Jaringan"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

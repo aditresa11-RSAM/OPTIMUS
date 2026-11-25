@@ -385,7 +385,7 @@ export default function ProfilIndikator() {
         if (error) throw error;
 
         if (data && data.length > 0) {
-          const normalized = data.map(item => adaptFromSupabase(item));
+          const normalized = data.map((item: any) => adaptFromSupabase(item));
           setIndicatorProfiles(normalized);
           return normalized;
         } else {
@@ -422,7 +422,7 @@ export default function ProfilIndikator() {
                 .select('*')
                 .order('created_at', { ascending: true });
               if (refreshed) {
-                const refreshedNormalized = refreshed.map(item => adaptFromSupabase(item));
+                const refreshedNormalized = refreshed.map((item: any) => adaptFromSupabase(item));
                 setIndicatorProfiles(refreshedNormalized);
                 return refreshedNormalized;
               }
@@ -674,12 +674,51 @@ export default function ProfilIndikator() {
   const filteredData = useMemo(() => {
     const sortedProfiles = [...(profiles || [])];
     sortedProfiles.sort((a, b) => {
-      // Prioritize Kepatuhan Kebersihan Tangan
-      const aIsKKT = (a.indicator_title || "").toLowerCase().includes("kebersihan tangan");
-      const bIsKKT = (b.indicator_title || "").toLowerCase().includes("kebersihan tangan");
-      if (aIsKKT && !bIsKKT) return -1;
-      if (!aIsKKT && bIsKKT) return 1;
+      // 1. Group by category order: INM first, then IMP-RS, then others (IMP-Unit, SPM)
+      const getCategoryRank = (cat: string = "") => {
+        const c = cat.toUpperCase().trim();
+        if (c === "INM") return 1;
+        if (c === "IMP-RS" || c === "IMP RS") return 2;
+        if (c.includes("UNIT")) return 3;
+        if (c === "SPM") return 4;
+        return 5;
+      };
 
+      const rankA = getCategoryRank(a.category);
+      const rankB = getCategoryRank(b.category);
+      if (rankA !== rankB) return rankA - rankB;
+
+      // 2. Specific ordering within INM:
+      // - INM KKT (bukan dokter) sits at No. 1
+      // - Kepuasan Pasien sits at No. 13 (end of INM)
+      if (rankA === 1) {
+        const aTitle = (a.indicator_title || "").toLowerCase();
+        const bTitle = (b.indicator_title || "").toLowerCase();
+
+        const aIsKKT = aTitle.includes("kebersihan tangan") && !aTitle.includes("dokter");
+        const bIsKKT = bTitle.includes("kebersihan tangan") && !bTitle.includes("dokter");
+        if (aIsKKT && !bIsKKT) return -1;
+        if (!aIsKKT && bIsKKT) return 1;
+
+        const aIsKepuasan = aTitle.includes("kepuasan");
+        const bIsKepuasan = bTitle.includes("kepuasan");
+        if (aIsKepuasan && !bIsKepuasan) return 1;
+        if (!aIsKepuasan && bIsKepuasan) return -1;
+      }
+
+      // 3. Specific ordering within IMP-RS:
+      // "Kepatuhan Kebersihan Tangan (hand hygiene) pada dokter" sits at position 14 (first of IMP-RS, right after Kepuasan Pasien)
+      if (rankA === 2) {
+        const aTitle = (a.indicator_title || "").toLowerCase();
+        const bTitle = (b.indicator_title || "").toLowerCase();
+
+        const aIsKKTDoc = (aTitle.includes("kebersihan tangan") || aTitle.includes("hand hygine") || aTitle.includes("hand hygiene")) && aTitle.includes("dokter");
+        const bIsKKTDoc = (bTitle.includes("kebersihan tangan") || bTitle.includes("hand hygine") || bTitle.includes("hand hygiene")) && bTitle.includes("dokter");
+        if (aIsKKTDoc && !bIsKKTDoc) return -1;
+        if (!aIsKKTDoc && bIsKKTDoc) return 1;
+      }
+
+      // 4. Default ordering by created_at ascending
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       if (dateA !== dateB) return dateA - dateB;
@@ -802,26 +841,55 @@ export default function ProfilIndikator() {
         )}
       </AnimatePresence>
 
-      {/* Header and Controls */}
-      <div id="profil-header-panel" className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#10a37f] tracking-tight leading-tight">Profil Indikator Mutu</h1>
-          <p className="text-gray-900 text-xs mt-1.5 max-w-xl leading-relaxed">
-            Kelola profil indikator mutu rumah sakit yang terintegrasi dengan seluruh menu OPTIMUS
-          </p>
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Doctors Style (Exact Dashboard Layout) */}
+      <div id="profil-header-panel" className="relative pt-0 group">
+        {/* Card Main Body (Clipped inside rounded-3xl border) */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
+          </div>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar (Teks Tajam, Jelas, & Kontras Sempurna) */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Profil Indikator Mutu RS
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5 whitespace-nowrap">
+                Standarisasi Kamus Indikator INM, IMP-RS, IMP-Unit, dan SPM RSUD Al-Mulk
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Kelola dan susun profil indikator mutu rumah sakit secara komprehensif, terstandarisasi, dan terintegrasi dengan seluruh modul pelaporan OPTIMUS.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {userRole === "Admin" && (
-            <button 
-              id="tambah-indikator-btn"
-              onClick={handleAdd} 
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-md shadow-emerald-600/10 w-full sm:w-auto justify-center cursor-pointer active:scale-98"
-            >
-              <Plus size={14} /> Tambah Profil Baru
-            </button>
-          )}
+        {/* 3D Out-of-Bounds Pop-Out Doctors Layer (Breaks Out Above Card Top Border, Exact Dashboard Scale & Position) */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/profil_doctors_canva_popout.png?v=3"
+            alt="Tim Dokter Penyusun Profil Indikator Mutu RSUD Al-Mulk"
+            className="h-[135px] sm:h-[148px] lg:h-[158px] xl:h-[166px] w-auto object-contain object-bottom drop-shadow-[0_8px_16px_rgba(0,95,58,0.18)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
         </div>
       </div>
 
@@ -836,7 +904,7 @@ export default function ProfilIndikator() {
             className="space-y-5"
           >
             {/* Filter and Search Bar */}
-            <div id="filter-search-card" className="bg-white p-4 md:p-6 rounded-3xl border border-gray-100 shadow-2xs flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div id="filter-search-card" className="drop-shadow-card p-4 md:p-6 flex flex-col sm:flex-row gap-4 justify-between items-center">
               
               {/* Category Dropdown Filter */}
               <div id="category-filter-wrapper" className="flex items-center gap-3 w-full sm:w-auto">
@@ -862,30 +930,42 @@ export default function ProfilIndikator() {
                 </div>
               </div>
 
-              {/* Advanced text input search */}
-              <div id="search-input-box" className="relative w-full sm:w-72 md:w-80 lg:w-96">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input 
-                  type="text" 
-                  placeholder="Cari judul, penanggung jawab, atau dasar..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-xs font-semibold tracking-tight transition-all placeholder-gray-400 text-gray-900"
-                />
-                {searchQuery && (
+              {/* Advanced text input search + Tambah Profil Baru button */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                <div id="search-input-box" className="relative w-full sm:w-64 md:w-72 lg:w-80">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari judul, penanggung jawab, atau dasar..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-xs font-semibold tracking-tight transition-all placeholder-gray-400 text-gray-900"
+                  />
+                  {searchQuery && (
+                    <button 
+                      id="clear-search-btn"
+                      onClick={() => setSearchQuery("")} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded-full"
+                    >
+                      <X size={12} className="text-gray-400" />
+                    </button>
+                  )}
+                </div>
+
+                {userRole === "Admin" && (
                   <button 
-                    id="clear-search-btn"
-                    onClick={() => setSearchQuery("")} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded-full"
+                    id="tambah-indikator-btn"
+                    onClick={handleAdd} 
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-md shadow-emerald-600/10 w-full sm:w-auto justify-center cursor-pointer active:scale-98 shrink-0"
                   >
-                    <X size={12} className="text-gray-400" />
+                    <Plus size={14} /> Tambah Profil Baru
                   </button>
                 )}
               </div>
             </div>
 
             {/* Custom high quality responsive listing grid cards or list table view */}
-            <div id="master-indicators-panel" className="bg-white rounded-3xl border border-gray-100 shadow-xs overflow-hidden">
+            <div id="master-indicators-panel" className="drop-shadow-table">
               <div className="overflow-x-auto lg:overflow-x-hidden max-h-[640px] overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-100 scrollbar-track-transparent">
                 <table className="w-full text-left border-collapse table-auto lg:table-fixed">
                   <thead>

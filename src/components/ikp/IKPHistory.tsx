@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Copy, Plus, Eye, Key, Trash, Calendar, Building, AlertTriangle, ShieldCheck, FileSignature, CheckCircle, Search, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { motion, AnimatePresence } from "motion/react";
+import KopSurat from "@/components/common/KopSurat";
 
 export default function IKPHistory({ dataList, onEdit }: any) {
   const [viewData, setViewData] = useState<any>(null);
@@ -234,23 +235,11 @@ export default function IKPHistory({ dataList, onEdit }: any) {
                 </div>
               </div>
               <div className="p-10 md:p-14" id="print-area">
-                 {/* KOP SURAT RUMAH SAKIT */}
-                 <div className="flex items-center border-b-4 border-slate-800 pb-6 mb-8 gap-6">
-                   <div className="w-24 h-24 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-700 font-bold text-sm uppercase px-2 shrink-0">
-                     LOGO RS
-                   </div>
-                   <div className="flex-1 text-center font-bold">
-                     <h1 className="text-2xl uppercase tracking-widest text-slate-600">KOTA SUKABUMI</h1>
-                     <h2 className="text-3xl uppercase font-black tracking-wide text-slate-900 mt-1 mb-1">UOBK RSUD AL-MULK</h2>
-                     <p className="text-sm font-semibold text-slate-500">Jl. Pelabuhan II KM 6 Lembursitu Kota Sukabumi, Jawa Barat</p>
-                   </div>
-                   <div className="w-24 h-24 shrink-0" />
-                 </div>
-
-                 <div className="text-center mb-10">
-                   <h3 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 text-slate-800">LAPORAN INSIDEN KESELAMATAN PASIEN (IKP)</h3>
-                   <p className="text-sm font-bold mt-2 text-slate-500 bg-slate-100 inline-block px-4 py-1 rounded-full">Doc ID: {viewData.id}</p>
-                 </div>
+                 {/* KOP SURAT RESMI RSUD AL-MULK */}
+                 <KopSurat 
+                   subJudul="LAPORAN INSIDEN KESELAMATAN PASIEN (IKP)" 
+                   nomorSurat={`IKP/RSUD-AM/${viewData.id}`} 
+                 />
 
                  <div className="space-y-8 text-[15px] font-medium text-slate-700">
                     <table className="w-full">

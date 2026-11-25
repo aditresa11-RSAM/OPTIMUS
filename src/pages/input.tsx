@@ -1063,18 +1063,56 @@ export default function InputData() {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-5xl mx-auto space-y-10 pb-16">
-      {/* Title & Real-time Info Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-extrabold text-[#10a37f] tracking-tight">
-              Input Data Mutu RS
-            </h1>
+    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-7xl mx-auto space-y-6 pb-16">
+      {/* Welcome Hero Greeting Banner - Presisi & Tajam Sebagaimana Profil Indikator */}
+      <div id="input-header-panel" className="relative pt-0 group">
+        {/* Card Main Body (Clipped inside rounded-3xl border - Exact Dashboard & Profil Dimensions) */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
           </div>
-          <p className="text-gray-900 text-[10px] sm:text-sm font-semibold">
-            Input Data INM, IMP-RS, IMP-Unit dan SPM secara realtime
-          </p>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar (Teks Tajam, Jelas, & Kontras Sempurna) */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Input Data Mutu RS
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5 whitespace-nowrap">
+                Pencatatan Capaian INM, IMP-RS, IMP-Unit, dan SPM RSUD Al-Mulk
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Sistem penginputan data terintegrasi secara realtime, akurat, dan transparan untuk mendukung peningkatan mutu pelayanan berkelanjutan di UOBK RSUD Al-Mulk.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters (Matching Dashboard Sizing) */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
+        </div>
+
+        {/* 3D Out-of-Bounds Pop-Out Nurses Layer (Transparan, Sama Persis dengan Dashboard) */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/input_nurses_canva_popout.png?v=5"
+            alt="Tim Perawat Input Data Mutu RSUD Al-Mulk"
+            className="h-[135px] sm:h-[148px] lg:h-[158px] xl:h-[166px] w-auto object-contain object-bottom drop-shadow-[0_8px_16px_rgba(0,95,58,0.18)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
         </div>
       </div>
 

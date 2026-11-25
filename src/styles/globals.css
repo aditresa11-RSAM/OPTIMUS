@@ -17,3 +17,252 @@
     display: none;
   }
 }
+
+/* Custom Elegant Slim Emerald Scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #007A4D #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #10a37f 0%, #007A4D 100%);
+  border-radius: 9999px;
+  box-shadow: 0 1px 4px rgba(0, 122, 77, 0.25);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #0d8c6c 0%, #005f3a 100%);
+}
+
+/* Smooth Hardware-Accelerated Floating Button (Zero Jitter) */
+@keyframes smoothFloat {
+  0%, 100% {
+    transform: translate3d(0, 0px, 0);
+  }
+  50% {
+    transform: translate3d(0, -9px, 0);
+  }
+}
+
+.animate-smooth-float {
+  animation: smoothFloat 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =========================================================
+   REALISTIC ELEGANT DROP SHADOW DESIGN SYSTEM (03. DROP SHADOW)
+   ========================================================= */
+
+/* Reusable Realistic Drop Shadow for Any Card, Table & Chart */
+.drop-shadow-card,
+.clay-surface {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 10px 20px rgba(0, 0, 0, 0.05),
+    0 20px 38px -4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.drop-shadow-card:hover,
+.clay-surface:hover {
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(0, 0, 0, 0.08),
+    0 32px 54px -6px rgba(0, 0, 0, 0.12);
+}
+
+/* Realistic Drop Shadow for Table Containers */
+.drop-shadow-table {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.02),
+    0 8px 18px rgba(0, 0, 0, 0.04),
+    0 16px 30px -4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* Elevated Realistic Drop Shadow KPI Cards with Theme Accents */
+.clay-card-emerald {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #d1fae5;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 10px 20px rgba(0, 0, 0, 0.05),
+    0 20px 38px -4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clay-card-emerald:hover {
+  transform: translateY(-4px);
+  border-color: #a7f3d0;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(16, 185, 129, 0.12),
+    0 32px 54px -6px rgba(16, 185, 129, 0.18);
+}
+.clay-card-emerald:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 6px 14px rgba(0, 0, 0, 0.05);
+}
+
+.clay-card-red {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #fee2e2;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 10px 20px rgba(0, 0, 0, 0.05),
+    0 20px 38px -4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clay-card-red:hover {
+  transform: translateY(-4px);
+  border-color: #fecaca;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(239, 68, 68, 0.12),
+    0 32px 54px -6px rgba(239, 68, 68, 0.18);
+}
+.clay-card-red:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 6px 14px rgba(0, 0, 0, 0.05);
+}
+
+.clay-card-blue {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #dbeafe;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 10px 20px rgba(0, 0, 0, 0.05),
+    0 20px 38px -4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clay-card-blue:hover {
+  transform: translateY(-4px);
+  border-color: #bfdbfe;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(59, 130, 246, 0.12),
+    0 32px 54px -6px rgba(59, 130, 246, 0.18);
+}
+.clay-card-blue:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 6px 14px rgba(0, 0, 0, 0.05);
+}
+
+.clay-card-orange {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid #ffedd5;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 10px 20px rgba(0, 0, 0, 0.05),
+    0 20px 38px -4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.clay-card-orange:hover {
+  transform: translateY(-4px);
+  border-color: #fed7aa;
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 16px 32px rgba(249, 115, 22, 0.12),
+    0 32px 54px -6px rgba(249, 115, 22, 0.18);
+}
+.clay-card-orange:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 6px 14px rgba(0, 0, 0, 0.05);
+}
+
+/* Inset Slot for Sliders, Progress Bars, Sunken Areas */
+.clay-inset {
+  background: #f1f5f9;
+  box-shadow: 
+    inset 1px 1px 3px rgba(0, 0, 0, 0.08),
+    inset -1px -1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Realistic Drop Shadow Icon Badges */
+.clay-icon-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 6px 16px -2px rgba(16, 185, 129, 0.35);
+}
+.clay-icon-red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 6px 16px -2px rgba(239, 68, 68, 0.35);
+}
+.clay-icon-blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow: 0 6px 16px -2px rgba(59, 130, 246, 0.35);
+}
+.clay-icon-orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  box-shadow: 0 6px 16px -2px rgba(249, 115, 22, 0.35);
+}
+
+/* Realistic Drop Shadow Badges / Status Pills */
+.clay-badge-emerald {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.12);
+}
+.clay-badge-red {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
+}
+.clay-badge-blue {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.12);
+}
+.clay-badge-orange {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.12);
+}
+
+/* Realistic Dropdown Selects */
+.clay-select {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.03),
+    0 6px 14px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+.clay-select:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 8px 18px rgba(0, 0, 0, 0.07);
+}

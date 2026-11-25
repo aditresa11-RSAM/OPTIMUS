@@ -4,6 +4,7 @@ import {
   CheckCircle2, AlertTriangle, ShieldAlert, UploadCloud, FileText, 
   Check, X, Minus, Info
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer, RadarChart, 
@@ -192,9 +193,40 @@ export default function FormSupervisiPPI({ onBack, onViewRiwayat }: FormSupervis
     { name: 'Mei', nilai: stats.persentase || 85 }
   ];
 
-  const handleSave = () => {
-    alert('Data Supervisi PPI Berhasil Disimpan!');
-    setActiveTab('dashboard');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!unit) {
+      alert('Pilih Unit/Ruangan terlebih dahulu');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const record = {
+        id: 'PPI-' + Date.now(),
+        jenis: 'PPI',
+        unit: unit,
+        tanggal,
+        supervisor: supervisor || 'Tim IPCN / PPI RSUD Al-Mulk',
+        skor: stats.persentase || 0,
+        kategori: (stats.persentase || 0) >= 85 ? 'BAIK' : (stats.persentase || 0) >= 75 ? 'CUKUP' : 'KURANG',
+        status_tindak_lanjut: (stats.persentase || 0) < 75 ? 'Perlu Tindak Lanjut' : 'Selesai',
+        detail: {
+          items,
+          stats,
+          catatan: 'Supervisi Pencegahan dan Pengendalian Infeksi (PPI) RSUD Al-Mulk'
+        },
+        created_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('supervisi').insert([record]);
+      if (error) throw error;
+      alert('Data Supervisi PPI Berhasil Disimpan ke Database!');
+      setActiveTab('dashboard');
+    } catch (err: any) {
+      alert('Gagal menyimpan supervisi PPI: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

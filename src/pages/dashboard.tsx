@@ -1,6 +1,19 @@
 import React, { useState, useMemo, useEffect } from "react";
 import InteractiveDashboardModal from "../components/dashboard/InteractiveDashboardModal";
 import {
+  Target as PhTarget,
+  TrendUp,
+  Warning as PhWarning,
+  TrendDown,
+  ShieldWarning,
+  FileText as PhFileText,
+  ListChecks,
+  UsersThree,
+  Buildings,
+  Hospital as PhHospital,
+  ShieldCheck as PhShieldCheck,
+} from "@phosphor-icons/react";
+import {
   Target,
   AlertTriangle,
   TrendingUp,
@@ -145,32 +158,91 @@ export default function Dashboard() {
   const [selectedTriwulan, setSelectedTriwulan] = useState("Triwulan 1");
   const [selectedSemester, setSelectedSemester] = useState("Semester 1");
 
+  // Dynamic Realtime Greeting (Selamat Pagi / Siang / Sore / Malam)
+  const [greeting, setGreeting] = useState<{ text: string; image: string }>({
+    text: "Selamat Datang",
+    image: "/icons/greeting_siang.png",
+  });
+
+  useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour >= 4 && hour < 11) {
+        setGreeting({ text: "Selamat Pagi", image: "/icons/greeting_pagi.png" });
+      } else if (hour >= 11 && hour < 15) {
+        setGreeting({ text: "Selamat Siang", image: "/icons/greeting_siang.png" });
+      } else if (hour >= 15 && hour < 18) {
+        setGreeting({ text: "Selamat Sore", image: "/icons/greeting_sore.png" });
+      } else {
+        setGreeting({ text: "Selamat Malam", image: "/icons/greeting_malam.png" });
+      }
+    };
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Modal State
   const [activeModal, setActiveModal] = useState<
     "TERCAPAI" | "BELUM_TERCAPAI" | "IKP" | "ALL" | null
   >(null);
   const [modalSearch, setModalSearch] = useState("");
 
+  // Strictly filter only standard 13 INM profiles (exclude IMP-RS or duplicates)
+  const strictlyInmProfiles = useMemo(() => {
+    const rawInm = indicatorProfiles.filter(
+      (item) => (item.category || "").trim().toUpperCase() === "INM",
+    );
+    // Deduplicate by normalized title
+    const seenTitles = new Set<string>();
+    const unique = rawInm.filter((item) => {
+      const norm = (item.indicator_title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (seenTitles.has(norm)) return false;
+      seenTitles.add(norm);
+      return true;
+    });
+
+    // Exclude any doctor/non-INM indicators that might have been miscategorized
+    const cleaned = unique.filter((item) => {
+      const titleLower = (item.indicator_title || "").toLowerCase();
+      if (titleLower.includes("dokter") && titleLower.includes("kebersihan tangan")) return false;
+      return true;
+    });
+
+    // Sort strictly by standard 13 INM Kemenkes sequence
+    const getInmRank = (title: string) => {
+      const t = (title || "").toLowerCase();
+      if (t.includes("kebersihan tangan") || t.includes("hand hygiene")) return 1;
+      if (t.includes("alat pelindung diri") || t.includes("apd")) return 2;
+      if (t.includes("identifikasi")) return 3;
+      if (t.includes("seksio") || t.includes("sectio") || t.includes("caesarea")) return 4;
+      if (t.includes("waktu tunggu") || t.includes("rawat jalan")) return 5;
+      if (t.includes("penundaan operasi") || t.includes("elektif")) return 6;
+      if (t.includes("visite") || t.includes("dpjp")) return 7;
+      if (t.includes("hasil kritis") || t.includes("laboratorium")) return 8;
+      if (t.includes("formularium") || t.includes("fornas")) return 9;
+      if (t.includes("alur klinis") || t.includes("clinical pathway")) return 10;
+      if (t.includes("jatuh")) return 11;
+      if (t.includes("komplain") || t.includes("pengaduan")) return 12;
+      if (t.includes("kepuasan")) return 13;
+      return 99;
+    };
+
+    cleaned.sort((a, b) => getInmRank(a.indicator_title) - getInmRank(b.indicator_title));
+    return cleaned.slice(0, 13);
+  }, [indicatorProfiles]);
+
   const filteredDropdownProfiles = useMemo(() => {
-    let profiles = indicatorProfiles.filter(
+    let profiles = strictlyInmProfiles.filter(
       (p) =>
         !dropdownSearch ||
         p.indicator_title.toLowerCase().includes(dropdownSearch.toLowerCase()),
     );
-    
-    profiles.sort((a, b) => {
-      const aIsKKT = (a.indicator_title || "").toLowerCase().includes("kebersihan tangan");
-      const bIsKKT = (b.indicator_title || "").toLowerCase().includes("kebersihan tangan");
-      if (aIsKKT && !bIsKKT) return -1;
-      if (!aIsKKT && bIsKKT) return 1;
-      return 0;
-    });
-    
     return profiles;
-  }, [indicatorProfiles, dropdownSearch]);
+  }, [strictlyInmProfiles, dropdownSearch]);
 
   const activeIndikatorId =
-    selectedIndikatorId || filteredDropdownProfiles[0]?.id || indicatorProfiles[0]?.id || "";
+    selectedIndikatorId || filteredDropdownProfiles[0]?.id || strictlyInmProfiles[0]?.id || "";
 
   // Fetch inputs from Supabase on mount to show correct user inputs in real-time
   useEffect(() => {
@@ -315,10 +387,8 @@ export default function Dashboard() {
     selectedSemester,
   ]);
 
-  // Map 13 indicators table data based on dynamic input records
-  let inmTableData = indicatorProfiles
-    .filter((item) => item.category === "INM")
-    .map((item, index) => {
+  // Map 13 indicators table data based strictly on standard INM profiles
+  let inmTableData = strictlyInmProfiles.map((item, index) => {
     const matchingEntries = filteredDataMutu.filter(
       (d) => d.indikator_id === item.id,
     );
@@ -372,20 +442,6 @@ export default function Dashboard() {
           ? matchingEntries[matchingEntries.length - 1].tanggal
           : "-",
     };
-  });
-
-  // Sort "Kepatuhan Kebersihan Tangan" to the top
-  inmTableData.sort((a, b) => {
-    const aIsKKT = (a.name || "").toLowerCase().includes("kebersihan tangan");
-    const bIsKKT = (b.name || "").toLowerCase().includes("kebersihan tangan");
-    if (aIsKKT && !bIsKKT) return -1;
-    if (!aIsKKT && bIsKKT) return 1;
-    return 0;
-  });
-
-  // Re-assign sequential numbers
-  inmTableData.forEach((item, index) => {
-    item.no = index + 1;
   });
 
   const tercapaiCount = inmTableData.filter((i) => i.status === "green").length;
@@ -610,30 +666,87 @@ export default function Dashboard() {
   ]);
 
   return (
-    <div className="space-y-6 md:space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4 w-full max-w-full px-2 sm:px-4 md:px-0 md:overflow-visible">
-      {/* Header and Filter */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-gray-100 pb-6 mb-4">
-        <div>
-          <div className="flex items-start md:items-center gap-3">
-            <h1 className="text-2xl md:text-3xl font-extrabold text-[#10a37f] tracking-tight leading-tight">
-              Dashboard Mutu Rumah Sakit
-            </h1>
+    <div className="space-y-4 md:space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4 w-full max-w-full px-2 sm:px-4 md:px-0 md:overflow-visible">
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Character Style (Aligned with Sidebar Menu) */}
+      <div className="relative pt-0 group">
+        {/* Card Main Body (Clipped inside rounded-3xl border) */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
           </div>
-          <p
-            style={{ color: "#4a5565" }}
-            className="mt-2 text-[9px] sm:text-[10px] md:text-sm font-semibold whitespace-nowrap leading-relaxed"
-          >
-            Pemantauan Indikator Mutu & Keselamatan Pasien UOBK RSUD AL-MULK
-          </p>
+
+          {/* Left Side: Dynamic Greeting & Title with Accent Bar */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1 sm:space-y-1.5 min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight flex items-center gap-2.5">
+                  <span>{greeting.text}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={greeting.image}
+                    alt={greeting.text}
+                    className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 object-contain drop-shadow-[0_4px_10px_rgba(245,158,11,0.22)] select-none transition-transform duration-300 hover:scale-110"
+                  />
+                </h1>
+              </div>
+
+              <h2 className="text-xl sm:text-2xl md:text-[25px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Hai, Sobat UOBK RSUD AL-MULK
+              </h2>
+
+              <p className="text-sm sm:text-[15px] md:text-base font-bold text-slate-800 leading-snug pt-0.5">
+                Selamat Datang di Dashboard Aplikasi Mutu Rumah Sakit
+              </p>
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Optimalisasi Sistem Pelaporan Mutu (OPTIMUS) untuk pemantauan capaian indikator, keselamatan pasien, dan peningkatan mutu berkelanjutan.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full xl:w-auto justify-start xl:justify-end mt-2 xl:mt-0">
-          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg md:rounded-xl px-2.5 md:px-2 lg:px-2.5 shadow-sm shrink-0">
-            <Filter size={14} className="text-emerald-600 hidden md:block" />
+        {/* 3D Out-of-Bounds Pop-Out Characters Layer (Breaks Out Above Card Top Border, Slides Cleanly Under Fixed Header) */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/medical_team_popout.png?v=3"
+            alt="Tim Medis UOBK RSUD Al-Mulk"
+            className="h-[150px] sm:h-[168px] lg:h-[180px] xl:h-[188px] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
+        </div>
+      </div>
+
+      {/* Metric Controls Bar: Filter Periode tepat di pojok kanan atas 4 Card */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse" />
+          <span className="text-xs sm:text-[13px] font-black text-slate-700 uppercase tracking-wide">
+            REKAPITULASI CAPAIAN INDIKATOR MUTU RUMAH SAKIT
+          </span>
+        </div>
+
+        {/* Filter Periode di pojok kanan atas 4 Card */}
+        <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto bg-white/95 backdrop-blur-xs p-1 sm:p-1.5 rounded-2xl border border-gray-100 shadow-xs">
+          <div className="flex items-center gap-1.5 clay-select px-3 py-1.5 shrink-0">
+            <Filter size={13} className="text-emerald-600" />
             <select
               value={periodeMode}
               onChange={(e) => setPeriodeMode(e.target.value)}
-              className="py-2.5 md:py-1.5 lg:py-2.5 bg-transparent outline-none focus:ring-0 text-xs md:text-[11px] lg:text-xs font-bold text-gray-700 cursor-pointer w-full"
+              className="py-0.5 bg-transparent outline-none text-xs font-bold text-gray-700 cursor-pointer"
             >
               <option value="Bulanan">Bulanan</option>
               <option value="Triwulan">Triwulan</option>
@@ -646,7 +759,7 @@ export default function Dashboard() {
             <select
               value={selectedBulan}
               onChange={(e) => setSelectedBulan(e.target.value)}
-              className="px-4 md:px-2.5 lg:px-4 py-2.5 md:py-1.5 lg:py-2.5 border border-gray-200 rounded-lg md:rounded-xl bg-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-xs md:text-[11px] lg:text-xs font-bold text-gray-700 shadow-sm cursor-pointer"
+              className="px-3 py-1.5 clay-select outline-none text-xs font-bold text-gray-700 cursor-pointer"
             >
               {[
                 "Januari",
@@ -673,7 +786,7 @@ export default function Dashboard() {
             <select
               value={selectedTriwulan}
               onChange={(e) => setSelectedTriwulan(e.target.value)}
-              className="px-4 md:px-2.5 lg:px-4 py-2.5 md:py-1.5 lg:py-2.5 border border-gray-200 rounded-lg md:rounded-xl bg-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-xs md:text-[11px] lg:text-xs font-bold text-gray-700 shadow-sm cursor-pointer"
+              className="px-3 py-1.5 clay-select outline-none text-xs font-bold text-gray-700 cursor-pointer"
             >
               <option value="Triwulan 1">Triwulan 1 (Jan-Mar)</option>
               <option value="Triwulan 2">Triwulan 2 (Apr-Jun)</option>
@@ -686,7 +799,7 @@ export default function Dashboard() {
             <select
               value={selectedSemester}
               onChange={(e) => setSelectedSemester(e.target.value)}
-              className="px-4 md:px-2.5 lg:px-4 py-2.5 md:py-1.5 lg:py-2.5 border border-gray-200 rounded-lg md:rounded-xl bg-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-xs md:text-[11px] lg:text-xs font-bold text-gray-700 shadow-sm cursor-pointer"
+              className="px-3 py-1.5 clay-select outline-none text-xs font-bold text-gray-700 cursor-pointer"
             >
               <option value="Semester 1">Semester 1 (Jan-Jun)</option>
               <option value="Semester 2">Semester 2 (Jul-Des)</option>
@@ -696,7 +809,7 @@ export default function Dashboard() {
           <select
             value={selectedTahun}
             onChange={(e) => setSelectedTahun(e.target.value)}
-            className="px-4 md:px-2.5 lg:px-4 py-2.5 md:py-1.5 lg:py-2.5 border border-gray-200 rounded-lg md:rounded-xl bg-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-xs md:text-[11px] lg:text-xs font-bold text-gray-700 shadow-sm cursor-pointer"
+            className="px-3 py-1.5 clay-select outline-none text-xs font-bold text-gray-700 cursor-pointer"
           >
             {Array.from({ length: 5 }).map((_, i) => {
               const y = new Date().getFullYear() - i;
@@ -710,251 +823,200 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4 xl:gap-6">
+      {/* KPI Overview Cards - 3D Tactile with Accent Line */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5 md:gap-3 xl:gap-4 2xl:gap-5">
         {/* Card 1: Pemenuhan Target INM */}
-        <motion.div
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 30px -10px rgba(16, 163, 127, 0.3)' }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ duration: 0.15 }}
+        <div
           onClick={() => setActiveModal("TERCAPAI")}
-          className="bg-white rounded-[20px] md:rounded-[24px] p-4 md:p-6 shadow-[0_8px_24px_rgba(0,0,0,0.05)] border border-emerald-100 flex flex-col cursor-pointer relative overflow-hidden group h-full"
+          className="clay-card-emerald p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
         >
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,163,127,0.8)] opacity-80 group-hover:opacity-100 group-hover:h-2 transition-all duration-300" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity pointer-events-none" />
+          {/* Garis Warna Efek Bawah Card */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,163,127,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
+          <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-200/20 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col h-full">
             <div className="flex items-start justify-between">
-              <div className="p-3.5 rounded-[16px] bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 flex-shrink-0">
-                <Target className="h-6 w-6" strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 xl:p-3 rounded-2xl xl:rounded-[20px] clay-icon-emerald text-white flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <PhTarget weight="duotone" className="h-5 w-5 sm:h-5.5 sm:w-5.5 xl:h-6.5 xl:w-6.5 text-white drop-shadow-sm" />
               </div>
-              <div className="p-2 bg-emerald-50 rounded-xl text-emerald-600 shrink-0">
-                <TrendingUp className="w-5 h-5" strokeWidth={2.5} />
+              <div className="p-1 sm:p-1.5 xl:p-2 bg-emerald-100/70 border border-emerald-200/60 rounded-xl text-emerald-700 shadow-xs shrink-0">
+                <TrendUp weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-5 xl:h-5" />
               </div>
             </div>
 
-            <div className="mt-2 md:mt-4">
-              <p className="text-[11px] md:text-[15px] font-semibold text-gray-500 leading-tight md:leading-[1.4] mb-0">
+            <div className="mt-2 sm:mt-2.5 xl:mt-3.5">
+              <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Pemenuhan Target INM
               </p>
-              <h3 className="text-[28px] md:text-[48px] font-extrabold text-slate-800 leading-none mt-1 md:mt-[12px] mb-1 md:mb-[12px] flex items-baseline italic">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 flex items-baseline tracking-tight">
                 {tercapaiCount}
-                <span className="text-sm md:text-2xl text-gray-400 font-bold ml-1 md:ml-1.5">
+                <span className="text-xs sm:text-sm xl:text-lg 2xl:text-xl text-slate-400 font-bold ml-1.5">
                   / 13
                 </span>
               </h3>
             </div>
 
-            {/* Progress bar */}
-            <div className="space-y-1.5 mt-1">
-              <div className="flex items-center justify-between text-xs font-bold text-gray-400">
+            {/* Progress bar sunken slot */}
+            <div className="space-y-1 mt-1 sm:mt-1.5">
+              <div className="flex items-center justify-between text-[9.5px] sm:text-[10.5px] font-black text-slate-400">
                 <span>0%</span>
-                <span>{((tercapaiCount / 13) * 100).toFixed(0)}%</span>
+                <span className="text-emerald-600 font-black">{((tercapaiCount / 13) * 100).toFixed(0)}%</span>
               </div>
-              <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-1.5 sm:h-2 xl:h-2.5 w-full clay-inset rounded-full p-0.5 overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full relative overflow-hidden"
+                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full shadow-[0_1px_3px_rgba(16,185,129,0.5)] relative overflow-hidden transition-all duration-500"
                   style={{ width: `${(tercapaiCount / 13) * 100}%` }}
                 >
-                  <div className="absolute top-0 left-0 bottom-0 right-0 bg-white/20 animate-pulse" />
+                  <div className="absolute top-0 left-0 bottom-0 right-0 bg-white/30 animate-pulse" />
                 </div>
               </div>
             </div>
 
-            <div className="relative z-10 mt-auto pt-3 md:pt-4 border-t border-gray-100/80">
-              <span className="px-2 md:px-4 py-2 md:py-2.5 rounded-xl md:rounded-full bg-emerald-50/80 text-emerald-600 text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 w-full transition-colors group-hover:bg-emerald-100/80 text-center leading-tight min-h-[36px] md:min-h-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 hidden md:block" />
-                {tercapaiCount > 0
-                  ? "Target INM Tercapai"
-                  : "Belum Ada Indikator Tercapai"}
+            <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-emerald-100/70">
+              <span className="clay-badge-emerald px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full text-emerald-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center justify-center gap-1.5 w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+                <span className="truncate">
+                  {tercapaiCount > 0
+                    ? "Target INM Tercapai"
+                    : "Belum Ada Indikator Tercapai"}
+                </span>
               </span>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Card 2: Indikator Belum Tercapai */}
-        <motion.div
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 30px -10px rgba(220, 38, 38, 0.3)' }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ duration: 0.15 }}
+        <div
           onClick={() => setActiveModal("BELUM_TERCAPAI")}
-          className="bg-white rounded-[20px] md:rounded-[24px] p-4 md:p-6 shadow-[0_8px_24px_rgba(0,0,0,0.05)] border border-red-100 flex flex-col cursor-pointer relative overflow-hidden group h-full"
+          className="clay-card-red p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
         >
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-400 to-red-600 shadow-[0_0_15px_rgba(220,38,38,0.8)] opacity-80 group-hover:opacity-100 group-hover:h-2 transition-all duration-300" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity pointer-events-none" />
+          {/* Garis Warna Efek Bawah Card */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-red-400 to-red-600 shadow-[0_0_15px_rgba(220,38,38,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
+          <div className="absolute top-0 right-0 w-36 h-36 bg-red-200/20 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col h-full">
             <div className="flex items-start justify-between">
-              <div className="p-3.5 rounded-[16px] bg-gradient-to-br from-red-400 to-red-500 text-white shadow-lg shadow-red-200/50 flex-shrink-0">
-                <AlertTriangle className="h-6 w-6" strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 xl:p-3 rounded-2xl xl:rounded-[20px] clay-icon-red text-white flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <PhWarning weight="duotone" className="h-5 w-5 sm:h-5.5 sm:w-5.5 xl:h-6.5 xl:w-6.5 text-white drop-shadow-sm" />
               </div>
-              <div className="p-2 bg-red-50 rounded-xl text-red-500 shrink-0">
-                <TrendingDown className="w-5 h-5" strokeWidth={2.5} />
+              <div className="p-1 sm:p-1.5 xl:p-2 bg-red-100/70 border border-red-200/60 rounded-xl text-red-600 shadow-xs shrink-0">
+                <TrendDown weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-5 xl:h-5" />
               </div>
             </div>
 
-            <div className="mt-2 md:mt-4">
-              <p className="text-[11px] md:text-[14px] font-semibold text-gray-500 leading-tight md:leading-[1.4] mb-0">
+            <div className="mt-2 sm:mt-2.5 xl:mt-3.5">
+              <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Indikator Belum Tercapai
               </p>
-              <h3 className="text-[28px] md:text-[48px] font-extrabold text-slate-800 leading-none mt-1 md:mt-[12px] mb-1 md:mb-[12px] italic">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight">
                 {belumTercapaiCount}
               </h3>
             </div>
 
-            <div className="relative z-10 mt-auto pt-3 md:pt-4 border-t border-gray-100/80">
-              <span className="px-2 md:px-4 py-2 md:py-2.5 rounded-xl md:rounded-full bg-red-50/80 text-red-600 text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 w-full transition-colors group-hover:bg-red-100/80 text-center leading-tight min-h-[36px] md:min-h-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 hidden md:block" />
-                Perlu Perbaikan Mutu
+            <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-red-100/70">
+              <span className="clay-badge-red px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full text-red-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center justify-center gap-1.5 w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
+                <span className="truncate">Perlu Perbaikan Mutu</span>
               </span>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Card 3: Kejadian IKP */}
-        <motion.div
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 30px -10px rgba(37, 99, 235, 0.3)' }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ duration: 0.15 }}
+        <div
           onClick={() => setActiveModal("IKP")}
-          className="bg-white rounded-[20px] md:rounded-[24px] p-4 md:p-6 shadow-[0_8px_24px_rgba(0,0,0,0.05)] border border-blue-100 flex flex-col cursor-pointer relative overflow-hidden group h-full"
+          className="clay-card-blue p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
         >
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.8)] opacity-80 group-hover:opacity-100 group-hover:h-2 transition-all duration-300" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity pointer-events-none" />
+          {/* Garis Warna Efek Bawah Card */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
+          <div className="absolute top-0 right-0 w-36 h-36 bg-blue-200/20 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col h-full">
             <div className="flex items-start justify-between">
-              <div className="p-3.5 rounded-[16px] bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg shadow-blue-200/50 flex-shrink-0">
-                <ShieldAlert className="h-6 w-6" strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 xl:p-3 rounded-2xl xl:rounded-[20px] clay-icon-blue text-white flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <ShieldWarning weight="duotone" className="h-5 w-5 sm:h-5.5 sm:w-5.5 xl:h-6.5 xl:w-6.5 text-white drop-shadow-sm" />
               </div>
-              <div className="p-2 bg-blue-50 rounded-xl text-blue-500 shrink-0">
-                <FileText className="w-5 h-5" strokeWidth={2.5} />
+              <div className="p-1 sm:p-1.5 xl:p-2 bg-blue-100/70 border border-blue-200/60 rounded-xl text-blue-600 shadow-xs shrink-0">
+                <PhFileText weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-5 xl:h-5" />
               </div>
             </div>
 
-            <div className="mt-2 md:mt-4">
-              <p className="text-[11px] md:text-[15px] font-semibold text-gray-500 leading-tight md:leading-[1.4] mb-0">
+            <div className="mt-2 sm:mt-2.5 xl:mt-3.5">
+              <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Kejadian IKP Tercatat
               </p>
-              <div className="flex items-end gap-[4px] md:gap-[8px] mt-1 md:mt-[12px] mb-1 md:mb-[12px]">
-                <h3 className="text-[28px] md:text-[48px] font-extrabold text-slate-800 leading-none italic">
+              <div className="flex items-baseline gap-1 sm:gap-1.5 mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2">
+                <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none tracking-tight">
                   {totalIncidentCount}
                 </h3>
-                <span className="text-[10px] md:text-xl text-gray-400 font-bold mb-0.5 md:mb-1.5 italic">
+                <span className="text-xs sm:text-sm xl:text-lg 2xl:text-xl text-slate-400 font-bold">
                   Laporan
                 </span>
               </div>
             </div>
 
-            <div className="relative z-10 mt-auto pt-3 md:pt-4 border-t border-gray-100/80">
-              <div className="flex flex-row md:flex-col xl:flex-row items-center justify-center bg-gray-50/50 hover:bg-gray-100/50 transition-colors px-2 md:px-4 py-2 xl:py-2.5 rounded-xl md:rounded-full w-full gap-2 md:gap-1.5 xl:gap-2">
-                <span className="text-blue-600 text-[10px] md:text-[11px] xl:text-xs font-bold flex items-center gap-1.5 truncate">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0 hidden md:block" />
+            <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-blue-100/70">
+              <div className="clay-badge-blue px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full flex items-center justify-between w-full gap-1">
+                <span className="text-blue-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
+                  <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.9)]" />
                   Laporan Masuk
                 </span>
-                <span className="px-3 md:px-2 xl:px-3 py-1 md:py-0.5 xl:py-1 rounded-full bg-blue-100/50 text-blue-700 text-[10px] md:text-[9px] xl:text-[10px] font-extrabold uppercase flex items-center gap-1 shadow-sm border border-blue-200/30 flex-shrink-0">
-                  Realtime{" "}
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-600 text-white text-[7.5px] sm:text-[8px] xl:text-[9px] font-black uppercase flex items-center gap-1 shadow-xs shrink-0 whitespace-nowrap">
+                  Realtime <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 </span>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Card 4: Total Indikator */}
-        <motion.div
-          whileHover={{ scale: 1.02, boxShadow: '0 10px 30px -10px rgba(234, 88, 12, 0.3)' }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ duration: 0.15 }}
+        <div
           onClick={() => setActiveModal("ALL")}
-          className="bg-white rounded-[20px] md:rounded-[24px] p-4 md:p-6 shadow-[0_8px_24px_rgba(0,0,0,0.05)] border border-orange-100 flex flex-col cursor-pointer relative overflow-hidden group h-full"
+          className="clay-card-orange p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
         >
-          <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-orange-400 to-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.8)] opacity-80 group-hover:opacity-100 group-hover:h-2 transition-all duration-300" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity pointer-events-none" />
+          {/* Garis Warna Efek Bawah Card */}
+          <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-orange-400 to-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
+          <div className="absolute top-0 right-0 w-36 h-36 bg-orange-200/20 rounded-full blur-2xl pointer-events-none" />
           <div className="relative z-10 flex flex-col h-full">
             <div className="flex items-start justify-between">
-              <div className="p-3.5 rounded-[16px] bg-[#f97316] text-white shadow-lg shadow-orange-200/50 flex-shrink-0">
-                <ListTodo className="h-6 w-6" strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 xl:p-3 rounded-2xl xl:rounded-[20px] clay-icon-orange text-white flex-shrink-0 transition-transform duration-200 group-hover:scale-105">
+                <ListChecks weight="duotone" className="h-5 w-5 sm:h-5.5 sm:w-5.5 xl:h-6.5 xl:w-6.5 text-white drop-shadow-sm" />
               </div>
-              <div className="p-2 bg-orange-50 rounded-xl text-orange-600 shrink-0">
-                <Users className="w-5 h-5" strokeWidth={2.5} />
+              <div className="p-1 sm:p-1.5 xl:p-2 bg-orange-100/70 border border-orange-200/60 rounded-xl text-orange-600 shadow-xs shrink-0">
+                <UsersThree weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-5 xl:h-5" />
               </div>
             </div>
 
-            <div className="mt-2 md:mt-4">
-              <p className="text-[11px] md:text-[15px] font-semibold text-gray-500 leading-tight md:leading-[1.4] mb-0 line-clamp-1 md:line-clamp-2 xl:line-clamp-1">
-                Total Indikator <br className="hidden md:block xl:hidden" /> Aktif
+            <div className="mt-2 sm:mt-2.5 xl:mt-3.5">
+              <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
+                Total Indikator Aktif
               </p>
-              <h3 className="text-[28px] md:text-[48px] font-extrabold text-slate-800 leading-none mt-1 md:mt-[12px] mb-1 md:mb-[12px] italic">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight">
                 {indicatorProfiles.length}
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-y-2 gap-x-[10px] mt-auto pt-3 md:pt-4 border-t border-gray-100/80">
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <ShieldCheck
-                  className="w-4 h-4 md:w-5 md:h-5 text-emerald-500 shrink-0"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[10px] md:text-[13px] xl:text-[11px] font-semibold text-slate-600 whitespace-nowrap">
-                  <span className="inline-block md:w-[68px] xl:w-auto">
-                    INM
-                  </span>
-                  <span className="pr-1">:</span>
-                  <span className="text-slate-800 font-bold ml-0.5">
-                    {inmCount}
-                  </span>
-                </span>
+            <div className="grid grid-cols-2 gap-1 sm:gap-1.5 xl:gap-2 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-orange-100/70">
+              <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
+                <PhShieldCheck weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">INM: <strong className="text-slate-900">{inmCount}</strong></span>
               </div>
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <Building
-                  className="w-4 h-4 md:w-5 md:h-5 text-blue-500 shrink-0"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[10px] md:text-[13px] xl:text-[11px] font-semibold text-slate-600 whitespace-nowrap">
-                  <span className="inline-block md:w-[68px] xl:w-auto">
-                    IMP-RS
-                  </span>
-                  <span className="pr-1">:</span>
-                  <span className="text-slate-800 font-bold ml-0.5">
-                    {impRsCount}
-                  </span>
-                </span>
+              <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
+                <Buildings weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0" />
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">IMP-RS: <strong className="text-slate-900">{impRsCount}</strong></span>
               </div>
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <Building2
-                  className="w-4 h-4 md:w-5 md:h-5 text-purple-500 shrink-0"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[10px] md:text-[13px] xl:text-[11px] font-semibold text-slate-600 whitespace-nowrap">
-                  <span className="inline-block md:w-[68px] xl:w-auto">
-                    IMP-Unit
-                  </span>
-                  <span className="pr-1">:</span>
-                  <span className="text-slate-800 font-bold ml-0.5">
-                    {impUnitCount}
-                  </span>
-                </span>
+              <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
+                <PhHospital weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 shrink-0" />
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">IMP-U: <strong className="text-slate-900">{impUnitCount}</strong></span>
               </div>
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <FileText
-                  className="w-4 h-4 md:w-5 md:h-5 text-orange-500 shrink-0"
-                  strokeWidth={2.5}
-                />
-                <span className="text-[10px] md:text-[13px] xl:text-[11px] font-semibold text-slate-600 whitespace-nowrap">
-                  <span className="inline-block md:w-[68px] xl:w-auto">
-                    SPM
-                  </span>
-                  <span className="pr-1">:</span>
-                  <span className="text-slate-800 font-bold ml-0.5">
-                    {spmCount}
-                  </span>
-                </span>
+              <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
+                <PhFileText weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 shrink-0" />
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">SPM: <strong className="text-slate-900">{spmCount}</strong></span>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* 1. 13 Indikator Nasional Mutu (INM) Table */}
-      <div className="bg-emerald-50/20 rounded-2xl md:rounded-[32px] p-4 md:p-6 lg:p-8 border border-emerald-50 shadow-sm">
+      <div className="clay-surface p-4 md:p-6 lg:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 md:mb-8 gap-3 md:gap-4 md:px-2">
           <div>
             <h2 className="text-xl md:text-2xl font-extrabold text-[#10a37f] tracking-tight leading-normal">
@@ -977,7 +1039,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="overflow-hidden md:overflow-x-auto rounded-xl md:rounded-[20px] shadow-sm border border-emerald-50 bg-white">
+        <div className="overflow-hidden md:overflow-x-auto drop-shadow-table">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[400px] md:min-w-[700px] text-left border-collapse table-fixed">
               <thead>
@@ -1037,7 +1099,7 @@ export default function Dashboard() {
       </div>
 
       {/* 2. INM Real-time Performance Interactive Chart (Diagram Batang & Line Bar) */}
-      <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-4 lg:p-8 border border-white/60 shadow-[0_10px_35px_-5px_rgba(0,0,0,0.02)] space-y-4 md:space-y-6 hover:shadow-md transition-all duration-300">
+      <div className="clay-surface p-4 lg:p-8 space-y-4 md:space-y-6 transition-all duration-300">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -1053,7 +1115,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-white border border-[#10a37f]/30 hover:border-[#10a37f] rounded-xl outline-none focus:ring-2 focus:ring-[#10a37f] text-xs font-extrabold text-gray-700 shadow-sm transition-all duration-300 cursor-pointer"
+              className="w-full flex items-center justify-between px-4 py-3 clay-select outline-none text-xs font-black text-gray-700 cursor-pointer"
             >
               <span className="truncate pr-2">
                 {selectedIndikatorProfile?.indicator_title ||
@@ -1143,7 +1205,7 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:shadow-[0_20px_40px_rgb(0,0,0,0.12)] transition-all duration-300 flex flex-col items-center mt-3">
+          <div className="drop-shadow-card p-6 flex flex-col items-center mt-3">
             <div className="text-center mb-6 w-full px-4">
               <h3 className="text-[16px] font-bold text-slate-800 leading-tight" style={{ fontSize: "16px" }}>
                 {selectedChartAnalysis?.indicatorTitle}
@@ -1266,7 +1328,7 @@ export default function Dashboard() {
       </div>
 
       {/* 3. Patients Safety Incident (IKP) Card - diagram lingkaran saja */}
-      <div className="bg-white/80 backdrop-blur-lg rounded-[24px] p-6 lg:p-10 border border-white/60 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] transition-all duration-300">
+      <div className="clay-surface p-6 lg:p-10 transition-all duration-300">
         
         {/* Header IKP */}
         <div className="flex flex-col items-center justify-center text-center mb-8 pb-6 border-b border-gray-100">

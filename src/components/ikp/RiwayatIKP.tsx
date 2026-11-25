@@ -25,7 +25,7 @@ export default function RiwayatIKP({ onEdit }: { onEdit?: (item: any) => void })
 
       if (error) throw error;
       
-      const parsed = (inputs || []).map(row => {
+      const parsed = (inputs || []).map((row: any) => {
         let details: any = {};
         try { details = JSON.parse(row.notes || "{}").details || {}; } catch (e) {}
         return {

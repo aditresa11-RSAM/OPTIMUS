@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
+import KopSurat from "@/components/common/KopSurat";
 import {
   Download,
   FileText,
@@ -178,6 +179,18 @@ export default function Laporan() {
     tahun,
     kategori,
   });
+
+  // Auto-apply filter secara otomatis saat opsi dropdown dipilih
+  useEffect(() => {
+    setAppliedFilters({
+      periode,
+      bulan,
+      triwulan,
+      semester,
+      tahun,
+      kategori,
+    });
+  }, [periode, bulan, triwulan, semester, tahun, kategori]);
 
   // Format number
   const formatNum = (num: number | undefined) => {
@@ -509,25 +522,22 @@ export default function Laporan() {
   ];
   const displayMonths = getMonths();
 
-  const handleApplyFilter = () => {
-    setAppliedFilters({ periode, bulan, triwulan, semester, tahun, kategori });
-  };
-
-  const handleResetFilter = () => {
-    setPeriode("Triwulan");
-    setBulan("0");
-    setTriwulan("1");
-    setSemester("1");
-    setTahun(new Date().getFullYear().toString());
-    setKategori("Mutu Keseluruhan");
-    setAppliedFilters({
-      periode: "Triwulan",
-      bulan: "0",
-      triwulan: "1",
-      semester: "1",
-      tahun: new Date().getFullYear().toString(),
-      kategori: "Mutu Keseluruhan",
+  const handleExportExcel = () => {
+    if (!reportRef.current) return;
+    const table = reportRef.current.querySelector("table");
+    if (!table) return;
+    const html = table.outerHTML;
+    const blob = new Blob([`\uFEFF${html}`], {
+      type: "application/vnd.ms-excel;charset=utf-8",
     });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Laporan_Mutu_RSUD_${appliedFilters.tahun}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportPDF = async () => {
@@ -572,34 +582,108 @@ export default function Laporan() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-7xl mx-auto w-full p-2 md:p-0">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl font-bold text-[#10a37f] tracking-tight">
-              Laporan Mutu
-            </h1>
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Laporan Mutu RS) */}
+      <div id="laporan-header-panel" className="relative pt-0 group">
+        {/* Card Main Body */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
           </div>
-          <p className="text-gray-900 font-semibold text-[15px]">
-            Rekapitulasi dan unduh laporan capaian indikator
-          </p>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Laporan Mutu RS
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                Rekapitulasi, Analisis Capaian, dan Ekspor Laporan Akreditasi
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Laporan komprehensif indikator nasional mutu dan indikator prioritas rumah sakit untuk akuntabilitas pelayanan publik.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
         </div>
 
-        <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-          <button className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#10a37f] text-white rounded-xl hover:bg-emerald-700 transition-colors text-sm font-bold shadow-[0_4px_10px_-2px_rgba(16,185,129,0.3)]">
-            <FileSpreadsheet size={18} /> Export Excel
+        {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/laporan_character_popout.png"
+            alt="Laporan Mutu RS 3D"
+            className="h-[145px] sm:h-[160px] lg:h-[174px] xl:h-[182px] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
+        </div>
+      </div>
+
+      {/* Action Toolbar with Cetak, Excel, PDF */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold border border-emerald-200/60 shadow-2xs">
+            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">
+              Dokumentasi & Ekspor Laporan Mutu
+            </h4>
+            <p className="text-xs text-slate-500">
+              Cetak fisik berkas resmi atau unduh format digital (Excel & PDF) terintegrasi
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => window.print()}
+            title="Cetak Berkas"
+            aria-label="Cetak Berkas"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-102 active:scale-98 cursor-pointer"
+          >
+            <Printer size={16} />
+            <span>Cetak Berkas</span>
+          </button>
+          <button 
+            onClick={handleExportExcel}
+            title="Export Excel"
+            aria-label="Export Excel"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#10a37f] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_10px_-2px_rgba(16,185,129,0.3)] hover:scale-102 active:scale-98 cursor-pointer"
+          >
+            <FileSpreadsheet size={16} />
+            <span>Export Excel</span>
           </button>
           <button
             onClick={handleExportPDF}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#c2410c] text-white rounded-xl hover:bg-orange-800 transition-colors text-sm font-bold shadow-[0_4px_10px_-2px_rgba(194,65,12,0.3)]"
+            title="Export PDF"
+            aria-label="Export PDF"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#c2410c] hover:bg-orange-800 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_10px_-2px_rgba(194,65,12,0.3)] hover:scale-102 active:scale-98 cursor-pointer"
           >
-            <Download size={18} /> Export PDF
+            <Download size={16} />
+            <span>Export PDF</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-[24px] shadow-[0_4px_30px_-5px_rgba(0,0,0,0.05)] border border-gray-100 p-4 md:p-8 w-full overflow-hidden">
+      <div className="drop-shadow-card p-4 md:p-8 w-full overflow-hidden">
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6">
           <div className="space-y-2">
             <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
               Periode
@@ -708,26 +792,16 @@ export default function Laporan() {
           </div>
         </div>
 
-        <div className="flex gap-3 mb-8">
-          <button
-            onClick={handleApplyFilter}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#10a37f] text-white rounded-xl hover:bg-emerald-700 transition-all text-sm font-bold shadow-md hover:shadow-lg"
-          >
-            <CheckCircle2 size={18} /> Tampilkan Data
-          </button>
-          <button
-            onClick={handleResetFilter}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gray-50 text-gray-600 rounded-xl hover:bg-gray-100 hover:text-gray-900 transition-all text-sm font-bold border border-gray-200"
-          >
-            <RotateCcw size={18} /> Reset Filter
-          </button>
-        </div>
-
-        {/* Table Area */}
+        {/* Table Area with Official Letterhead */}
         <div
-          className="border border-gray-200 rounded-[20px] overflow-x-auto bg-white w-full"
+          className="drop-shadow-table overflow-x-auto bg-white w-full p-4 md:p-8"
           ref={reportRef}
         >
+          {/* KOP SURAT RESMI RSUD AL-MULK */}
+          <KopSurat 
+            subJudul={`LAPORAN PENCAPAIAN INDIKATOR MUTU TAHUN ${tahun}`}
+          />
+
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-[#10a37f] text-white">
@@ -848,6 +922,28 @@ export default function Laporan() {
               })}
             </tbody>
           </table>
+
+          {/* Official Signatures Block */}
+          <div className="grid grid-cols-2 gap-8 mt-12 pt-6 text-center text-xs font-bold text-slate-800">
+            <div>
+              <p className="text-slate-500 font-semibold mb-1">Mengetahui,</p>
+              <p className="text-sm font-extrabold uppercase">Direktur UOBK RSUD Al-Mulk</p>
+              <div className="h-20 flex items-center justify-center">
+                <span className="text-[10px] text-slate-300 italic">(Tanda Tangan & Cap Resmi)</span>
+              </div>
+              <p className="text-sm font-extrabold underline underline-offset-2">dr. H. Munifah Rohmawati</p>
+              <p className="text-slate-500 font-medium">NIP. 19780512 200604 2 018</p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-semibold mb-1">Sukabumi, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <p className="text-sm font-extrabold uppercase">Ketua Komite Mutu & Keselamatan Pasien</p>
+              <div className="h-20 flex items-center justify-center">
+                <span className="text-[10px] text-slate-300 italic">(Tanda Tangan)</span>
+              </div>
+              <p className="text-sm font-extrabold underline underline-offset-2">Tim Mutu RSUD Al-Mulk</p>
+              <p className="text-slate-500 font-medium">Komite Mutu Rumah Sakit</p>
+            </div>
+          </div>
         </div>
       </div>
 

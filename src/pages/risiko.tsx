@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { 
   Shield, 
+  ShieldCheck,
   Activity, 
   AlertTriangle, 
   FileText, 
@@ -186,7 +187,7 @@ export default function ManajemenRisiko() {
           } else {
             const seenIds = new Set<string>();
             const uniqueRecords: RiskRecord[] = [];
-            data.forEach(d => {
+            data.forEach((d: any) => {
               const uniqueId = String(d.id || `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
               if (!seenIds.has(uniqueId)) {
                 seenIds.add(uniqueId);
@@ -471,42 +472,90 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
         <title>Manajemen Risiko - OPTIMUS</title>
       </Head>
 
-      {/* Header & Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl md:text-3xl font-black text-[#10a37f] tracking-tight">
-                Manajemen Risiko
-              </h1>
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Manajemen Risiko) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4 mb-2">
+        <div id="risiko-header-panel" className="relative pt-0 group">
+          {/* Card Main Body */}
+          <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+            {/* Top Edge Highlight Line */}
+            <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+            {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+            <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/uploads/hospital_background_3d.png?v=3"
+                alt="Gedung RSUD Al-Mulk 3D Animation"
+                className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+              />
             </div>
-            <p className="text-gray-500 font-medium text-[12px]">
-              Identifikasi, evaluasi, dan mitigasi risiko rumah sakit secara terintegrasi.
-            </p>
+
+            {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+            <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+              {/* Vertical Green Accent Bar */}
+              <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+              <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                  Manajemen Risiko Rumah Sakit
+                </h1>
+
+                <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                  Identifikasi, Penilaian Matriks, Evaluasi, dan Rencana Mitigasi Terpadu
+                </p>
+
+                <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                  &quot;Pengelolaan risiko proaktif untuk meminimalkan potensi bahaya klinis, operasional, dan manajerial di RSUD Al-Mulk.&quot;
+                </p>
+              </div>
+            </div>
+
+            {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+            <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
           </div>
-          
-          <div className="flex bg-gray-100/80 p-1.5 rounded-2xl">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: PieChartIcon },
-                { id: 'data', label: 'Data Risiko', icon: FileText },
-                { id: 'input', label: editingId ? 'Edit Risiko' : 'Input Baru', icon: PlusCircle }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
-                    activeTab === tab.id 
-                      ? 'bg-white text-emerald-700 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
-                  }`}
-                >
-                  <tab.icon size={18} />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+
+          {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
+          <div className="relative lg:absolute lg:bottom-[1px] lg:right-8 xl:right-12 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/risiko_character_popout.png?v=5"
+              alt="Manajemen Risiko 3D"
+              className="h-[150px] sm:h-[165px] lg:h-[180px] xl:h-[190px] w-auto object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+            />
           </div>
         </div>
+
+        {/* Tab Navigation Bar */}
+        <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center gap-2 pl-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            <span className="text-xs sm:text-sm font-bold text-slate-800">
+              Navigasi Modul Risiko
+            </span>
+          </div>
+
+          <div className="flex bg-slate-100/90 p-1.5 rounded-xl gap-1">
+            {[
+              { id: 'dashboard', label: 'Dashboard', icon: PieChartIcon },
+              { id: 'data', label: 'Data Risiko', icon: FileText },
+              { id: 'input', label: editingId ? 'Edit Risiko' : 'Input Baru', icon: PlusCircle }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
+                  activeTab === tab.id 
+                    ? 'bg-white text-emerald-700 shadow-sm' 
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {supabaseError && (

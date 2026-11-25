@@ -3,15 +3,9 @@ import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabase";
 import { 
   ArrowRight, 
-  Clock, 
-  MapPin, 
   Volume2, 
   VolumeX, 
-  Activity, 
-  ShieldCheck,
-  Hospital,
-  TrendingUp,
-  Award
+  Hospital
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/store/useStore";
@@ -53,57 +47,15 @@ export default function WelcomePage() {
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [complianceScore, setComplianceScore] = useState(90);
   const [isExiting, setIsExiting] = useState(false);
 
   const backgroundImageSrc = settings.image_url;
 
-  const handleEnterDashboard = () => {
+  const handleEnterDashboard = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     localStorage.setItem("welcome_seen", "true");
     router.push("/dashboard");
   };
-
-  // Sync real-time compliance score animation from 90% to 100%
-  useEffect(() => {
-    let active = true;
-    let timer: any;
-    
-    const runAnimation = () => {
-      const duration = 2500; // 2.5 seconds to go from 90 to 100
-      const startTime = Date.now();
-      
-      const update = () => {
-        if (!active) return;
-        const now = Date.now();
-        const elapsed = now - startTime;
-        
-        if (elapsed >= duration) {
-          setComplianceScore(100);
-          // Stay at 100% for 3 seconds, then reset to 90% and restart
-          timer = setTimeout(() => {
-            if (active) {
-              setComplianceScore(90);
-              runAnimation();
-            }
-          }, 3000);
-        } else {
-          const progress = elapsed / duration;
-          const current = Math.floor(90 + progress * 10);
-          setComplianceScore(current);
-          requestAnimationFrame(update);
-        }
-      };
-      
-      requestAnimationFrame(update);
-    };
-
-    runAnimation();
-
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, []);
 
   // Sync real-time clock tickers
   useEffect(() => {
@@ -219,7 +171,7 @@ export default function WelcomePage() {
           <div className="absolute inset-0 pointer-events-none scale-110">
             <iframe
               src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0&iv_load_policy=3&enablejsapi=1`}
-              className="w-full h-full object-cover opacity-80"
+              className="w-full h-full object-cover opacity-100"
               frameBorder="0"
               allow="autoplay; encrypted-media"
               title="OPTIMUS Background Stream"
@@ -228,12 +180,11 @@ export default function WelcomePage() {
         ) : isDrive ? (
           // Google Drive stream representation
           <div className="absolute inset-0">
-            {/* Fallback layout styled cleanly with static image but subtle blur */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={backgroundImageSrc}
-              alt="Background Fallback" 
-              className="w-full h-full object-cover opacity-80 filter blur-[2px]"
+              alt="Background" 
+              className="w-full h-full object-cover opacity-100"
               referrerPolicy="no-referrer"
             />
           </div>
@@ -255,15 +206,15 @@ export default function WelcomePage() {
             loop
             playsInline
             preload="auto"
-            className="w-full h-full object-cover opacity-[0.6]"
+            className="w-full h-full object-cover opacity-100"
           />
         ) : isImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={backgroundImageSrc}
-              alt="Welcome Background Image Fallback" 
-              className="w-full h-full object-cover opacity-80 transition-all duration-700"
+              alt="Welcome Background Image" 
+              className="w-full h-full object-cover opacity-100 transition-all duration-700"
               referrerPolicy="no-referrer"
             />
           </>
@@ -321,193 +272,40 @@ export default function WelcomePage() {
               {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
             </button>
           )}
+
         </div>
       </motion.header>
 
-      {/* CONTENT LAYER */}
+      {/* CONTENT LAYER: TOMBOL MASUK MENU & LOGO WATERMARK KANAN BAWAH */}
       <motion.main 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative z-10 w-full px-6 md:px-12 pb-12 md:pb-16 flex-1 flex flex-col lg:flex-row items-start lg:items-end justify-end lg:justify-between gap-8 lg:gap-6 xl:gap-12"
+        className="relative z-10 w-full px-6 md:px-12 pb-8 md:pb-12 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-5"
       >
-        <style dangerouslySetInnerHTML={{ __html: `
-          .glass-emboss-text {
-            color: #ffffff;
-            text-shadow: 
-            1px 1px 2px rgba(0, 0, 0, 0.8),
-            2px 2px 4px rgba(0, 0, 0, 0.6),
-            0 10px 25px rgba(0, 0, 0, 0.5);
-          }
-          .glass-emboss-sub {
-            color: rgba(255, 255, 255, 0.95);
-            text-shadow: 
-            1px 1px 2px rgba(0, 0, 0, 0.8),
-            0 4px 12px rgba(0, 0, 0, 0.5);
-          }
-        `}} />
-        
-        {/* LEFT COLUMN: TITLE & CONTROLS */}
-        <div className="w-full lg:max-w-[440px] xl:max-w-xl space-y-5 text-left flex flex-col justify-end mt-auto lg:mt-0">
-          
-          <div className="space-y-3">
-            <motion.h1 
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-5xl min-[360px]:text-6xl sm:text-8xl lg:text-[85px] lg:leading-[85px] xl:text-[110px] xl:leading-none font-black tracking-normal leading-none select-none text-[#2dd96e] glass-emboss-text"
-              style={{
-                fontFamily: "Poppins, sans-serif",
-                fontStyle: "italic",
-                fontWeight: 900,
-                letterSpacing: "0.02em",
-                marginBottom: "0px",
-                textDecorationLine: "none"
-              }}
-            >
-              OPTIMUS
-            </motion.h1>
-            <h2 
-              className="font-bold tracking-normal leading-tight glass-emboss-sub text-[14px] sm:text-[18px] lg:text-[16px] xl:text-[21px] whitespace-normal xl:whitespace-nowrap"
-              style={{
-                marginBottom: "6px",
-                color: "#2dd96e",
-                textShadow: "0px 2px 4px rgba(0, 0, 0, 0.95), 0px 4px 12px rgba(0, 0, 0, 0.85)"
-              }}
-            >
-              Optimalisasi Sistem Pelaporan Mutu Rumah Sakit
-            </h2>
-            <p 
-              className="text-[13px] sm:text-xs md:text-sm lg:text-[14px] text-slate-200/85 font-medium leading-relaxed glass-emboss-sub w-full lg:max-w-[420px] xl:max-w-[555px] h-auto"
-              style={{
-                fontSize: "14px",
-                lineHeight: "22.75px"
-              }}
-            >
-              Sistem terintegrasi untuk meningkatkan kualitas laporan, keselamatan pasien dan tata kelola mutu rumah sakit secara berkelanjutan.
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <button
-              onClick={handleEnterDashboard}
-              className="px-6 py-3.5 rounded-xl bg-emerald-600 border border-emerald-500 text-white font-black text-xs tracking-wider uppercase hover:bg-emerald-700 hover:border-emerald-600 active:scale-95 transition-all duration-300 flex items-center gap-2.5 cursor-pointer shadow-[0_8px_24px_0_rgba(16,185,129,0.3)]"
-            >
-              <span style={{ textShadow: "1px 1.5px 1px rgba(0, 0, 0, 0.95)" }}>BUKA DASHBOARD</span>
-              <motion.div
-                animate={{ x: [0, 6, 0] }}
-                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
-              >
-                <ArrowRight size={14} className="stroke-[3]" />
-              </motion.div>
-            </button>
-          </div>
-
+        <div className="animate-smooth-float">
+          <button
+            onClick={handleEnterDashboard}
+            className="px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 hover:from-emerald-500 hover:to-emerald-400 border border-emerald-300/60 text-white font-extrabold text-xs md:text-sm tracking-wider uppercase active:scale-95 transition-all duration-300 flex items-center gap-3 cursor-pointer shadow-[0_10px_28px_rgba(16,185,129,0.5)] hover:shadow-[0_16px_36px_rgba(16,185,129,0.7)] group antialiased select-none"
+          >
+            <span className="drop-shadow-sm font-black tracking-widest">Masuk Menu</span>
+            <ArrowRight size={18} className="stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1.5" />
+          </button>
         </div>
 
-        {/* RIGHT COLUMN: GLASSMORPHISM ANALYTICS WIDGETS */}
-        <div className="hidden lg:flex flex-col sm:flex-row items-stretch sm:items-end gap-4 xl:gap-5 w-full lg:w-auto shrink-0 justify-center lg:justify-end">
+        {/* 3D OPTIMUS Logo Badge di Sebelah Kanan Bawah - Glassmorphism 2.0 Frosted Glass */}
+        <div className="relative overflow-hidden flex items-center bg-gradient-to-b from-white/30 via-white/20 to-white/10 hover:from-white/40 hover:via-white/25 hover:to-white/15 backdrop-blur-xl md:backdrop-blur-2xl border border-white/40 hover:border-white/60 px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-3xl shadow-[inset_0_1px_1px_0_rgba(255,255,255,0.8),0_12px_32px_0_rgba(0,0,0,0.22)] select-none transition-all duration-300 hover:scale-[1.03] self-end sm:self-auto group cursor-pointer">
+          {/* Internal Specular Glass Highlight */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/80 to-transparent pointer-events-none" />
+          <div className="absolute -inset-full bg-gradient-to-tr from-transparent via-white/15 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
-          {/* Widget 1: Capaian Mutu (Floating Bar Chart) */}
-          <motion.div 
-            animate={{ y: [0, -8, 0] }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 3.5, 
-              ease: "easeInOut" 
-            }}
-            whileHover={{ scale: 1.03 }}
-            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 xl:p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full lg:w-[240px] xl:w-[280px] min-h-[200px]"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Capaian Mutu</p>
-                <p className="text-sm font-black text-emerald-400">Target Tercapai</p>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[#2dd96e] flex items-center justify-center">
-                <TrendingUp size={16} />
-              </div>
-            </div>
-
-            {/* Custom Interactive rounded wide bars with bounce animations */}
-            <div className="h-28 flex items-end justify-between gap-2 px-0.5 mt-5">
-              {[
-                { month: "Jan", pct: "62%", hRange: ["45%", "65%"], duration: 2.2, delay: 0.1, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
-                { month: "Feb", pct: "74%", hRange: ["55%", "78%"], duration: 2.5, delay: 0.3, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
-                { month: "Mar", pct: "58%", hRange: ["40%", "60%"], duration: 2.1, delay: 0.5, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-emerald-400" },
-                { month: "Apr", pct: "81%", hRange: ["65%", "85%"], duration: 2.4, delay: 0.2, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" },
-                { month: "Mei", pct: "89%", hRange: ["70%", "92%"], duration: 2.3, delay: 0.4, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" },
-                { month: "Jun", pct: "94%", hRange: ["75%", "98%"], duration: 2.6, delay: 0.6, color: "from-emerald-500/30 to-[#2dd96e]", glow: "shadow-[0_0_10px_rgba(45,217,110,0.5)]", textColor: "text-[#2dd96e]" }
-              ].map((bar, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end relative">
-                  {/* Bar wrapper */}
-                  <div className="w-full flex-1 bg-white/5 rounded-t-lg overflow-visible flex items-end relative">
-                    <motion.div 
-                      animate={{ height: bar.hRange }}
-                      transition={{
-                        repeat: Infinity,
-                        repeatType: "reverse",
-                        duration: bar.duration,
-                        delay: bar.delay,
-                        ease: "easeInOut"
-                      }}
-                      className={`w-full bg-gradient-to-t ${bar.color} rounded-t-lg relative flex items-start justify-center ${bar.glow}`}
-                    >
-                      {/* Floating percentage above it */}
-                      <div className="absolute -top-4 flex flex-col items-center">
-                        <span className={`text-[9px] font-black ${bar.textColor} tracking-tighter select-none`}>
-                          {bar.pct}
-                        </span>
-                      </div>
-                    </motion.div>
-                  </div>
-                  {/* Month Label */}
-                  <span className="text-[10px] font-bold text-slate-400 tracking-wider font-sans select-none">
-                    {bar.month}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Widget 2: Kepatuhan Mutu (Floating Percentage) */}
-          <motion.div 
-            animate={{ y: [0, -10, 0] }}
-            transition={{ 
-              repeat: Infinity, 
-              duration: 4, 
-              ease: "easeInOut",
-              delay: 0.5
-            }}
-            whileHover={{ scale: 1.03 }}
-            className="bg-slate-950/40 backdrop-blur-xl border border-white/10 p-4 xl:p-5 rounded-2xl shadow-2xl flex flex-col justify-between w-full lg:w-44 xl:w-56 min-h-[180px]"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Kepatuhan Mutu</p>
-                <p className="text-sm font-black text-[#2dd96e]" style={{ fontSize: "12px" }}>Akreditasi Paripurna</p>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[#2dd96e] flex items-center justify-center">
-                <Award size={16} />
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-col justify-end flex-1">
-              {/* Score text displaying anim score from 90 to 100 */}
-              <div className="flex items-baseline gap-1">
-                <span className="text-5xl font-black text-white tracking-tight drop-shadow-md" style={{ fontStyle: "italic" }}>
-                  {complianceScore}
-                </span>
-                <span className="text-2xl font-extrabold text-[#2dd96e]">%</span>
-              </div>
-              <p className="text-[10px] text-slate-300 font-medium mt-1 leading-normal">
-                Indeks kepatuhan pelaporan indikator nasional mutu (INM).
-              </p>
-            </div>
-          </motion.div>
-
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/optimus_header_logo.png?v=3"
+            alt="OPTIMUS - Optimalisasi Sistem Pelaporan Mutu Rumah Sakit"
+            className="h-9 sm:h-11 md:h-14 lg:h-16 w-auto object-contain relative z-10 transition-transform duration-300"
+          />
         </div>
-
       </motion.main>
 
     </div>

@@ -48,7 +48,7 @@ export default function SupervisiMenu({ onSelect, onViewDashboard }: SupervisiMe
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 drop-shadow-card p-6">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Pilih Modul Supervisi</h2>
           <p className="text-sm text-slate-500 font-medium mt-1">

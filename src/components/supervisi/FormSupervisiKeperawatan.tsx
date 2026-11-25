@@ -4,6 +4,7 @@ import {
   CheckCircle2, AlertTriangle, ShieldAlert, UploadCloud, FileText, 
   Check, X, Minus
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip as RechartsTooltip, ResponsiveContainer, RadarChart, 
@@ -51,9 +52,43 @@ export default function FormSupervisiKeperawatan({ onBack, onViewRiwayat }: Form
   const [items, setItems] = useState<KepItem[]>(INITIAL_ITEMS);
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
   const [unit, setUnit] = useState('');
-  const [supervisor, setSupervisor] = useState('Bidang Keperawatan');
-  
+  const [supervisor, setSupervisor] = useState('Bidang Keperawatan RSUD Al-Mulk');
   const [activeTab, setActiveTab] = useState<'form' | 'dashboard' | 'history'>('form');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!unit) {
+      alert('Pilih Ruangan/Unit Keperawatan terlebih dahulu');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const record = {
+        id: 'KEP-' + Date.now(),
+        jenis: 'Keperawatan',
+        unit: unit,
+        tanggal,
+        supervisor: supervisor || 'Bidang Keperawatan',
+        skor: stats.persentase || 0,
+        kategori: (stats.persentase || 0) >= 85 ? 'BAIK' : (stats.persentase || 0) >= 70 ? 'CUKUP' : 'KURANG',
+        status_tindak_lanjut: (stats.persentase || 0) < 70 ? 'Perlu Tindak Lanjut' : 'Selesai',
+        detail: {
+          items,
+          stats,
+          catatan: 'Supervisi Klinis & Asuhan Keperawatan RSUD Al-Mulk'
+        },
+        created_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('supervisi').insert([record]);
+      if (error) throw error;
+      alert('Data Supervisi Keperawatan Berhasil Disimpan ke Database!');
+      setActiveTab('dashboard');
+    } catch (err: any) {
+      alert('Gagal menyimpan supervisi keperawatan: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const updateItem = (id: string, field: keyof KepItem, value: any) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -224,9 +259,12 @@ export default function FormSupervisiKeperawatan({ onBack, onViewRiwayat }: Form
         </div>
 
         <div className="bg-white p-6 border-t border-slate-200 flex justify-end gap-4">
-           <button className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-colors">Simpan Draft</button>
-           <button onClick={() => { alert('Data Tersimpan!'); setActiveTab('dashboard'); }} className="flex items-center gap-2 px-8 py-3 bg-[#8b5cf6] text-white font-bold rounded-xl hover:bg-violet-700 shadow-lg shadow-violet-500/30 transition-all">
-              <Save size={18} /> Simpan & Lanjutkan
+           <button 
+             onClick={handleSave} 
+             disabled={isSaving}
+             className="flex items-center gap-2 px-8 py-3 bg-[#8b5cf6] text-white font-bold rounded-xl hover:bg-violet-700 shadow-lg shadow-violet-500/30 transition-all disabled:opacity-50 cursor-pointer"
+           >
+              <Save size={18} /> {isSaving ? 'Menyimpan...' : 'Simpan ke Database'}
            </button>
         </div>
       </div>

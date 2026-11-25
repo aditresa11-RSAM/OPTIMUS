@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Save, Printer, Download, Clock, Calculator, Activity, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Save, Printer, Download, Clock, Calculator, Activity, CheckCircle2, AlertTriangle, ShieldAlert, History } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface FormSupervisiMutuProps {
   onBack: () => void;
@@ -33,6 +34,9 @@ export default function FormSupervisiMutu({ onBack, onViewRiwayat }: FormSupervi
     new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false })
   );
   
+  const [supervisor, setSupervisor] = useState('Tim Komite Mutu RSUD Al-Mulk');
+  const [isSaving, setIsSaving] = useState(false);
+
   // Analisa Otomatis
   const [showAnalisa, setShowAnalisa] = useState(false);
   const [analisa, setAnalisa] = useState({
@@ -43,6 +47,43 @@ export default function FormSupervisiMutu({ onBack, onViewRiwayat }: FormSupervi
     targetMasa: '',
     pj: ''
   });
+
+  const handleSave = async () => {
+    if (!area) {
+      alert('Pilih Unit/Area Supervisi terlebih dahulu');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const record = {
+        id: 'MUTU-' + Date.now(),
+        jenis: 'Mutu',
+        unit: area,
+        tanggal,
+        waktu,
+        supervisor: supervisor || 'Tim Komite Mutu',
+        skor: scores.percentage,
+        kategori: scores.status,
+        status_tindak_lanjut: scores.percentage < 70 ? 'Perlu Tindak Lanjut' : 'Selesai',
+        detail: {
+          items,
+          analisa,
+          totalScore: scores.totalScore,
+          maxScore: scores.maxScore,
+          filledCount: scores.filledCount
+        },
+        created_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('supervisi').insert([record]);
+      if (error) throw error;
+      alert('Hasil Supervisi Mutu Berhasil Disimpan ke Database!');
+      onViewRiwayat();
+    } catch (err: any) {
+      alert('Gagal menyimpan supervisi mutu: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const areas = [
     'IGD', 'ICU', 'IBS', 'Rawat Jalan', 'Ranap Aisyah', 'Ranap Fatimah',
@@ -357,15 +398,29 @@ export default function FormSupervisiMutu({ onBack, onViewRiwayat }: FormSupervi
         )}
       </div>
 
-      {/* Exporters bottom limits */}
+      {/* Action Buttons */}
       <div className="flex justify-center flex-wrap gap-4 mt-8">
-        <button className="flex items-center gap-2 px-6 py-3 bg-white text-rose-600 font-bold border border-rose-200 rounded-xl hover:bg-rose-50 shadow-sm transition-colors">
-          <Printer size={18} />
-          Cetak PDF
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-8 py-3.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+        >
+          <Save size={18} />
+          {isSaving ? 'Menyimpan...' : 'Simpan Hasil Supervisi'}
         </button>
-        <button className="flex items-center gap-2 px-6 py-3 bg-white text-emerald-600 font-bold border border-emerald-200 rounded-xl hover:bg-emerald-50 shadow-sm transition-colors">
-          <Download size={18} />
-          Export Excel
+        <button
+          onClick={onViewRiwayat}
+          className="flex items-center gap-2 px-6 py-3.5 bg-sky-50 text-sky-700 font-bold border border-sky-200 rounded-xl hover:bg-sky-100 shadow-sm transition-colors cursor-pointer"
+        >
+          <History size={18} />
+          Lihat Riwayat & Evaluasi
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-2 px-6 py-3.5 bg-white text-rose-600 font-bold border border-rose-200 rounded-xl hover:bg-rose-50 shadow-sm transition-colors cursor-pointer"
+        >
+          <Printer size={18} />
+          Cetak Hasil (PDF)
         </button>
       </div>
 

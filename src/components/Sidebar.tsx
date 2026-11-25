@@ -4,22 +4,22 @@ import { useStore } from "@/store/useStore";
 import { motion } from "motion/react";
 import { supabase } from "@/lib/supabase";
 import {
-  LayoutDashboard,
-  ClipboardList,
-  FileEdit,
-  BarChart2,
+  SquaresFour,
+  ClipboardText,
+  NotePencil,
+  ChartBar,
   FileText,
-  AlertTriangle,
-  Shield,
-  Activity,
-  Settings,
+  WarningDiamond,
+  ShieldCheck,
+  UsersFour,
+  CheckSquareOffset,
+  GearSix,
   Hospital,
-  User,
-  LogOut,
-  ClipboardCheck,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+  UserCircle,
+  SignOut,
+  CaretLeft,
+  CaretRight,
+} from "@phosphor-icons/react";
 
 export default function Sidebar() {
   const hospitalLogo = useStore((state) => state.hospitalLogo);
@@ -37,16 +37,16 @@ export default function Sidebar() {
   }, []);
 
   const menuItems = [
-    { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-    { name: "Profil Indikator", path: "/profil-indikator", icon: ClipboardList },
-    { name: "Input Data", path: "/input", icon: FileEdit },
-    { name: "Grafik Capaian", path: "/grafik", icon: BarChart2 },
+    { name: "Dashboard", path: "/dashboard", icon: SquaresFour },
+    { name: "Profil Indikator", path: "/profil-indikator", icon: ClipboardText },
+    { name: "Input Data", path: "/input", icon: NotePencil },
+    { name: "Grafik Capaian", path: "/grafik", icon: ChartBar },
     { name: "Laporan Mutu", path: "/laporan", icon: FileText },
-    { name: "Insiden Pasien (IKP)", path: "/ikp", icon: AlertTriangle },
-    { name: "Manajemen Risiko", path: "/risiko", icon: Shield },
-    { name: "Survei Budaya", path: "/survei", icon: Activity },
-    { name: "Supervisi Mutu", path: "/supervisi", icon: ClipboardCheck },
-    { name: "Pengaturan", path: "/pengaturan", icon: Settings },
+    { name: "Insiden Pasien (IKP)", path: "/ikp", icon: WarningDiamond },
+    { name: "Manajemen Risiko", path: "/risiko", icon: ShieldCheck },
+    { name: "Survei Budaya", path: "/survei", icon: UsersFour },
+    { name: "Supervisi Mutu", path: "/supervisi", icon: CheckSquareOffset },
+    { name: "Pengaturan", path: "/pengaturan", icon: GearSix },
   ];
 
   return (
@@ -54,7 +54,7 @@ export default function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         id="main-sidebar"
-        className={`hidden md:flex fixed inset-y-0 left-0 z-40 ${sidebarMinimized ? 'w-20' : 'w-64'} bg-gradient-to-b from-[#007A4D] to-[#005F3A] text-white flex-col justify-between border-r border-[#005F3A]/50 shadow-[4px_0_24px_rgba(0,122,77,0.15)] transition-all duration-300 font-sans`}
+        className={`hidden md:flex fixed inset-y-0 left-0 z-50 ${sidebarMinimized ? 'w-20' : 'w-64'} bg-gradient-to-b from-[#007A4D] to-[#005F3A] text-white flex-col justify-between border-r border-[#005F3A]/50 shadow-[4px_0_24px_rgba(0,122,77,0.15)] transition-all duration-300 font-sans`}
       >
         {/* Header & Logo */}
         <div className={`relative h-[88px] flex items-center ${sidebarMinimized ? 'justify-center px-2' : 'px-4'} border-b border-[#005F3A]/30 bg-white/5 backdrop-blur-sm transition-all duration-300 w-full`}>
@@ -69,7 +69,7 @@ export default function Sidebar() {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <Hospital className="text-emerald-600 h-5 w-5" />
+                <Hospital weight="duotone" className="text-emerald-600 h-5 w-5" />
               )}
             </div>
             {!sidebarMinimized && (
@@ -116,12 +116,12 @@ export default function Sidebar() {
                   }`}
                 >
                   <Icon
+                    weight="duotone"
                     className={`h-5 w-5 transition-colors duration-200 ${
                       isActive
                         ? "text-[#ded92d] drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
                         : "text-white"
                     }`}
-                    strokeWidth={2.2}
                   />
                 </motion.div>
                 {!sidebarMinimized && (
@@ -138,7 +138,7 @@ export default function Sidebar() {
         <div className={`p-4 border-t border-[#005F3A]/40 bg-black/10 backdrop-blur-sm flex flex-col gap-3 ${sidebarMinimized ? 'items-center' : ''}`}>
           <div className={`flex items-center ${sidebarMinimized ? 'justify-center' : 'gap-3'} w-full`}>
             <div className="h-10 w-10 rounded-[14px] bg-white/10 flex items-center justify-center border border-white/10 shadow-sm shrink-0">
-              <User className="h-5 w-5 text-emerald-50" />
+              <UserCircle weight="duotone" className="h-6 w-6 text-emerald-50" />
             </div>
             {!sidebarMinimized && (
               <div className="flex flex-col min-w-0 flex-1">
@@ -167,7 +167,7 @@ export default function Sidebar() {
                   }}
                   className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white/10 hover:bg-white/20 active:bg-white/5 border border-white/10 hover:border-white/20 text-white text-xs font-bold rounded-[14px] shadow-sm transition-all duration-200 cursor-pointer select-none"
                 >
-                  <LogOut className="h-3.5 w-3.5" style={{ color: "#ded92d" }} />
+                  <SignOut weight="duotone" className="h-4 w-4" style={{ color: "#ded92d" }} />
                   <span style={{ color: "#ded92d" }}>Keluar</span>
                 </Link>
               </motion.div>
@@ -178,7 +178,7 @@ export default function Sidebar() {
               className={`flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 hover:border-white/20 text-white rounded-[14px] transition-all duration-200 ${sidebarMinimized ? 'w-10 h-10' : 'w-10 h-10 shrink-0'}`}
               title={sidebarMinimized ? "Perbesar Sidebar" : "Perkecil Sidebar"}
             >
-              {sidebarMinimized ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {sidebarMinimized ? <CaretRight weight="bold" size={18} /> : <CaretLeft weight="bold" size={18} />}
             </button>
           </div>
         </div>
@@ -203,12 +203,12 @@ export default function Sidebar() {
               >
                 <div className="flex items-center justify-center mb-1 transition-transform group-hover:-translate-y-0.5">
                   <Icon
+                    weight="duotone"
                     className={`h-5 w-5 ${
                       isActive
                         ? "text-[#ded92d] drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
                         : "text-white"
                     }`}
-                    strokeWidth={2.2}
                   />
                 </div>
                 <span
@@ -236,7 +236,7 @@ export default function Sidebar() {
                 }}
                 className="flex items-center justify-center gap-1.5 w-full py-1.5 px-3.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-[11px] font-bold rounded-[14px] shadow-sm cursor-pointer whitespace-nowrap select-none transition-all"
               >
-                <LogOut className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <SignOut weight="duotone" className="h-4 w-4" />
                 <span>Keluar</span>
               </Link>
             </div>

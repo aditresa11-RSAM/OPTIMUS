@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ShieldCheck,
+  ShieldAlert,
   Flame,
   PieChart as PieIcon,
   Activity,
@@ -174,32 +175,89 @@ export default function IKP() {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold text-[#10a37f] tracking-tight">
-              Insiden Keselamatan Pasien (IKP)
-            </h1>
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (IKP Keselamatan Pasien) */}
+      <div id="ikp-header-panel" className="relative pt-0 group">
+        {/* Card Main Body */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
           </div>
-          <p className="text-gray-900 mt-1.5 text-sm font-semibold">
-            Sistem pencatatan dan pelaporan insiden keselamatan pasien
-          </p>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Insiden Keselamatan Pasien (IKP)
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                Sistem Pencatatan, Pelaporan, dan Grading Investigasi Insiden RS
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Membangun budaya pelaporan tanpa hukuman (non-punitive) untuk keselamatan pasien dan perbaikan sistem mutu berkelanjutan.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+          <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
         </div>
+
+        {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
+        <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/ikp_character_popout.png"
+            alt="IKP Pasien Safety 3D"
+            className="h-[145px] sm:h-[160px] lg:h-[174px] xl:h-[182px] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+          />
+        </div>
+      </div>
+
+      {/* Control Action Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold border border-emerald-200/60 shadow-2xs">
+            <ShieldAlert className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">
+              {showInput ? "Formulir Pelaporan Insiden Baru" : "Dashboard Analitik & Matriks Grading Insiden"}
+            </h4>
+            <p className="text-xs text-slate-500">
+              {showInput ? "Lengkapi data rincian insiden, grading risiko, dan investigasi awal" : "Pantau sebaran KNC, KTC, KTD, Sentinel, dan matriks risiko unit"}
+            </p>
+          </div>
+        </div>
+
         <div>
           {!showInput ? (
             <button
               onClick={() => setShowInput(true)}
-              className="flex items-center gap-2 bg-[#10a37f] hover:bg-[#0e8f6e] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:shadow-lg transition-all"
+              className="flex items-center gap-2 bg-[#007A4D] hover:bg-[#00603B] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs hover:shadow-md transition-all cursor-pointer"
             >
-              <Plus size={18} strokeWidth={3} />
+              <Plus size={16} strokeWidth={3} />
               Input Data IKP
             </button>
           ) : (
             <button
               onClick={() => setShowInput(false)}
-              className="flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-3 rounded-xl font-bold shadow-sm transition-all"
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 px-5 py-2.5 rounded-xl font-bold text-xs shadow-2xs transition-all cursor-pointer"
             >
-              <LayoutTemplate size={18} strokeWidth={2.5} />
+              <LayoutTemplate size={16} strokeWidth={2.5} />
               Dashboard IKP
             </button>
           )}
@@ -305,7 +363,7 @@ export default function IKP() {
           </div>
 
           {/* Incident Grading Chart - design matched with Dashboard */}
-          <div className="bg-white/80 backdrop-blur-lg rounded-[24px] p-6 lg:p-10 border border-white/60 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] transition-all duration-300 w-full">
+          <div className="drop-shadow-card p-6 lg:p-10 transition-all duration-300 w-full">
             
             {/* Header IKP */}
             <div className="flex flex-col items-center justify-center text-center mb-8 pb-6 border-b border-gray-100">

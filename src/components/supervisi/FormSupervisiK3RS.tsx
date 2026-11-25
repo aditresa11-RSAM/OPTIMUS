@@ -229,7 +229,7 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
     setDokumentasi([...dokumentasi, fileName]);
   };
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!unit) {
       alert("Silakan pilih Unit / Ruangan terlebih dahulu!");
       return;
@@ -250,7 +250,26 @@ export default function FormSupervisiK3RS({ onBack, onViewRiwayat }: FormSupervi
     if (typeof window !== 'undefined') {
       localStorage.setItem('supervisi_k3rs_history', JSON.stringify(updatedHistory));
     }
-    alert('Data Supervisi K3RS Berhasil Disimpan!');
+
+    // Also persist to database supervisi table
+    try {
+      await supabase.from('supervisi').insert([{
+        id: 'K3RS-' + Date.now(),
+        jenis: 'K3RS',
+        unit,
+        tanggal,
+        supervisor: supervisor || 'Tim K3RS RSUD Al-Mulk',
+        skor: stats.persentase,
+        kategori: stats.persentase >= 85 ? 'BAIK' : stats.persentase >= 70 ? 'CUKUP' : 'KURANG',
+        status_tindak_lanjut: stats.persentase < 70 ? 'Perlu Tindak Lanjut' : 'Selesai',
+        detail: newRecord,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (e) {
+      console.error('Error saving K3RS to database:', e);
+    }
+
+    alert('Data Supervisi K3RS Berhasil Disimpan ke Database!');
     
     // Reset form after saving
     setItems(INITIAL_ITEMS.map(it => ({ ...it, nilai: null, temuan: '', rekomendasi: '' })));

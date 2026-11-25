@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import Sidebar from "./Sidebar";
 import { useStore } from "@/store/useStore";
-import { Hospital, Calendar, Clock } from "lucide-react";
+import { Hospital, Calendar, Clock, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import type { NextRouter } from "next/router";
 
@@ -86,51 +87,31 @@ export default function Layout({ children, router }: LayoutProps) {
 
       {/* Content flex alignment container */}
       <div className={`flex-1 flex flex-col min-h-screen ${sidebarMinimized ? 'md:pl-20' : 'md:pl-64'} w-full min-w-0 transition-all duration-300`}>
-        {/* PREMIUM UNIFIED GLASSMORPHISM TOP HEADER */}
-        <header className={`fixed top-0 left-0 right-0 ${sidebarMinimized ? 'md:left-20' : 'md:left-64'} z-30 flex items-center justify-between h-16 md:h-[88px] px-4 md:px-8 bg-white/75 backdrop-blur-lg border-b border-gray-100/80 shadow-xs w-full md:w-auto transition-all duration-300`}>
+        {/* PREMIUM UNIFIED GLASSMORPHISM TOP HEADER - SOFT PEARL OFF-WHITE SURFACE */}
+        <header className={`fixed top-0 left-0 right-0 ${sidebarMinimized ? 'md:left-20' : 'md:left-64'} z-40 flex items-center justify-between h-16 md:h-[88px] px-4 md:px-8 bg-gradient-to-r from-[#eaedf2] via-[#f1f4f7] to-[#eaedf2] backdrop-blur-md border-b border-slate-200/85 shadow-xs w-full md:w-auto transition-all duration-300`}>
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400 shadow-[0_2px_15px_rgba(16,163,127,0.8)] z-40" />
-          {/* Left Side: Brand Identity */}
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col justify-center">
-              <span 
-                className="font-black tracking-[0.1em] drop-shadow-sm select-none antialiased leading-none text-2xl md:text-[40px]"
-                style={{ 
-                  fontVariantLigatures: "common-ligatures", 
-                  WebkitFontSmoothing: "antialiased",
-                  color: "#10a37f",
-                  fontStyle: "italic",
-                  display: "inline-block",
-                  textDecorationLine: "none",
-                  marginBottom: "-2px",
-                  marginTop: "0px",
-                  paddingBottom: "0px",
-                  paddingLeft: "0px",
-                  paddingRight: "0px",
-                  paddingTop: "0px",
-                  marginRight: "0px",
-                  marginLeft: "0px",
-                  width: "auto"
-                }}
-              >
-                OPTIMUS
-              </span>
-              <span 
-                className="text-[8px] sm:text-[10px] font-semibold tracking-[0.15em] text-slate-500 uppercase block whitespace-nowrap mt-1"
-                style={{ marginBottom: "0px", fontWeight: "bold" }}
-              >
-                Optimalisasi Sistem Pelaporan Mutu Rumah Sakit
-              </span>
-            </div>
-          </div>
+          {/* Left Side: Brand Identity Logo (Crisp Without Dropshadow, White Details Contrast Clearly on Off-White) */}
+          <Link
+            href="/dashboard"
+            className="flex items-center group py-0.5 select-none focus:outline-hidden transition-transform duration-200"
+            title="OPTIMUS - Optimalisasi Sistem Pelaporan Mutu Rumah Sakit"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/optimus_header_logo.png?v=3"
+              alt="OPTIMUS - Optimalisasi Sistem Pelaporan Mutu Rumah Sakit"
+              className="h-11 sm:h-13 md:h-[70px] lg:h-[74px] w-auto max-w-[280px] sm:max-w-[350px] md:max-w-[430px] object-contain select-none transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+          </Link>
 
           {/* Right Side: High-Precision Calendar & Clock Widget */}
-          <div className="flex items-center">
+          <div className="flex items-center gap-2.5">
             <ClockWidget />
           </div>
         </header>
 
         {/* Primary Page views main insertion wrapper */}
-        <main className="flex-1 w-full p-4 md:p-8 pt-24 md:pt-[112px]">
+        <main className="flex-1 w-full px-4 sm:px-5 md:px-6 lg:px-6 xl:px-8 pt-20 md:pt-[104px] pb-10">
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>

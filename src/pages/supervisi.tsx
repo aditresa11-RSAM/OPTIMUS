@@ -68,19 +68,57 @@ export default function SupervisiPage() {
         <title>Supervisi Mutu Terintegrasi - OptiMus</title>
       </Head>
 
-      {/* Header Page (Only show in Menu view so forms take full attention?) Let's keep it visible but minimal. */}
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Supervisi Mutu) */}
       {activeView === 'menu' && (
-        <div className="mb-6 shrink-0 bg-gradient-to-r from-[#007A4D] to-[#005F3A] p-8 rounded-3xl text-white shadow-lg relative overflow-hidden">
-          <div className="relative z-10">
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
-              Supervisi Mutu Terintegrasi
-            </h1>
-            <p className="text-slate-300 font-medium text-sm md:text-base max-w-2xl leading-relaxed">
-              Modul terpadu untuk pelaksanaan, monitoring, dan evaluasi hasil supervisi rumah sakit demi tercapainya standar akreditasi dan mutu paripurna.
-            </p>
+        <div id="supervisi-header-panel" className="relative pt-0 group mb-6">
+          {/* Card Main Body */}
+          <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+            {/* Top Edge Highlight Line */}
+            <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+
+            {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+            <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/uploads/hospital_background_3d.png?v=3"
+                alt="Gedung RSUD Al-Mulk 3D Animation"
+                className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+              />
+            </div>
+
+            {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+            <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+              {/* Vertical Green Accent Bar */}
+              <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+              <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                  Supervisi Mutu Terintegrasi
+                </h1>
+
+                <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                  Monitoring Kepatuhan Standar, Audit Klinis, dan Evaluasi Lapangan Berkala
+                </p>
+
+                <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                  &quot;Pelaksanaan supervisi mutu internal berkelanjutan demi mempertahankan standar mutu paripurna di seluruh unit kerja.&quot;
+                </p>
+              </div>
+            </div>
+
+            {/* Spacer on Desktop for the 3D Pop-Out Characters */}
+            <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
           </div>
-          {/* Decor */}
-          <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-white/10 to-transparent skew-x-12 translate-x-32"></div>
+
+          {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
+          <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/supervisi_character_popout.png"
+              alt="Supervisi Mutu 3D"
+              className="h-[145px] sm:h-[160px] lg:h-[174px] xl:h-[182px] w-auto object-contain object-bottom drop-shadow-[0_10px_20px_rgba(0,95,58,0.22)] transition-transform duration-500 group-hover:scale-[1.03] origin-bottom"
+            />
+          </div>
         </div>
       )}
 

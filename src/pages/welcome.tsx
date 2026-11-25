@@ -281,21 +281,16 @@ export default function WelcomePage() {
             </p>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4 w-full flex justify-center animate-smooth-float">
             <button
               onClick={() => {
                 localStorage.setItem("welcome_seen", "true");
                 router.push("/");
               }}
-              className="px-8 py-3.5 rounded-2xl bg-emerald-600 border border-emerald-500 text-white font-black text-xs tracking-wider uppercase hover:bg-emerald-700 hover:border-emerald-600 active:scale-95 transition-all duration-300 flex items-center gap-3.5 mx-auto cursor-pointer shadow-[0_8px_32px_0_rgba(16,185,129,0.4)]"
+              className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 hover:from-emerald-500 hover:to-emerald-400 border border-emerald-300/60 text-white font-extrabold text-xs tracking-wider uppercase active:scale-95 transition-all duration-300 flex items-center gap-3.5 mx-auto cursor-pointer shadow-[0_10px_28px_rgba(16,185,129,0.5)] hover:shadow-[0_16px_36px_rgba(16,185,129,0.7)] group antialiased select-none"
             >
-              <span>BUKA DASHBOARD</span>
-              <motion.div
-                animate={{ x: [0, 6, 0] }}
-                transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
-              >
-                <ArrowRight size={14} className="stroke-[3]" />
-              </motion.div>
+              <span className="drop-shadow-sm font-black tracking-widest">Masuk Menu</span>
+              <ArrowRight size={16} className="stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1.5" />
             </button>
           </div>
 

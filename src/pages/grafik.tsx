@@ -534,47 +534,80 @@ export default function Grafik() {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 pb-16 w-full max-w-full px-2 sm:px-4 md:px-0 overflow-x-hidden md:overflow-visible">
       
-      {/* Header */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-[#10a37f] tracking-tight">
-            Grafik Capaian Mutu
-          </h1>
-          <p className="text-gray-500 mt-1.5 text-xs font-semibold uppercase tracking-wider">
-            Analisis Dinamis Indikator Kinerja Klinis
-          </p>
-        </div>
+      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Grafik Capaian Mutu) */}
+      <div id="grafik-header-panel" className="relative pt-0 group">
+        {/* Card Main Body */}
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          {/* Top Edge Highlight Line */}
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
 
-        <div className="flex bg-gray-50 p-1 rounded-xl border border-gray-100 self-start md:self-auto shadow-sm">
-          <button
-            onClick={() => setChartType("bar")}
-            className={`px-5 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
-              chartType === "bar"
-                ? "bg-white text-emerald-800 shadow-sm border border-gray-200"
-                : "text-gray-400 hover:text-gray-700"
-            }`}
-          >
-            Bar Chart
-          </button>
-          <button
-            onClick={() => setChartType("line")}
-            className={`px-5 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
-              chartType === "line"
-                ? "bg-white text-emerald-800 shadow-sm border border-gray-200"
-                : "text-gray-400 hover:text-gray-700"
-            }`}
-          >
-            Line Chart
-          </button>
+          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+          <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/uploads/hospital_background_3d.png?v=3"
+              alt="Gedung RSUD Al-Mulk 3D Animation"
+              className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
+            />
+          </div>
+
+          {/* Left Side: Real Vector Typography & Description with Accent Bar */}
+          <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
+            {/* Vertical Green Accent Bar */}
+            <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
+
+            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+              <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
+                Grafik Capaian Mutu
+              </h1>
+
+              <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
+                Visualisasi Dinamis Indikator Kinerja Klinis, INM, IMP-RS, IMP-Unit & SPM
+              </p>
+
+              <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
+                &quot;Pemantauan tren capaian mutu berkala secara interaktif, transparan, dan komparatif terhadap target standar nasional.&quot;
+              </p>
+            </div>
+          </div>
+
+          {/* Spacer on Desktop for Hospital Panorama View */}
+          <div className="hidden lg:block w-[240px] xl:w-[300px] shrink-0 pointer-events-none" />
         </div>
       </div>
 
-      {/* FILTER SECTION */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-5 relative overflow-hidden">
+      {/* FILTER & CHART TYPE CONTROLS */}
+      <div className="drop-shadow-card p-6 space-y-5 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl opacity-50 pointer-events-none" />
-        <div className="flex items-center gap-2 mb-2">
-          <Filter className="text-emerald-600" size={16} />
-          <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest">Filter Parameter</h3>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+          <div className="flex items-center gap-2">
+            <Filter className="text-emerald-600" size={16} />
+            <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest">Filter Parameter</h3>
+          </div>
+
+          {/* Chart Type Toggle Button */}
+          <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-2xs">
+            <button
+              onClick={() => setChartType("bar")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                chartType === "bar"
+                  ? "bg-white text-emerald-800 shadow-sm border border-gray-200"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              Bar Chart
+            </button>
+            <button
+              onClick={() => setChartType("line")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                chartType === "line"
+                  ? "bg-white text-emerald-800 shadow-sm border border-gray-200"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              Line Chart
+            </button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 relative z-10">
@@ -676,7 +709,7 @@ export default function Grafik() {
             if (d.status === "Belum Ada Data") return null;
 
             return (
-              <div key={d.id} className="bg-white p-4 sm:p-6 md:p-8 rounded-[20px] border border-emerald-500/20 shadow-[0_8px_30px_rgb(16,163,127,0.06)] hover:shadow-[0_16px_40px_rgb(16,163,127,0.12)] transition-all flex flex-col w-full min-w-0 overflow-hidden box-border">
+              <div key={d.id} className="drop-shadow-card p-4 sm:p-6 md:p-8 flex flex-col w-full min-w-0 overflow-hidden box-border">
                 <div className="mb-6 border-b border-gray-100 pb-5 flex flex-col items-center text-center">
                   <h3 className="text-xl md:text-2xl font-black text-slate-800 uppercase leading-snug break-words">{d.name}</h3>
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1.5 break-words">UOBK RSUD AL-MULK KOTA SUKABUMI</p>
