@@ -451,7 +451,7 @@ export default function RadiologiAuditForm({
           <FileSpreadsheet size={20} className="text-white" />
           <div>
             <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              Formulir Mutu Ruang Radiologi (Format Workbook Excel)
+              Formulir Mutu Ruang Radiologi
             </h3>
             <p className="text-[11px] font-semibold text-emerald-100">
               Unit: Radiologi • Bulan: {bulanLabel} {tahunLabel} • Indikator Aktif:{" "}
@@ -464,13 +464,6 @@ export default function RadiologiAuditForm({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPasteBox((v) => !v)}
-            className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 hover:bg-white px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border border-emerald-200"
-          >
-            <FileUp size={14} /> Tempel dari Excel
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -531,44 +524,6 @@ export default function RadiologiAuditForm({
           );
         })}
       </div>
-
-      {showPasteBox && (
-        <div className="mx-5 mt-4 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-bold text-emerald-950">
-              Salin baris langsung dari Excel untuk sheet{" "}
-              <span className="underline">{tabs.find((x) => x.key === activeSheet)?.label}</span>{" "}
-              (mendukung tanggal/jam Excel maupun format normal), lalu tempel di bawah:
-            </p>
-            <button type="button" onClick={() => setShowPasteBox(false)} className="text-slate-500 p-1">
-              <X size={14} />
-            </button>
-          </div>
-          <textarea
-            rows={4}
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            placeholder="Tempel baris Excel berpemisah Tab di sini..."
-            className="w-full rounded-xl border border-emerald-200 bg-white p-3 text-xs font-mono text-slate-800 outline-none focus:border-emerald-500"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPasteBox(false)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              onClick={handleImportPaste}
-              className="px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              Masukkan ke Sheet
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* SHEET 1: JUMLAH PEMERIKSAAN RADIOLOGI */}
       {activeSheet === "jumlah_pemeriksaan" && (

@@ -613,6 +613,8 @@ interface RootState {
   setHospitalLogo: (logo: string) => void;
   dataMutuList: DataMutuPayload[];
   addDataMutu: (data: DataMutuPayload) => void;
+  upsertDataMutu: (data: DataMutuPayload) => void;
+  deleteDataMutu: (id: string) => void;
   setDataMutuList: (data: DataMutuPayload[]) => void;
   indicatorProfiles: IndicatorProfile[];
   setIndicatorProfiles: (data: IndicatorProfile[]) => void;
@@ -636,7 +638,6 @@ const initialUnits: Unit[] = [
   { id: "1", name: "IGD", category: "Umum", status: "Aktif" },
   { id: "12", name: "Ranap Aisyah Anak", category: "Rawat Inap", status: "Aktif" },
   { id: "13", name: "Ranap Aisyah Bedah", category: "Rawat Inap", status: "Aktif" },
-  { id: "2", name: "Ranap Aisyah", category: "Rawat Inap", status: "Aktif" },
   { id: "3", name: "Ranap Fatimah", category: "Rawat Inap", status: "Aktif" },
   { id: "4", name: "Ranap Khadijah", category: "Rawat Inap", status: "Aktif" },
   { id: "14", name: "Emergency Kebidanan", category: "Gawat Darurat", status: "Aktif" },
@@ -667,6 +668,19 @@ export const useStore = create<RootState>((set) => ({
   dataMutuList: [],
   addDataMutu: (data) =>
     set((state) => ({ dataMutuList: [...state.dataMutuList, data] })),
+  upsertDataMutu: (data) =>
+    set((state) => {
+      const exists = state.dataMutuList.some((item) => item.id === data.id);
+      return {
+        dataMutuList: exists
+          ? state.dataMutuList.map((item) => (item.id === data.id ? data : item))
+          : [...state.dataMutuList, data],
+      };
+    }),
+  deleteDataMutu: (id) =>
+    set((state) => ({
+      dataMutuList: state.dataMutuList.filter((item) => item.id !== id),
+    })),
   setDataMutuList: (data) => set({ dataMutuList: data }),
   indicatorProfiles: [],
   setIndicatorProfiles: (data) => set({ indicatorProfiles: data }),

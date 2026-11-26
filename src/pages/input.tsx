@@ -82,6 +82,16 @@ import RadiologiAuditForm, {
   stripEmptyRadiologiRows,
 } from "@/components/input/RadiologiAuditForm";
 import UnitCardSelector from "@/components/input/UnitCardSelector";
+import PeriodCalendarPicker from "@/components/input/PeriodCalendarPicker";
+import SavedRoomDataSection, {
+  SavedRoomEntryView,
+} from "@/components/input/SavedRoomDataSection";
+import {
+  stripIndicatorCountSuffix,
+  parseSavedNotes,
+  matchUnitAndMonth,
+  countSavedDetailRows,
+} from "@/components/input/inputPeriodUtils";
 import PrognasMutuForm, {
   PrognasIndicatorType,
   createEmptyPrognasData,
@@ -1043,6 +1053,8 @@ export default function InputData() {
     indicatorProfiles,
     dataMutuList,
     addDataMutu,
+    upsertDataMutu,
+    deleteDataMutu,
   } = useStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1055,8 +1067,23 @@ export default function InputData() {
   const [tempUnitName, setTempUnitName] = useState("");
   const [selectedSubUnit, setSelectedSubUnit] = useState("");
   const [aisyahSubMode, setAisyahSubMode] = useState<"ANAK" | "BEDAH" | "">("");
+  const [activeSavedEntryId, setActiveSavedEntryId] = useState<string | null>(null);
   const [dbSavedEntries, setDbSavedEntries] = useState<
-    Array<{ unit_id?: string; category_id?: string; indicator_id?: string; input_date?: string }>
+    Array<{
+      id?: string;
+      unit_id?: string;
+      sub_unit?: string | null;
+      category_id?: string;
+      indicator_id?: string | null;
+      input_date?: string;
+      numerator_value?: number;
+      denominator_value?: number;
+      target?: string | number | null;
+      achievement_percentage?: number | null;
+      notes?: string | Record<string, any> | null;
+      attachment_url?: string | null;
+      created_at?: string;
+    }>
   >([]);
 
   // Room modal form active status (Admin features)
@@ -1075,14 +1102,14 @@ export default function InputData() {
   const checklistRef = useRef<HTMLDivElement>(null);
   const formSectionRef = useRef<HTMLDivElement>(null);
 
-  // Fetch existing saved inputs summary for Unit checklist progress status
+  // Fetch existing saved inputs (including detail table rows in notes) so data stays visible and editable
   useEffect(() => {
     let isMounted = true;
     const fetchSavedInputs = async () => {
       try {
         const { data } = await supabase
           .from("indicator_inputs")
-          .select("id, unit_id, category_id, indicator_id, input_date");
+          .select("*");
         if (data && isMounted) {
           setDbSavedEntries(data);
         }
@@ -1323,15 +1350,11 @@ export default function InputData() {
   const guidedCompletionSet = useMemo(() => {
     const completedIds = new Set<string>();
     if (!selectedUnit) return completedIds;
-    const uName = selectedUnit.name.trim().toLowerCase();
     const monthPrefix = (watchTanggal || new Date().toISOString().slice(0, 10)).slice(0, 7);
 
     dataMutuList.forEach((entry) => {
-      const entryUnit = (entry.unit || "").trim().toLowerCase();
-      const entryDate = entry.tanggal || "";
       if (
-        (entryUnit === uName || entryUnit.startsWith(`${uName} -`)) &&
-        entryDate.startsWith(monthPrefix) &&
+        matchUnitAndMonth(entry.unit, entry.tanggal, selectedUnit.name, monthPrefix) &&
         entry.indikator_id
       ) {
         completedIds.add(entry.indikator_id);
@@ -1339,11 +1362,8 @@ export default function InputData() {
     });
 
     dbSavedEntries.forEach((entry) => {
-      const entryUnit = (entry.unit_id || "").trim().toLowerCase();
-      const entryDate = entry.input_date || "";
       if (
-        (entryUnit === uName || entryUnit.startsWith(`${uName} -`)) &&
-        entryDate.startsWith(monthPrefix) &&
+        matchUnitAndMonth(entry.unit_id, entry.input_date, selectedUnit.name, monthPrefix) &&
         entry.indicator_id
       ) {
         completedIds.add(entry.indicator_id);
@@ -1352,6 +1372,123 @@ export default function InputData() {
 
     return completedIds;
   }, [selectedUnit, watchTanggal, dataMutuList, dbSavedEntries]);
+
+  // Unified saved entries for the currently selected room and reporting month (persists across saves & reloads)
+  const savedRoomEntries = useMemo<SavedRoomEntryView[]>(() => {
+    if (!selectedUnit) return [];
+    const monthPrefix = (watchTanggal || new Date().toISOString().slice(0, 10)).slice(0, 7);
+    const byId = new Map<string, SavedRoomEntryView>();
+
+    // First populate from persisted DB entries
+    dbSavedEntries.forEach((entry, idx) => {
+      if (!matchUnitAndMonth(entry.unit_id, entry.input_date, selectedUnit.name, monthPrefix)) {
+        return;
+      }
+      const id = String(entry.id || `db-${idx}-${entry.indicator_id || "x"}`);
+      const notesObj = parseSavedNotes(entry.notes);
+      const profile = indicatorProfiles.find((p) => p.id === entry.indicator_id);
+      const num = Number(entry.numerator_value ?? 0);
+      const den = Number(entry.denominator_value ?? 1);
+      const cap =
+        typeof entry.achievement_percentage === "number"
+          ? Number(entry.achievement_percentage.toFixed(2))
+          : Number(((num / (den || 1)) * 100).toFixed(2));
+      const targetStr = entry.target || profile?.target || "";
+      const targetNum = parseFloat(String(targetStr).replace(/[^0-9.]/g, "")) || 100;
+      const isReverse = String(targetStr).includes("≤") || String(targetStr).includes("<") || String(targetStr).trim() === "0%";
+      const computedStatus = isReverse
+        ? cap <= targetNum
+          ? "Tercapai"
+          : "Belum Tercapai"
+        : cap >= targetNum
+          ? "Tercapai"
+          : cap >= targetNum * 0.85
+            ? "Mendekati"
+            : "Belum Tercapai";
+
+      byId.set(id, {
+        id,
+        unit: entry.unit_id || selectedUnit.name,
+        tanggal: entry.input_date || watchTanggal || "",
+        kategori: entry.category_id || profile?.category || "INM",
+        indikator_id: entry.indicator_id || "",
+        indikator_name: profile?.indicator_title || entry.indicator_id || "Indikator Mutu",
+        numerator: num,
+        denominator: den,
+        capaian: isNaN(cap) ? 0 : cap,
+        target: targetStr || undefined,
+        status: computedStatus,
+        rowCount: countSavedDetailRows(notesObj),
+        notesObj,
+      });
+    });
+
+    // Overlay local Zustand entries (reflects latest optimistic updates)
+    dataMutuList.forEach((entry) => {
+      if (!matchUnitAndMonth(entry.unit, entry.tanggal, selectedUnit.name, monthPrefix)) {
+        return;
+      }
+      const profile = indicatorProfiles.find((p) => p.id === entry.indikator_id);
+      const notesObj: Record<string, any> = {
+        keterangan: entry.keterangan,
+        kpc: entry.kpc,
+        knc: entry.knc,
+        ktc: entry.ktc,
+        ktd: entry.ktd,
+        sentinel: entry.sentinel,
+        visite_details: entry.visite_details,
+        jatuh_details: entry.jatuh_details,
+        identifikasi_details: entry.identifikasi_details,
+        waktu_tunggu_details: entry.waktu_tunggu_details,
+        rekam_medis_details: entry.rekam_medis_details,
+        radiologi_details: entry.radiologi_details,
+        prognas_details: entry.prognas_details,
+        racikan_waktu_tunggu_details: entry.racikan_waktu_tunggu_details,
+        high_alert_details: entry.high_alert_details,
+        kekosongan_obat_details: entry.kekosongan_obat_details,
+        sbar_details: entry.sbar_details,
+        penundaan_operasi_details: entry.penundaan_operasi_details,
+        surgical_safety_details: entry.surgical_safety_details,
+        pembatalan_operasi_details: entry.pembatalan_operasi_details,
+        penyediaan_darah_details: entry.penyediaan_darah_details,
+        imd_bayi_details: entry.imd_bayi_details,
+        kematian_ibu_bayi_details: entry.kematian_ibu_bayi_details,
+        pengkajian_nyeri_details: entry.pengkajian_nyeri_details,
+        emergency_respon_time_details: entry.emergency_respon_time_details,
+        sc_emergency_details: entry.sc_emergency_details,
+        komplikasi_persalinan_details: entry.komplikasi_persalinan_details,
+        hasil_kritis_lab_details: entry.hasil_kritis_lab_details,
+        sampel_lab_pelabelan_details: entry.sampel_lab_pelabelan_details,
+        kunjungan_keluarga_details: entry.kunjungan_keluarga_details,
+        sarana_sanitasi_details: entry.sarana_sanitasi_details,
+        pengangkutan_limbah_details: entry.pengangkutan_limbah_details,
+        penyediaan_alat_steril_details: entry.penyediaan_alat_steril_details,
+        penyediaan_linen_details: entry.penyediaan_linen_details,
+        ketersediaan_air_details: entry.ketersediaan_air_details,
+        clinical_pathway_details: entry.clinical_pathway_details,
+        verifikasi_telepon_details: entry.verifikasi_telepon_details,
+        ya_tidak_details: entry.ya_tidak_details,
+      };
+
+      byId.set(entry.id, {
+        id: entry.id,
+        unit: entry.unit,
+        tanggal: entry.tanggal,
+        kategori: entry.kategori,
+        indikator_id: entry.indikator_id || "",
+        indikator_name: entry.indikator_name || profile?.indicator_title || "Indikator Mutu",
+        numerator: Number(entry.numerator ?? 0),
+        denominator: Number(entry.denominator ?? 1),
+        capaian: Number(entry.capaian ?? 0),
+        target: entry.target || profile?.target,
+        status: entry.status || "Belum Tercapai",
+        rowCount: countSavedDetailRows(notesObj),
+        notesObj,
+      });
+    });
+
+    return Array.from(byId.values()).reverse();
+  }, [selectedUnit, watchTanggal, dataMutuList, dbSavedEntries, indicatorProfiles]);
 
   const indicatorTitleLower = (selectedIndikatorProfile?.indicator_title || "").toLowerCase();
 
@@ -2001,15 +2138,17 @@ export default function InputData() {
     return "Tidak Tercapai";
   }, [selectedIndikatorProfile, computedCapaian]);
 
-  // Real-time unit list filtering
+  // Real-time unit list filtering (exclude duplicate legacy "Ranap Aisyah" since Anak & Bedah have dedicated cards)
   const filteredUnits = useMemo(() => {
     const seen = new Set<string>();
     return units.filter((u) => {
+      const normalized = (u.name || "").trim().toLowerCase();
+      if (normalized === "ranap aisyah") return false;
       const uniqueKey = u.id || u.name;
       if (seen.has(uniqueKey)) return false;
       seen.add(uniqueKey);
       return (
-        u.name.toLowerCase().includes(unitSearch.toLowerCase()) &&
+        normalized.includes(unitSearch.toLowerCase()) &&
         u.status === "Aktif"
       );
     });
@@ -3449,42 +3588,35 @@ export default function InputData() {
     );
   };
 
-  // Guided unit checklist selection handler -> selects category + indicator + opens table directly
-  const handleSelectGuidedMutu = (item: UnitMutuItem) => {
-    const profile = resolveBlueprintProfile(item);
-    if (!profile) {
-      alert(
-        `Profil indikator "${item.label}" belum ditemukan di Master Indikator. Mohon periksa menu Profil Indikator.`,
-      );
-      return;
-    }
-
-    setFormValue("kategori", profile.category);
-    setFormValue("indikator_id", profile.id, { shouldValidate: true });
-    setUploadedProofName("");
-    setCustomNumerator(undefined);
-    setCustomDenominator(undefined);
-
+  // Helper: initialize empty default rows for a given indicator profile and target date
+  const initializeFreshGridForProfile = (profile: IndicatorProfile, targetDate: string) => {
     const titleLow = (profile.indicator_title || "").toLowerCase();
-    setVisiteGrid(
-      titleLow.includes("visite") ? [createEmptyVisiteRow()] : [],
-    );
+    const withDate = <T extends Record<string, any>>(row: T): T => ({
+      ...row,
+      ...(Object.prototype.hasOwnProperty.call(row, "tanggal") ? { tanggal: targetDate } : {}),
+      ...(Object.prototype.hasOwnProperty.call(row, "tanggal_observasi")
+        ? { tanggal_observasi: targetDate }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(row, "tanggal_konsul")
+        ? { tanggal_konsul: targetDate }
+        : {}),
+    });
+
+    setVisiteGrid(titleLow.includes("visite") ? [withDate(createEmptyVisiteRow())] : []);
     setJatuhGrid(
-      titleLow.includes("upaya pencegahan risiko") ? [createEmptyJatuhRow()] : [],
+      titleLow.includes("upaya pencegahan risiko") ? [withDate(createEmptyJatuhRow())] : [],
     );
-    setIdentifikasiGrid([createEmptyIdentifikasiRow()]);
+    setIdentifikasiGrid([withDate(createEmptyIdentifikasiRow())]);
     const isRajalWt =
       profile.id === "8310950c-90e9-4361-965b-46a47a70c8fd" ||
       profile.id === "11110002-4a02-4000-9000-000000000002" ||
       titleLow.includes("waktu tunggu rawat jalan");
     setActiveRajalSheet("Penyakit Dalam");
     setWaktuTungguGrid(
-      isRajalWt
-        ? [createEmptyWaktuTungguRow(getDefaultInputDate(), "Penyakit Dalam")]
-        : [],
+      isRajalWt ? [createEmptyWaktuTungguRow(targetDate, "Penyakit Dalam")] : [],
     );
-    setRekamMedisBundle(createEmptyRekamMedisBundle(getDefaultInputDate()));
-    setRadiologiBundle(createEmptyRadiologiBundle(getDefaultInputDate()));
+    setRekamMedisBundle(createEmptyRekamMedisBundle(targetDate));
+    setRadiologiBundle(createEmptyRadiologiBundle(targetDate));
     const isPrognasSelected = (selectedUnit?.name || "")
       .trim()
       .toLowerCase()
@@ -3505,25 +3637,25 @@ export default function InputData() {
                   titleLow.includes("inisiasi menyusu dini")
                 ? "imd"
                 : "rooming_in";
-      setPrognasData(createEmptyPrognasData(pType, getDefaultInputDate()));
+      setPrognasData(createEmptyPrognasData(pType, targetDate));
     }
     setRacikanGrid(
       profile.id === "11110003-4a03-4000-9000-000000000003" ||
         titleLow.includes("obat racikan")
-        ? [createEmptyRacikanRow()]
+        ? [withDate(createEmptyRacikanRow())]
         : [],
     );
     setHighAlertGrid(
       profile.id === "b977461c-a791-46ff-a9dd-62d0427aa0c8" ||
         (titleLow.includes("double check") &&
           (titleLow.includes("high allert") || titleLow.includes("high alert")))
-        ? [createEmptyHighAlertRow()]
+        ? [withDate(createEmptyHighAlertRow())]
         : [],
     );
     setKekosonganObatGrid(
       profile.id === "01afa50b-5673-4431-9719-830b37209cc2" ||
         titleLow.includes("kekosongan obat")
-        ? [createEmptyKekosonganObatRow()]
+        ? [withDate(createEmptyKekosonganObatRow())]
         : [],
     );
     setSbarGrid(
@@ -3531,38 +3663,38 @@ export default function InputData() {
         profile.id === "11110013-4a13-4000-9000-000000000013" ||
         profile.id === "11110021-4a21-4000-9000-000000000021" ||
         titleLow.includes("dokumen sbar")
-        ? [createEmptySBARRow()]
+        ? [withDate(createEmptySBARRow())]
         : [],
     );
     setPenundaanGrid(
       profile.id === "cdfd0fd6-c91a-4ed8-a58e-4f506ffaf1f4" ||
         titleLow.includes("penundaan operasi elektif")
-        ? [createEmptyPenundaanOperasiRow()]
+        ? [withDate(createEmptyPenundaanOperasiRow())]
         : [],
     );
     setSscGrid(
       profile.id === "3aa607da-2720-4142-bbd0-8b9482b78907" ||
         titleLow.includes("surgical safety")
-        ? [createEmptySurgicalSafetyRow()]
+        ? [withDate(createEmptySurgicalSafetyRow())]
         : [],
     );
     setPembatalanGrid(
       profile.id === "11110007-4a07-4000-9000-000000000007" ||
         titleLow.includes("pembatalan operasi elektif")
-        ? [createEmptyPembatalanOperasiRow()]
+        ? [withDate(createEmptyPembatalanOperasiRow())]
         : [],
     );
     setPenyediaanDarahGrid(
       profile.id === "22220001-4b01-4000-9000-000000000001" ||
         titleLow.includes("keterlambatan penyediaan darah")
-        ? [createEmptyPenyediaanDarahRow()]
+        ? [withDate(createEmptyPenyediaanDarahRow())]
         : [],
     );
     setImdGrid(
       !isPrognasSelected &&
         (profile.id === "22220002-4b02-4000-9000-000000000002" ||
           titleLow.includes("imd pada bayi baru lahir"))
-        ? [createEmptyImdBayiRow()]
+        ? [withDate(createEmptyImdBayiRow())]
         : [],
     );
     setKematianGrid(
@@ -3571,19 +3703,19 @@ export default function InputData() {
           profile.id === "22220004-4b04-4000-9000-000000000004" ||
           titleLow.includes("kematian ibu") ||
           titleLow.includes("kematian bayi"))
-        ? [createEmptyKematianRow()]
+        ? [withDate(createEmptyKematianRow())]
         : [],
     );
     setPengkajianNyeriGrid(
       profile.id === "11110008-4a08-4000-9000-000000000008" ||
         titleLow.includes("pengkajian nyeri")
-        ? [createEmptyPengkajianNyeriRow()]
+        ? [withDate(createEmptyPengkajianNyeriRow())]
         : [],
     );
     setEmergencyResponGrid(
       profile.id === "11110001-4a01-4000-9000-000000000001" ||
         titleLow.includes("emergency respon time")
-        ? [createEmptyEmergencyResponRow()]
+        ? [withDate(createEmptyEmergencyResponRow())]
         : [],
     );
     setShowErtPasteBox(false);
@@ -3592,74 +3724,74 @@ export default function InputData() {
       profile.id === "aeae5b11-04c4-4254-8831-1d5c0ed07b1f" ||
         titleLow.includes("sectio caesarea") ||
         titleLow.includes("seksio sesaria")
-        ? [createEmptyScEmergencyRow()]
+        ? [withDate(createEmptyScEmergencyRow())]
         : [],
     );
     setKomplikasiGrid(
       profile.id === "11110012-4a12-4000-9000-000000000012" ||
         titleLow.includes("persalinan dengan komplikasi")
-        ? [createEmptyKomplikasiRow()]
+        ? [withDate(createEmptyKomplikasiRow())]
         : [],
     );
     setHasilKritisLabGrid(
       profile.id === "5a8f87e3-151f-4503-bc4a-7a1d005ae218" ||
         titleLow.includes("hasil kritis laboratorium")
-        ? [createEmptyHasilKritisRow()]
+        ? [withDate(createEmptyHasilKritisRow())]
         : [],
     );
     setSampelLabGrid(
       profile.id === "11110005-4a05-4000-9000-000000000005" ||
         titleLow.includes("tidak diberi pelabelan")
-        ? [createEmptySampelLabRow()]
+        ? [withDate(createEmptySampelLabRow())]
         : [],
     );
     setSampelLabTotalDenom("");
     setKunjunganGrid(
       profile.id === "11110018-4a18-4000-9000-000000000018" ||
         titleLow.includes("kunjungan keluarga")
-        ? [createEmptyKunjunganRow()]
+        ? [withDate(createEmptyKunjunganRow())]
         : [],
     );
     setKunjunganTotalDenom("");
     setSanitasiGrid(
       profile.id === "11110016-4a16-4000-9000-000000000016" ||
         titleLow.includes("sarana sanitasi")
-        ? [createEmptySanitasiRow()]
+        ? [withDate(createEmptySanitasiRow())]
         : [],
     );
     setLimbahGrid(
       profile.id === "11110019-4a19-4000-9000-000000000019" ||
         titleLow.includes("pengangkutan limbah")
-        ? [createEmptyLimbahRow()]
+        ? [withDate(createEmptyLimbahRow())]
         : [],
     );
     setAlatSterilGrid(
       profile.id === "11110014-4a14-4000-9000-000000000014" ||
         titleLow.includes("penyediaan alat steril")
-        ? [createEmptyAlatSterilRow()]
+        ? [withDate(createEmptyAlatSterilRow())]
         : [],
     );
     setLinenGrid(
       profile.id === "11110020-4a20-4000-9000-000000000020" ||
         titleLow.includes("penyediaan linen")
-        ? [createEmptyLinenRow()]
+        ? [withDate(createEmptyLinenRow())]
         : [],
     );
     setAirBersihGrid(
       profile.id === "f5d46923-180f-4100-a6ba-66dcaf7e8f9f" ||
         titleLow.includes("air bersih dalam 24 jam")
-        ? [createEmptyAirBersihRow()]
+        ? [withDate(createEmptyAirBersihRow())]
         : [],
     );
     setClinicalPathwayGrid(
       titleLow.includes("alur klinis") || titleLow.includes("clinical pathway")
-        ? [createEmptyClinicalPathwayRow()]
+        ? [withDate(createEmptyClinicalPathwayRow())]
         : [],
     );
     setVerifikasiTeleponGrid(
       titleLow.includes("telepon") &&
         (titleLow.includes("verifikasi") || titleLow.includes("verivikasi"))
-        ? [createEmptyVerifikasiTeleponRow()]
+        ? [withDate(createEmptyVerifikasiTeleponRow())]
         : [],
     );
     const isYaTidak =
@@ -3676,7 +3808,187 @@ export default function InputData() {
       titleLow.includes("asesmen awal medis") ||
       titleLow.includes("assesmen awal medis") ||
       titleLow.includes("reasesmen nyeri");
-    setYaTidakGrid(isYaTidak ? [createEmptyYaTidakRow()] : []);
+    setYaTidakGrid(isYaTidak ? [withDate(createEmptyYaTidakRow())] : []);
+  };
+
+  // Hydrate previously saved entry right back into the editable table so data never disappears
+  const hydrateSavedEntryIntoForm = (
+    entry: SavedRoomEntryView,
+    profileOverride?: IndicatorProfile,
+  ) => {
+    const profile =
+      profileOverride || indicatorProfiles.find((p) => p.id === entry.indikator_id);
+    const n = entry.notesObj || {};
+    const targetDate = entry.tanggal || getDefaultInputDate();
+
+    setActiveSavedEntryId(entry.id);
+    setFormValue("kategori", profile?.category || entry.kategori);
+    setFormValue("indikator_id", entry.indikator_id, { shouldValidate: true });
+    setFormValue("numerator_val", entry.numerator);
+    setFormValue("denominator_val", entry.denominator);
+    setFormValue("keterangan", n.keterangan || "");
+    setCustomNumerator(undefined);
+    setCustomDenominator(undefined);
+
+    if (profile) {
+      initializeFreshGridForProfile(profile, targetDate);
+    }
+
+    if (Array.isArray(n.visite_details) && n.visite_details.length > 0) setVisiteGrid(n.visite_details);
+    if (Array.isArray(n.jatuh_details) && n.jatuh_details.length > 0) setJatuhGrid(n.jatuh_details);
+    if (Array.isArray(n.identifikasi_details) && n.identifikasi_details.length > 0) setIdentifikasiGrid(n.identifikasi_details);
+    if (Array.isArray(n.waktu_tunggu_details) && n.waktu_tunggu_details.length > 0) {
+      setWaktuTungguGrid(n.waktu_tunggu_details);
+      const firstPoli = n.waktu_tunggu_details[0]?.poli;
+      if (firstPoli && RAJAL_SHEET_POLIS.includes(firstPoli)) {
+        setActiveRajalSheet(firstPoli);
+      }
+    }
+    if (n.rekam_medis_details && typeof n.rekam_medis_details === "object") {
+      setRekamMedisBundle(n.rekam_medis_details);
+    }
+    if (n.radiologi_details && typeof n.radiologi_details === "object") {
+      setRadiologiBundle(n.radiologi_details);
+    }
+    if (n.prognas_details && typeof n.prognas_details === "object") {
+      setPrognasData(n.prognas_details);
+    }
+    if (Array.isArray(n.racikan_waktu_tunggu_details) && n.racikan_waktu_tunggu_details.length > 0) setRacikanGrid(n.racikan_waktu_tunggu_details);
+    if (Array.isArray(n.high_alert_details) && n.high_alert_details.length > 0) setHighAlertGrid(n.high_alert_details);
+    if (Array.isArray(n.kekosongan_obat_details) && n.kekosongan_obat_details.length > 0) setKekosonganObatGrid(n.kekosongan_obat_details);
+    if (Array.isArray(n.sbar_details) && n.sbar_details.length > 0) setSbarGrid(n.sbar_details);
+    if (Array.isArray(n.penundaan_operasi_details) && n.penundaan_operasi_details.length > 0) setPenundaanGrid(n.penundaan_operasi_details);
+    if (Array.isArray(n.surgical_safety_details) && n.surgical_safety_details.length > 0) setSscGrid(n.surgical_safety_details);
+    if (Array.isArray(n.pembatalan_operasi_details) && n.pembatalan_operasi_details.length > 0) setPembatalanGrid(n.pembatalan_operasi_details);
+    if (Array.isArray(n.penyediaan_darah_details) && n.penyediaan_darah_details.length > 0) setPenyediaanDarahGrid(n.penyediaan_darah_details);
+    if (Array.isArray(n.imd_bayi_details) && n.imd_bayi_details.length > 0) setImdGrid(n.imd_bayi_details);
+    if (Array.isArray(n.kematian_ibu_bayi_details) && n.kematian_ibu_bayi_details.length > 0) setKematianGrid(n.kematian_ibu_bayi_details);
+    if (Array.isArray(n.pengkajian_nyeri_details) && n.pengkajian_nyeri_details.length > 0) setPengkajianNyeriGrid(n.pengkajian_nyeri_details);
+    if (Array.isArray(n.emergency_respon_time_details) && n.emergency_respon_time_details.length > 0) setEmergencyResponGrid(n.emergency_respon_time_details);
+    if (Array.isArray(n.sc_emergency_details) && n.sc_emergency_details.length > 0) setScEmergencyGrid(n.sc_emergency_details);
+    if (Array.isArray(n.komplikasi_persalinan_details) && n.komplikasi_persalinan_details.length > 0) setKomplikasiGrid(n.komplikasi_persalinan_details);
+    if (Array.isArray(n.hasil_kritis_lab_details) && n.hasil_kritis_lab_details.length > 0) setHasilKritisLabGrid(n.hasil_kritis_lab_details);
+    if (Array.isArray(n.sampel_lab_pelabelan_details) && n.sampel_lab_pelabelan_details.length > 0) {
+      setSampelLabGrid(n.sampel_lab_pelabelan_details);
+      const firstDen = Number(n.sampel_lab_pelabelan_details[0]?.jumlah_sampel_diterima);
+      setSampelLabTotalDenom(firstDen > 0 ? firstDen : entry.denominator > 0 ? entry.denominator : "");
+    }
+    if (Array.isArray(n.kunjungan_keluarga_details) && n.kunjungan_keluarga_details.length > 0) {
+      setKunjunganGrid(n.kunjungan_keluarga_details);
+      const firstDen = Number(n.kunjungan_keluarga_details[0]?.total_kunjungan_keluarga);
+      setKunjunganTotalDenom(firstDen > 0 ? firstDen : entry.denominator > 0 ? entry.denominator : "");
+    }
+    if (Array.isArray(n.sarana_sanitasi_details) && n.sarana_sanitasi_details.length > 0) setSanitasiGrid(n.sarana_sanitasi_details);
+    if (Array.isArray(n.pengangkutan_limbah_details) && n.pengangkutan_limbah_details.length > 0) setLimbahGrid(n.pengangkutan_limbah_details);
+    if (Array.isArray(n.penyediaan_alat_steril_details) && n.penyediaan_alat_steril_details.length > 0) setAlatSterilGrid(n.penyediaan_alat_steril_details);
+    if (Array.isArray(n.penyediaan_linen_details) && n.penyediaan_linen_details.length > 0) setLinenGrid(n.penyediaan_linen_details);
+    if (Array.isArray(n.ketersediaan_air_details) && n.ketersediaan_air_details.length > 0) setAirBersihGrid(n.ketersediaan_air_details);
+    if (Array.isArray(n.clinical_pathway_details) && n.clinical_pathway_details.length > 0) setClinicalPathwayGrid(n.clinical_pathway_details);
+    if (Array.isArray(n.verifikasi_telepon_details) && n.verifikasi_telepon_details.length > 0) setVerifikasiTeleponGrid(n.verifikasi_telepon_details);
+    if (Array.isArray(n.ya_tidak_details) && n.ya_tidak_details.length > 0) setYaTidakGrid(n.ya_tidak_details);
+
+    setTimeout(() => {
+      formSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 120);
+  };
+
+  // Period change handler from interactive Month/Year/Date calendar in unit header
+  const handleChangeReportingPeriod = (nextIsoDate: string) => {
+    setFormValue("tanggal", nextIsoDate, { shouldValidate: true });
+    const nextMonthPrefix = nextIsoDate.slice(0, 7);
+
+    if (selectedUnit && watchIndikatorId) {
+      const profile = indicatorProfiles.find((p) => p.id === watchIndikatorId);
+      // Look for an already saved entry in the newly chosen month
+      const localMatch = dataMutuList.find(
+        (e) =>
+          e.indikator_id === watchIndikatorId &&
+          matchUnitAndMonth(e.unit, e.tanggal, selectedUnit.name, nextMonthPrefix),
+      );
+      const dbMatch = dbSavedEntries.find(
+        (e) =>
+          e.indicator_id === watchIndikatorId &&
+          matchUnitAndMonth(e.unit_id, e.input_date, selectedUnit.name, nextMonthPrefix),
+      );
+
+      if (localMatch || dbMatch) {
+        const notesObj = localMatch
+          ? ({ ...localMatch } as Record<string, any>)
+          : parseSavedNotes(dbMatch?.notes);
+        const num = Number(localMatch?.numerator ?? dbMatch?.numerator_value ?? 0);
+        const den = Number(localMatch?.denominator ?? dbMatch?.denominator_value ?? 1);
+        const cap = Number(
+          localMatch?.capaian ?? dbMatch?.achievement_percentage ?? ((num / (den || 1)) * 100),
+        );
+        hydrateSavedEntryIntoForm(
+          {
+            id: String(localMatch?.id || dbMatch?.id || ""),
+            unit: localMatch?.unit || dbMatch?.unit_id || selectedUnit.name,
+            tanggal: localMatch?.tanggal || dbMatch?.input_date || nextIsoDate,
+            kategori: localMatch?.kategori || dbMatch?.category_id || profile?.category || "INM",
+            indikator_id: watchIndikatorId,
+            indikator_name: profile?.indicator_title || watchIndikatorId,
+            numerator: num,
+            denominator: den,
+            capaian: isNaN(cap) ? 0 : Number(cap.toFixed(2)),
+            target: localMatch?.target || dbMatch?.target || profile?.target,
+            status: localMatch?.status || "Belum Tercapai",
+            rowCount: countSavedDetailRows(notesObj),
+            notesObj,
+          },
+          profile,
+        );
+      } else {
+        setActiveSavedEntryId(null);
+        if (profile) {
+          initializeFreshGridForProfile(profile, nextIsoDate);
+        }
+      }
+    }
+  };
+
+  // Delete a saved entry cleanly from both Zustand and local DB
+  const handleDeleteSavedEntry = async (entry: SavedRoomEntryView) => {
+    deleteDataMutu(entry.id);
+    setDbSavedEntries((prev) => prev.filter((item) => String(item.id) !== entry.id));
+    if (activeSavedEntryId === entry.id) {
+      setActiveSavedEntryId(null);
+    }
+    try {
+      await supabase.from("indicator_inputs").delete().eq("id", entry.id);
+    } catch (err) {
+      console.warn("Failed deleting indicator_inputs entry:", err);
+    }
+  };
+
+  // Guided unit checklist selection handler -> opens saved table if exists for this month, else opens fresh table
+  const handleSelectGuidedMutu = (item: UnitMutuItem) => {
+    const profile = resolveBlueprintProfile(item);
+    if (!profile) {
+      alert(
+        `Profil indikator "${item.label}" belum ditemukan di Master Indikator. Mohon periksa menu Profil Indikator.`,
+      );
+      return;
+    }
+
+    const existingForMonth = savedRoomEntries.find(
+      (entry) => entry.indikator_id === profile.id,
+    );
+    if (existingForMonth) {
+      hydrateSavedEntryIntoForm(existingForMonth, profile);
+      return;
+    }
+
+    setActiveSavedEntryId(null);
+    setFormValue("kategori", profile.category);
+    setFormValue("indikator_id", profile.id, { shouldValidate: true });
+    setUploadedProofName("");
+    setCustomNumerator(undefined);
+    setCustomDenominator(undefined);
+    initializeFreshGridForProfile(profile, getDefaultInputDate());
 
     setTimeout(() => {
       formSectionRef.current?.scrollIntoView({
@@ -4608,8 +4920,9 @@ export default function InputData() {
           ? `Multi Poli (${filledRajalPolis.join(", ")})`
           : "");
 
+    const entryId = activeSavedEntryId || Math.random().toString(36).substring(7);
     const payload: DataMutuPayload = {
-      id: Math.random().toString(36).substring(7),
+      id: entryId,
       unit: data.unit + (effectiveRajalSubUnit ? ` - ${effectiveRajalSubUnit}` : ""),
       tanggal: inferredDate,
       kategori: data.kategori,
@@ -4717,75 +5030,86 @@ export default function InputData() {
       ya_tidak_details: yaTidakConfig ? [...yaTidakGrid] : undefined,
     };
 
-    // 1. Save locally in Zustand instantly (Optimistic update)
-    addDataMutu(payload);
-    setDbSavedEntries((prev) => [
-      ...prev,
-      {
-        unit_id: payload.unit,
-        category_id: data.kategori,
-        indicator_id: data.indikator_id || undefined,
-        input_date: inferredDate,
-      },
-    ]);
+    const serializedNotes = JSON.stringify({
+      kpc: payload.kpc,
+      knc: payload.knc,
+      ktc: payload.ktc,
+      ktd: payload.ktd,
+      sentinel: payload.sentinel,
+      keterangan: payload.keterangan || data.keterangan,
+      visite_details: payload.visite_details,
+      jatuh_details: payload.jatuh_details,
+      identifikasi_details: payload.identifikasi_details,
+      waktu_tunggu_details: payload.waktu_tunggu_details,
+      rekam_medis_details: payload.rekam_medis_details,
+      radiologi_details: payload.radiologi_details,
+      prognas_details: payload.prognas_details,
+      racikan_waktu_tunggu_details: payload.racikan_waktu_tunggu_details,
+      high_alert_details: payload.high_alert_details,
+      kekosongan_obat_details: payload.kekosongan_obat_details,
+      sbar_details: payload.sbar_details,
+      penundaan_operasi_details: payload.penundaan_operasi_details,
+      surgical_safety_details: payload.surgical_safety_details,
+      pembatalan_operasi_details: payload.pembatalan_operasi_details,
+      penyediaan_darah_details: payload.penyediaan_darah_details,
+      imd_bayi_details: payload.imd_bayi_details,
+      kematian_ibu_bayi_details: payload.kematian_ibu_bayi_details,
+      pengkajian_nyeri_details: payload.pengkajian_nyeri_details,
+      emergency_respon_time_details: payload.emergency_respon_time_details,
+      sc_emergency_details: payload.sc_emergency_details,
+      komplikasi_persalinan_details: payload.komplikasi_persalinan_details,
+      hasil_kritis_lab_details: payload.hasil_kritis_lab_details,
+      sampel_lab_pelabelan_details: payload.sampel_lab_pelabelan_details,
+      kunjungan_keluarga_details: payload.kunjungan_keluarga_details,
+      sarana_sanitasi_details: payload.sarana_sanitasi_details,
+      pengangkutan_limbah_details: payload.pengangkutan_limbah_details,
+      penyediaan_alat_steril_details: payload.penyediaan_alat_steril_details,
+      penyediaan_linen_details: payload.penyediaan_linen_details,
+      ketersediaan_air_details: payload.ketersediaan_air_details,
+      clinical_pathway_details: payload.clinical_pathway_details,
+      verifikasi_telepon_details: payload.verifikasi_telepon_details,
+      ya_tidak_details: payload.ya_tidak_details,
+    });
 
-    // 2. Perform background Supabase inserts securely (No blocking if fails)
+    const dbRecord = {
+      id: payload.id,
+      unit_id: payload.unit,
+      sub_unit: effectiveRajalSubUnit || null,
+      category_id: data.kategori,
+      indicator_id: data.indikator_id || null,
+      input_date: inferredDate,
+      numerator_value: finalNum,
+      denominator_value: finalDen,
+      target: selectedIndikatorProfile?.target || null,
+      achievement_percentage: data.kategori === "IKP" ? null : computedCapaian,
+      notes: serializedNotes,
+      attachment_url: uploadedProofName || null,
+      created_at: new Date().toISOString(),
+    };
+
+    // 1. Save locally in Zustand instantly (Upsert so re-saving edits updates in place)
+    upsertDataMutu(payload);
+    setDbSavedEntries((prev) => {
+      const exists = prev.some((e) => String(e.id) === String(payload.id));
+      return exists
+        ? prev.map((e) => (String(e.id) === String(payload.id) ? dbRecord : e))
+        : [...prev, dbRecord];
+    });
+    setActiveSavedEntryId(payload.id);
+
+    // 2. Persist cleanly in local DB (/api/db)
     try {
-      await supabase.from("indicator_inputs").insert({
-        id: payload.id,
-        unit_id: payload.unit,
-        sub_unit: effectiveRajalSubUnit || null,
-        category_id: data.kategori,
-        indicator_id: data.indikator_id || null,
-        input_date: inferredDate,
-        numerator_value: finalNum,
-        denominator_value: finalDen,
-        target: selectedIndikatorProfile?.target || null,
-        achievement_percentage:
-          data.kategori === "IKP" ? null : computedCapaian,
-        notes: JSON.stringify({
-          kpc: payload.kpc,
-          knc: payload.knc,
-          ktc: payload.ktc,
-          ktd: payload.ktd,
-          sentinel: payload.sentinel,
-          keterangan: payload.keterangan || data.keterangan,
-          visite_details: payload.visite_details,
-          jatuh_details: payload.jatuh_details,
-          identifikasi_details: payload.identifikasi_details,
-          waktu_tunggu_details: payload.waktu_tunggu_details,
-          rekam_medis_details: payload.rekam_medis_details,
-          radiologi_details: payload.radiologi_details,
-          prognas_details: payload.prognas_details,
-          racikan_waktu_tunggu_details: payload.racikan_waktu_tunggu_details,
-          high_alert_details: payload.high_alert_details,
-          kekosongan_obat_details: payload.kekosongan_obat_details,
-          sbar_details: payload.sbar_details,
-          penundaan_operasi_details: payload.penundaan_operasi_details,
-          surgical_safety_details: payload.surgical_safety_details,
-          pembatalan_operasi_details: payload.pembatalan_operasi_details,
-          penyediaan_darah_details: payload.penyediaan_darah_details,
-          imd_bayi_details: payload.imd_bayi_details,
-          kematian_ibu_bayi_details: payload.kematian_ibu_bayi_details,
-          pengkajian_nyeri_details: payload.pengkajian_nyeri_details,
-          emergency_respon_time_details: payload.emergency_respon_time_details,
-          sc_emergency_details: payload.sc_emergency_details,
-          komplikasi_persalinan_details: payload.komplikasi_persalinan_details,
-          hasil_kritis_lab_details: payload.hasil_kritis_lab_details,
-          sampel_lab_pelabelan_details: payload.sampel_lab_pelabelan_details,
-          kunjungan_keluarga_details: payload.kunjungan_keluarga_details,
-          sarana_sanitasi_details: payload.sarana_sanitasi_details,
-          pengangkutan_limbah_details: payload.pengangkutan_limbah_details,
-          penyediaan_alat_steril_details: payload.penyediaan_alat_steril_details,
-          penyediaan_linen_details: payload.penyediaan_linen_details,
-          ketersediaan_air_details: payload.ketersediaan_air_details,
-          clinical_pathway_details: payload.clinical_pathway_details,
-          verifikasi_telepon_details: payload.verifikasi_telepon_details,
-          ya_tidak_details: payload.ya_tidak_details,
-        }),
-        attachment_url: uploadedProofName || null,
-        created_at: new Date().toISOString(),
-      });
+      if (activeSavedEntryId) {
+        const { error: updateErr } = await supabase
+          .from("indicator_inputs")
+          .update(dbRecord)
+          .eq("id", payload.id);
+        if (updateErr) {
+          await supabase.from("indicator_inputs").insert(dbRecord);
+        }
+      } else {
+        await supabase.from("indicator_inputs").insert(dbRecord);
+      }
 
       // Simpan rincian data visite ke tabel visite_dpjp jika applicable
       if (isVisiteDokter && visiteGrid.length > 0) {
@@ -4834,98 +5158,9 @@ export default function InputData() {
       );
     }
 
-    // Success notifications and state cleanup
+    // Keep all entered table rows, active room, and active indicator visible right on screen!
     setIsSubmitting(false);
     setSuccessMsg(true);
-    setVisiteGrid([]);
-    setJatuhGrid([]);
-    setIdentifikasiGrid([]);
-    setWaktuTungguGrid([]);
-    setActiveRajalSheet("Penyakit Dalam");
-    setRekamMedisBundle(createEmptyRekamMedisBundle(getDefaultInputDate()));
-    setRadiologiBundle(createEmptyRadiologiBundle(getDefaultInputDate()));
-    setPrognasData(createEmptyPrognasData("hiv_aids", getDefaultInputDate()));
-    setRacikanGrid([]);
-    setHighAlertGrid([]);
-    setKekosonganObatGrid([]);
-    setSbarGrid([]);
-    setPenundaanGrid([]);
-    setSscGrid([]);
-    setPembatalanGrid([]);
-    setPenyediaanDarahGrid([]);
-    setImdGrid([]);
-    setKematianGrid([]);
-    setPengkajianNyeriGrid([]);
-    setEmergencyResponGrid([]);
-    setScEmergencyGrid([]);
-    setKomplikasiGrid([]);
-    setHasilKritisLabGrid([]);
-    setSampelLabGrid([]);
-    setSampelLabTotalDenom("");
-    setKunjunganGrid([]);
-    setKunjunganTotalDenom("");
-    setSanitasiGrid([]);
-    setLimbahGrid([]);
-    setAlatSterilGrid([]);
-    setLinenGrid([]);
-    setAirBersihGrid([]);
-    setClinicalPathwayGrid([]);
-    setVerifikasiTeleponGrid([]);
-    setYaTidakGrid([]);
-    setCustomNumerator(undefined);
-    setCustomDenominator(undefined);
-    setAverageWaktuTunggu(undefined);
-    setUploadedProofName("");
-
-    if (isGuidedUnit && selectedUnit) {
-      // Preserve selected guided unit so nurse can continue filling the next Mutu point
-      reset({
-        unit: data.unit,
-        sub_unit: data.sub_unit || "",
-        tanggal: data.tanggal,
-        kategori: data.kategori,
-        indikator_id: "",
-        numerator_val: undefined,
-        denominator_val: undefined,
-        kpc: 0,
-        knc: 0,
-        ktc: 0,
-        ktd: 0,
-        sentinel: 0,
-        keterangan: "",
-        bukti_file_name: "",
-      });
-      setTimeout(() => {
-        checklistRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      }, 150);
-    } else {
-      // Reset standard fields
-      reset({
-        unit: "",
-        sub_unit: "",
-        tanggal: new Date().toISOString().split("T")[0],
-        kategori: data.kategori,
-        indikator_id: "",
-        numerator_val: undefined,
-        denominator_val: undefined,
-        kpc: 0,
-        knc: 0,
-        ktc: 0,
-        ktd: 0,
-        sentinel: 0,
-        keterangan: "",
-        bukti_file_name: "",
-      });
-
-      setUnitSearch("");
-      setSelectedUnit(null);
-      setSelectedSubUnit("");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
     setTimeout(() => setSuccessMsg(false), 5000);
   };
 
@@ -5017,6 +5252,7 @@ export default function InputData() {
                 setSelectedSubUnit("");
                 setFormValue("sub_unit", "");
                 setAisyahSubMode("");
+                setActiveSavedEntryId(null);
                 setFormValue("indikator_id", "");
                 setVisiteGrid([]);
                 setJatuhGrid([]);
@@ -5055,6 +5291,7 @@ export default function InputData() {
               }}
               onClearUnit={() => {
                 setSelectedUnit(null);
+                setActiveSavedEntryId(null);
                 setFormValue("unit", "");
                 setSelectedSubUnit("");
                 setFormValue("sub_unit", "");
@@ -5137,32 +5374,24 @@ export default function InputData() {
               ref={checklistRef}
               className="bg-gradient-to-br from-[#f8fafc] via-white to-emerald-50/40 border border-emerald-200/80 rounded-[28px] p-5 md:p-7 space-y-5 shadow-[8px_8px_22px_rgba(160,175,195,0.22),-8px_-8px_22px_rgba(255,255,255,0.95)] animate-in slide-in-from-top-3 duration-300 scroll-mt-6"
             >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-emerald-100/80 pb-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
-                      <Sparkles size={16} />
-                    </div>
-                    <h3 className="text-base md:text-lg font-extrabold text-[#0c2415] tracking-tight">
-                      {activeUnitBlueprint.unitTitle}
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 font-semibold pl-10">
-                    Klik poin indikator mutu di bawah ini untuk langsung diarahkan ke tabel pengisian sesuai format unit.
-                  </p>
-                </div>
+              <div
+                data-testid="unit-checklist-header"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-100/80 pb-4"
+              >
+                <h3 className="text-xl sm:text-2xl md:text-[26px] font-extrabold text-[#0c2415] tracking-tight leading-tight">
+                  {stripIndicatorCountSuffix(activeUnitBlueprint.unitTitle)}
+                </h3>
 
-                <div className="flex flex-wrap items-center gap-2 pl-10 md:pl-0">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs">
-                    <Building2 size={13} className="text-emerald-600" />
-                    Unit: {selectedUnit?.name}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs">
-                    <Calendar size={13} className="text-emerald-600" />
-                    Bulan: {formattedBulanLabel}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-extrabold shadow-xs">
-                    <CheckCircle2 size={13} />
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                  <PeriodCalendarPicker
+                    value={watchTanggal}
+                    onChange={handleChangeReportingPeriod}
+                  />
+                  <span
+                    data-testid="unit-completion-badge"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 border border-emerald-600 text-white text-xs sm:text-[13px] font-extrabold shadow-xs tabular-nums"
+                  >
+                    <CheckCircle2 size={14} />
                     {
                       activeUnitBlueprint.items.filter((item) => {
                         const prof = resolveBlueprintProfile(item);
@@ -9370,13 +9599,6 @@ export default function InputData() {
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setShowErtPasteBox((v) => !v)}
-                        className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 hover:bg-white px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border border-emerald-200"
-                      >
-                        <FileUp size={14} /> Tempel dari Excel / SIMRS
-                      </button>
-                      <button
-                        type="button"
                         onClick={handleAddEmergencyResponRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
@@ -9384,46 +9606,6 @@ export default function InputData() {
                       </button>
                     </div>
                   </div>
-
-                  {showErtPasteBox && (
-                    <div className="mx-6 mt-5 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3 animate-in fade-in">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-bold text-emerald-950">
-                          Salin baris dari Excel / SIMRS (kolom: NO | Pasien | RM | Tgl Lahir | Diagnosa | Jam Reg | Jam Periksa | Interval) lalu tempel di bawah ini:
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setShowErtPasteBox(false)}
-                          className="text-slate-500 hover:text-slate-800 p-1 rounded-lg"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <textarea
-                        rows={4}
-                        value={ertPasteText}
-                        onChange={(e) => setErtPasteText(e.target.value)}
-                        placeholder={"1\tRIDWAN MAURAKSA\t058727\t10/11/1991\tT78.2 - Anaphylactic shock\t19:00:06\t19:04:06\t00:04:00"}
-                        className="w-full rounded-xl border border-emerald-200 bg-white p-3 text-xs font-mono text-slate-800 outline-none focus:border-emerald-500"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowErtPasteBox(false)}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white"
-                        >
-                          Batal
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleImportErtFromPaste}
-                          className="px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 text-white hover:bg-emerald-700"
-                        >
-                          Masukkan ke Tabel
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   <datalist id="igd-diagnosa-list">
                     <option value="T78.2 - Anaphylactic shock" />
@@ -9478,15 +9660,15 @@ export default function InputData() {
                               colSpan={10}
                               className="py-12 text-center text-gray-400 text-xs italic font-semibold border-b border-slate-200 bg-[#fafdfc]"
                             >
-                              Belum ada data Emergency Respon Time. Klik &quot;Tambah Pasien&quot; atau &quot;Tempel dari Excel / SIMRS&quot; untuk memulai.
+                              Belum ada data Emergency Respon Time. Klik &quot;Tambah Pasien&quot; untuk memulai.
                             </td>
                           </tr>
                         ) : (
                           emergencyResponGrid.map((row, idx) => {
                             const hasTimes =
-                              row.jam_reg.trim() !== "" &&
-                              row.jam_periksa.trim() !== "" &&
-                              row.interval_text !== "";
+                              (row.jam_reg || "").trim() !== "" &&
+                              (row.jam_periksa || "").trim() !== "" &&
+                              (row.interval_text || "") !== "";
                             const isWithinTarget = row.respon_kurang_5 === true;
 
                             return (
@@ -9500,7 +9682,7 @@ export default function InputData() {
                                 <td className="py-2 px-2 border-r border-slate-300">
                                   <input
                                     type="date"
-                                    value={row.tanggal}
+                                    value={row.tanggal || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "tanggal", e.target.value)
                                     }
@@ -9511,7 +9693,7 @@ export default function InputData() {
                                   <input
                                     type="text"
                                     placeholder="Nama Pasien"
-                                    value={row.nama_pasien}
+                                    value={row.nama_pasien || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "nama_pasien", e.target.value)
                                     }
@@ -9522,7 +9704,7 @@ export default function InputData() {
                                   <input
                                     type="text"
                                     placeholder="058727"
-                                    value={row.no_rm}
+                                    value={row.no_rm || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "no_rm", e.target.value)
                                     }
@@ -9532,7 +9714,7 @@ export default function InputData() {
                                 <td className="py-2 px-2 border-r border-slate-300">
                                   <input
                                     type="date"
-                                    value={row.tgl_lahir}
+                                    value={row.tgl_lahir || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "tgl_lahir", e.target.value)
                                     }
@@ -9544,7 +9726,7 @@ export default function InputData() {
                                     type="text"
                                     list="igd-diagnosa-list"
                                     placeholder="J45 - Asthma"
-                                    value={row.diagnosa}
+                                    value={row.diagnosa || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "diagnosa", e.target.value)
                                     }
@@ -9555,7 +9737,7 @@ export default function InputData() {
                                   <input
                                     type="time"
                                     step="1"
-                                    value={row.jam_reg}
+                                    value={row.jam_reg || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "jam_reg", e.target.value)
                                     }
@@ -9566,7 +9748,7 @@ export default function InputData() {
                                   <input
                                     type="time"
                                     step="1"
-                                    value={row.jam_periksa}
+                                    value={row.jam_periksa || ""}
                                     onChange={(e) =>
                                       handleUpdateEmergencyRespon(row.id, "jam_periksa", e.target.value)
                                     }
@@ -12188,11 +12370,22 @@ export default function InputData() {
 
           {/* BUTTON SAVE SUBMISSION (Only shown after a room/unit is selected) */}
           {selectedUnit && (
-            <div className="pt-6 flex justify-end">
+            <div className="pt-6 flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+              {successMsg && (
+                <div
+                  data-testid="inline-save-success"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold animate-in fade-in duration-300"
+                >
+                  <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                  <span>
+                    Data tersimpan! Tabel &amp; rekap data tetap tampil di halaman ini.
+                  </span>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 ${
+                className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 cursor-pointer ${
                   watchKategori === "IKP"
                     ? "bg-red-600 hover:bg-red-700 shadow-[4px_4px_14px_rgba(220,38,38,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)]"
                     : "bg-emerald-600 hover:bg-emerald-700 shadow-[4px_4px_14px_rgba(16,163,127,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25)]"
@@ -12205,13 +12398,27 @@ export default function InputData() {
                   </>
                 ) : (
                   <>
-                    <Save size={18} /> Simpan Data
+                    <Save size={18} />{" "}
+                    {activeSavedEntryId ? "Perbarui & Simpan Data" : "Simpan Data"}
                   </>
                 )}
               </button>
             </div>
           )}
         </form>
+
+        {/* REKAP SEMUA DATA TERINPUT UNTUK RUANGAN & BULAN AKTIF (SELALU TERLIHAT DI INPUT DATA) */}
+        {selectedUnit && savedRoomEntries.length > 0 && (
+          <SavedRoomDataSection
+            unitName={selectedUnit.name}
+            monthLabel={formattedBulanLabel}
+            entries={savedRoomEntries}
+            activeIndicatorId={watchIndikatorId || ""}
+            activeEditingId={activeSavedEntryId}
+            onOpenEntry={(entry) => hydrateSavedEntryIntoForm(entry)}
+            onDeleteEntry={handleDeleteSavedEntry}
+          />
+        )}
       </div>
 
       {/* DYNAMIC ROOM/UNIT MANAGEMENT MODAL (ADMIN ONLY) */}

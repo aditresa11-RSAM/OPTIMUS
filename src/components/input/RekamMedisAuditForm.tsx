@@ -955,7 +955,7 @@ export default function RekamMedisAuditForm({
                   colSpan={cols.length + 6}
                   className="py-10 text-center text-gray-400 italic font-semibold"
                 >
-                  Belum ada data. Klik &quot;Tambah Baris&quot; atau &quot;Tempel dari Excel&quot;.
+                  Belum ada data. Klik &quot;Tambah Baris&quot;.
                 </td>
               </tr>
             ) : (
@@ -1081,7 +1081,7 @@ export default function RekamMedisAuditForm({
           <FileSpreadsheet size={20} className="text-white" />
           <div>
             <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              Audit Mutu Ruang Rekam Medis (Format Multi-Sheet Excel)
+              Audit Mutu Ruang Rekam Medis
             </h3>
             <p className="text-[11px] font-semibold text-emerald-100">
               Unit: {unitLabel || "Rekam Medis"} • Bulan: {bulanLabel} • Target: 100%
@@ -1090,13 +1090,6 @@ export default function RekamMedisAuditForm({
         </div>
         {activeSheet !== "rekap_kuantitatif" && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPasteBox((v) => !v)}
-              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 hover:bg-white px-3 py-1.5 rounded-xl text-xs font-extrabold transition-colors border border-emerald-200"
-            >
-              <FileUp size={14} /> Tempel dari Excel
-            </button>
             <button
               type="button"
               onClick={() => {
@@ -1168,51 +1161,6 @@ export default function RekamMedisAuditForm({
           );
         })}
       </div>
-
-      {/* Paste Importer Box */}
-      {showPasteBox && activeSheet !== "rekap_kuantitatif" && (
-        <div className="mx-5 mt-4 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-bold text-emerald-950">
-              Salin baris langsung dari Excel untuk sheet{" "}
-              <span className="underline">
-                {sheetTabs.find((t) => t.key === activeSheet)?.label}
-              </span>{" "}
-              (dipisahkan Tab), lalu tempel di bawah:
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowPasteBox(false)}
-              className="text-slate-500 hover:text-slate-800 p-1"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <textarea
-            rows={4}
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            placeholder="Tempel baris Excel di sini..."
-            className="w-full rounded-xl border border-emerald-200 bg-white p-3 text-xs font-mono text-slate-800 outline-none focus:border-emerald-500"
-          />
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPasteBox(false)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-white"
-            >
-              Batal
-            </button>
-            <button
-              type="button"
-              onClick={handleImportPaste}
-              className="px-4 py-1.5 rounded-xl text-xs font-black bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              Masukkan ke Sheet
-            </button>
-          </div>
-        </div>
-      )}
 
       <datalist id="rm-ruangan-list">
         <option value="AISYAH" />
@@ -1455,7 +1403,7 @@ export default function RekamMedisAuditForm({
                   {bundle.kelengkapan_24jam.length === 0 ? (
                     <tr>
                       <td colSpan={13} className="py-10 text-center text-gray-400 italic font-semibold">
-                        Belum ada data pasien. Klik &quot;Tambah Baris&quot; atau &quot;Tempel dari Excel&quot;.
+                        Belum ada data pasien. Klik &quot;Tambah Baris&quot;.
                       </td>
                     </tr>
                   ) : (
