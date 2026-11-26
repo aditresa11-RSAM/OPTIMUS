@@ -5,6 +5,7 @@ import Head from "next/head";
 import Layout from "@/components/Layout";
 import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
+import { useRoleStore } from "@/store/useRoleStore";
 import "@/styles/globals.css";
 
 // Prevents Next.js HMR TypeError: Cannot read properties of undefined (reading 'components') during dynamic hot-reloading
@@ -68,8 +69,10 @@ function GlobalInitializer() {
   const setHospitalLogo = useStore((state) => state.setHospitalLogo);
   const setIndicatorProfiles = useStore((state) => state.setIndicatorProfiles);
   const addUnit = useStore((state) => state.addUnit);
+  const hydrateRole = useRoleStore((state) => state.hydrateRole);
 
   useEffect(() => {
+    hydrateRole();
     // 1. Auto-migrate any legacy localStorage data to local computer DB
     const migrateLegacyData = async () => {
       try {
@@ -190,7 +193,7 @@ function GlobalInitializer() {
     return () => {
       supabase.removeChannel(psqlChannel);
     };
-  }, [setHospitalLogo, setIndicatorProfiles, addUnit]);
+  }, [setHospitalLogo, setIndicatorProfiles, addUnit, hydrateRole]);
 
   return null;
 }

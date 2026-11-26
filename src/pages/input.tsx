@@ -81,6 +81,7 @@ import RadiologiAuditForm, {
   computeRadiologiMetrics,
   stripEmptyRadiologiRows,
 } from "@/components/input/RadiologiAuditForm";
+import UnitCardSelector from "@/components/input/UnitCardSelector";
 import PrognasMutuForm, {
   PrognasIndicatorType,
   createEmptyPrognasData,
@@ -5002,158 +5003,76 @@ export default function InputData() {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* STEP 1: PILIH UNIT (Tanggal ditangani langsung di dalam masing-masing tabel mutu) */}
-          <div className="w-full">
-            {/* Pilih Unit Selector */}
-            <div
-              className="space-y-3 relative animate-in fade-in duration-300"
-              ref={unitDropdownRef}
-            >
-              <label className="flex items-center justify-between text-sm font-extrabold text-slate-800 tracking-wide h-8">
-                <span>Pilih Unit</span>
-
-                {/* Admin-only Add Room trigger */}
-                <button
-                  type="button"
-                  onClick={handleOpenAddRoom}
-                  className="text-xs font-black text-[#10a37f] hover:text-emerald-800 flex items-center justify-center bg-emerald-50 hover:bg-emerald-100/80 px-2 py-1 rounded-lg border border-emerald-100 transition-colors w-7 h-7 shadow-[2px_2px_5px_rgba(160,175,195,0.25),-2px_-2px_5px_rgba(255,255,255,0.9)]"
-                  title="Tambah Ruangan"
-                >
-                  <Plus size={14} className="stroke-[3]" />
-                </button>
-              </label>
-
-              {/* Custom Searchable Select Container */}
-              <div className="relative">
-                <div
-                  onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                  className="w-full h-[56px] px-5 rounded-2xl border border-slate-200/90 outline-none transition-all text-slate-800 bg-[#f8fafc] hover:bg-[#f1f5f9] cursor-pointer flex items-center justify-between shadow-[inset_3px_3px_6px_rgba(160,175,195,0.32),inset_-3px_-3px_6px_rgba(255,255,255,0.95)] select-none focus-within:border-[#10a37f] focus-within:shadow-[inset_4px_4px_8px_rgba(140,160,180,0.4),inset_-4px_-4px_8px_rgba(255,255,255,1)]"
-                >
-                  <span
-                    className={
-                      selectedUnit
-                        ? "text-slate-900 text-sm font-semibold"
-                        : "text-gray-400 text-sm font-medium"
-                    }
-                  >
-                    {selectedUnit ? selectedUnit.name : "Silahkan pilih unit"}
-                  </span>
-                  <ChevronDown
-                    className={`text-gray-400 h-4 w-4 transition-transform duration-200 ${showUnitDropdown ? "rotate-180" : ""}`}
-                  />
-                </div>
-
-                {showUnitDropdown && (
-                  <div className="absolute z-50 left-0 right-0 mt-2 bg-[#f8fafc] border border-white rounded-2xl shadow-[8px_8px_20px_rgba(160,175,195,0.3),-8px_-8px_20px_rgba(255,255,255,0.95)] overflow-hidden animate-in fade-in duration-200 max-h-80 flex flex-col">
-                    <div className="p-3 border-b border-slate-200/50 flex items-center gap-2 bg-[#f1f5f9]/70 mx-2 my-2 rounded-xl shadow-[inset_2px_2px_4px_rgba(160,175,195,0.25),inset_-2px_-2px_4px_rgba(255,255,255,0.9)]">
-                      <Search size={14} className="text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Cari Layanan / Unit..."
-                        value={unitSearch}
-                        onChange={(e) => setUnitSearch(e.target.value)}
-                        className="w-full bg-transparent outline-none text-xs font-semibold text-slate-800 placeholder-gray-400"
-                        onClick={(e) => e.stopPropagation()} // protect input click
-                      />
-                    </div>
-
-                    <div className="overflow-y-auto scroll-smooth flex-1 py-1">
-                      {filteredUnits.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-gray-400 italic font-medium">
-                          Unit tidak ditemukan
-                        </div>
-                      ) : (
-                        filteredUnits.map((u, idx) => (
-                          <div
-                            key={`${u.id}-${idx}`}
-                            onClick={() => {
-                              setSelectedUnit(u);
-                              setFormValue("unit", u.name, { shouldValidate: true });
-                              setShowUnitDropdown(false);
-                              setSelectedSubUnit("");
-                              setFormValue("sub_unit", "");
-                              setAisyahSubMode("");
-                              setFormValue("indikator_id", "");
-                              setVisiteGrid([]);
-                              setJatuhGrid([]);
-                              setWaktuTungguGrid([]);
-                              setActiveRajalSheet("Penyakit Dalam");
-                              setRekamMedisBundle(createEmptyRekamMedisBundle(getDefaultInputDate()));
-                              setRadiologiBundle(createEmptyRadiologiBundle(getDefaultInputDate()));
-                              setPrognasData(createEmptyPrognasData("hiv_aids", getDefaultInputDate()));
-                              setRacikanGrid([]);
-                              setHighAlertGrid([]);
-                              setKekosonganObatGrid([]);
-                              setSbarGrid([]);
-                              setPenundaanGrid([]);
-                              setSscGrid([]);
-                              setPembatalanGrid([]);
-                              setPenyediaanDarahGrid([]);
-                              setImdGrid([]);
-                              setKematianGrid([]);
-                              setPengkajianNyeriGrid([]);
-                              setEmergencyResponGrid([]);
-                              setScEmergencyGrid([]);
-                              setKomplikasiGrid([]);
-                              setHasilKritisLabGrid([]);
-                              setSampelLabGrid([]);
-                              setSampelLabTotalDenom("");
-                              setKunjunganGrid([]);
-                              setKunjunganTotalDenom("");
-                              setSanitasiGrid([]);
-                              setLimbahGrid([]);
-                              setAlatSterilGrid([]);
-                              setLinenGrid([]);
-                              setAirBersihGrid([]);
-                              setClinicalPathwayGrid([]);
-                              setVerifikasiTeleponGrid([]);
-                              setYaTidakGrid([]);
-                            }}
-                            className="px-5 py-3 hover:bg-emerald-50/50 cursor-pointer flex items-center justify-between transition-colors group"
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-slate-800 group-hover:text-emerald-950">
-                                {u.name}
-                              </span>
-                              <span className="text-[10px] text-gray-400 font-medium">
-                                Kategori: {u.category}
-                              </span>
-                            </div>
-
-                            {/* Edit/Delete triggers for Admin */}
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={(e) => handleOpenEditRoom(e, u)}
-                                className="p-1 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
-                                title="Edit Unit"
-                              >
-                                <Edit2 size={12} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteRoom(e, u.id)}
-                                className="p-1 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                title="Hapus Unit"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <input type="hidden" {...register("unit")} />
-              <input type="hidden" {...register("tanggal")} />
-              {errors.unit && (
-                <p className="text-red-500 text-xs font-semibold mt-1">
-                  {errors.unit.message}
-                </p>
-              )}
-            </div>
+          {/* STEP 1: PILIH UNIT BERBASIS CARD 4 KOLOM + 3D POP-OUT HERO ICON */}
+          <div className="w-full" ref={unitDropdownRef}>
+            <UnitCardSelector
+              units={filteredUnits}
+              selectedUnit={selectedUnit}
+              unitSearch={unitSearch}
+              onSearchChange={setUnitSearch}
+              onSelectUnit={(u) => {
+                setSelectedUnit(u);
+                setFormValue("unit", u.name, { shouldValidate: true });
+                setShowUnitDropdown(false);
+                setSelectedSubUnit("");
+                setFormValue("sub_unit", "");
+                setAisyahSubMode("");
+                setFormValue("indikator_id", "");
+                setVisiteGrid([]);
+                setJatuhGrid([]);
+                setWaktuTungguGrid([]);
+                setActiveRajalSheet("Penyakit Dalam");
+                setRekamMedisBundle(createEmptyRekamMedisBundle(getDefaultInputDate()));
+                setRadiologiBundle(createEmptyRadiologiBundle(getDefaultInputDate()));
+                setPrognasData(createEmptyPrognasData("hiv_aids", getDefaultInputDate()));
+                setRacikanGrid([]);
+                setHighAlertGrid([]);
+                setKekosonganObatGrid([]);
+                setSbarGrid([]);
+                setPenundaanGrid([]);
+                setSscGrid([]);
+                setPembatalanGrid([]);
+                setPenyediaanDarahGrid([]);
+                setImdGrid([]);
+                setKematianGrid([]);
+                setPengkajianNyeriGrid([]);
+                setEmergencyResponGrid([]);
+                setScEmergencyGrid([]);
+                setKomplikasiGrid([]);
+                setHasilKritisLabGrid([]);
+                setSampelLabGrid([]);
+                setSampelLabTotalDenom("");
+                setKunjunganGrid([]);
+                setKunjunganTotalDenom("");
+                setSanitasiGrid([]);
+                setLimbahGrid([]);
+                setAlatSterilGrid([]);
+                setLinenGrid([]);
+                setAirBersihGrid([]);
+                setClinicalPathwayGrid([]);
+                setVerifikasiTeleponGrid([]);
+                setYaTidakGrid([]);
+              }}
+              onClearUnit={() => {
+                setSelectedUnit(null);
+                setFormValue("unit", "");
+                setSelectedSubUnit("");
+                setFormValue("sub_unit", "");
+                setAisyahSubMode("");
+                setFormValue("indikator_id", "");
+                setUnitSearch("");
+              }}
+              onAddRoom={handleOpenAddRoom}
+              onEditRoom={handleOpenEditRoom}
+              onDeleteRoom={handleDeleteRoom}
+            />
+            <input type="hidden" {...register("unit")} />
+            <input type="hidden" {...register("tanggal")} />
+            {errors.unit && (
+              <p className="text-red-500 text-xs font-semibold mt-2">
+                {errors.unit.message}
+              </p>
+            )}
           </div>
 
           {/* DYNAMIC SUB UNIT: RAWAT JALAN SUB SPECIFICATION (manual mode fallback only) */}
@@ -12267,29 +12186,31 @@ export default function InputData() {
             </div>
           )}
 
-          {/* BUTTON SAVE SUBMISSION */}
-          <div className="pt-6 flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 ${
-                watchKategori === "IKP"
-                  ? "bg-red-600 hover:bg-red-700 shadow-[4px_4px_14px_rgba(220,38,38,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)]"
-                  : "bg-emerald-600 hover:bg-emerald-700 shadow-[4px_4px_14px_rgba(16,163,127,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25)]"
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <Zap className="animate-spin text-white" size={18} />{" "}
-                  Menyimpan...
-                </>
-              ) : (
-                <>
-                  <Save size={18} /> Simpan Data
-                </>
-              )}
-            </button>
-          </div>
+          {/* BUTTON SAVE SUBMISSION (Only shown after a room/unit is selected) */}
+          {selectedUnit && (
+            <div className="pt-6 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full md:w-auto px-12 py-4 rounded-2xl font-bold text-white transition-all transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 ${
+                  watchKategori === "IKP"
+                    ? "bg-red-600 hover:bg-red-700 shadow-[4px_4px_14px_rgba(220,38,38,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)]"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-[4px_4px_14px_rgba(16,163,127,0.35),-4px_-4px_14px_rgba(255,255,255,0.85)] active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.25)]"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Zap className="animate-spin text-white" size={18} />{" "}
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} /> Simpan Data
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </form>
       </div>
 

@@ -147,16 +147,23 @@ export default function Dashboard() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState("");
 
-  // Filter Period State
+  // Filter Period State (deterministic SSR initial values, synced to local clock on mount)
   const [periodeMode, setPeriodeMode] = useState("Bulanan");
-  const [selectedBulan, setSelectedBulan] = useState(
-    new Date().toLocaleString("id-ID", { month: "long" }),
-  );
-  const [selectedTahun, setSelectedTahun] = useState(
-    String(new Date().getFullYear()),
-  );
+  const [currentYear, setCurrentYear] = useState(2026);
+  const [selectedBulan, setSelectedBulan] = useState("Januari");
+  const [selectedTahun, setSelectedTahun] = useState("2026");
   const [selectedTriwulan, setSelectedTriwulan] = useState("Triwulan 1");
   const [selectedSemester, setSelectedSemester] = useState("Semester 1");
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      const now = new Date();
+      setCurrentYear(now.getFullYear());
+      setSelectedBulan(now.toLocaleString("id-ID", { month: "long" }));
+      setSelectedTahun(String(now.getFullYear()));
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   // Dynamic Realtime Greeting (Selamat Pagi / Siang / Sore / Malam)
   const [greeting, setGreeting] = useState<{ text: string; image: string }>({
@@ -666,7 +673,7 @@ export default function Dashboard() {
   ]);
 
   return (
-    <div className="space-y-4 md:space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-4 w-full max-w-full px-2 sm:px-4 md:px-0 md:overflow-visible">
+    <div className="dashboard-3d-cards space-y-5 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-6 w-full max-w-full px-2 sm:px-4 md:px-0 md:overflow-visible">
       {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Character Style (Aligned with Sidebar Menu) */}
       <div className="relative pt-0 group">
         {/* Card Main Body (Clipped inside rounded-3xl border) */}
@@ -812,7 +819,7 @@ export default function Dashboard() {
             className="px-3 py-1.5 clay-select outline-none text-xs font-bold text-gray-700 cursor-pointer"
           >
             {Array.from({ length: 5 }).map((_, i) => {
-              const y = new Date().getFullYear() - i;
+              const y = currentYear - i;
               return (
                 <option key={y} value={y}>
                   {y}
@@ -823,12 +830,21 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Overview Cards - 3D Tactile with Accent Line */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2.5 md:gap-3 xl:gap-4 2xl:gap-5">
+      {/* KPI Overview Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 md:gap-3.5 xl:gap-4.5 2xl:gap-5">
         {/* Card 1: Pemenuhan Target INM */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Pemenuhan Target INM"
           onClick={() => setActiveModal("TERCAPAI")}
-          className="clay-card-emerald p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveModal("TERCAPAI");
+            }
+          }}
+          className="clay-card-emerald p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
         >
           {/* Garis Warna Efek Bawah Card */}
           <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,163,127,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
@@ -847,7 +863,7 @@ export default function Dashboard() {
               <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Pemenuhan Target INM
               </p>
-              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 flex items-baseline tracking-tight">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 flex items-baseline tracking-tight tabular-nums">
                 {tercapaiCount}
                 <span className="text-xs sm:text-sm xl:text-lg 2xl:text-xl text-slate-400 font-bold ml-1.5">
                   / 13
@@ -857,7 +873,7 @@ export default function Dashboard() {
 
             {/* Progress bar sunken slot */}
             <div className="space-y-1 mt-1 sm:mt-1.5">
-              <div className="flex items-center justify-between text-[9.5px] sm:text-[10.5px] font-black text-slate-400">
+              <div className="flex items-center justify-between text-[9.5px] sm:text-[10.5px] font-black text-slate-400 tabular-nums">
                 <span>0%</span>
                 <span className="text-emerald-600 font-black">{((tercapaiCount / 13) * 100).toFixed(0)}%</span>
               </div>
@@ -873,7 +889,7 @@ export default function Dashboard() {
 
             <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-emerald-100/70">
               <span className="clay-badge-emerald px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full text-emerald-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center justify-center gap-1.5 w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+                <span className="inline-block w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
                 <span className="truncate">
                   {tercapaiCount > 0
                     ? "Target INM Tercapai"
@@ -886,8 +902,17 @@ export default function Dashboard() {
 
         {/* Card 2: Indikator Belum Tercapai */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Indikator Belum Tercapai"
           onClick={() => setActiveModal("BELUM_TERCAPAI")}
-          className="clay-card-red p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveModal("BELUM_TERCAPAI");
+            }
+          }}
+          className="clay-card-red p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
         >
           {/* Garis Warna Efek Bawah Card */}
           <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-red-400 to-red-600 shadow-[0_0_15px_rgba(220,38,38,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
@@ -906,14 +931,14 @@ export default function Dashboard() {
               <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Indikator Belum Tercapai
               </p>
-              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight tabular-nums">
                 {belumTercapaiCount}
               </h3>
             </div>
 
             <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-red-100/70">
               <span className="clay-badge-red px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full text-red-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center justify-center gap-1.5 w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
+                <span className="inline-block w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
                 <span className="truncate">Perlu Perbaikan Mutu</span>
               </span>
             </div>
@@ -922,8 +947,17 @@ export default function Dashboard() {
 
         {/* Card 3: Kejadian IKP */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Kejadian IKP Tercatat"
           onClick={() => setActiveModal("IKP")}
-          className="clay-card-blue p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveModal("IKP");
+            }
+          }}
+          className="clay-card-blue p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           {/* Garis Warna Efek Bawah Card */}
           <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
@@ -943,7 +977,7 @@ export default function Dashboard() {
                 Kejadian IKP Tercatat
               </p>
               <div className="flex items-baseline gap-1 sm:gap-1.5 mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2">
-                <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none tracking-tight">
+                <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none tracking-tight tabular-nums">
                   {totalIncidentCount}
                 </h3>
                 <span className="text-xs sm:text-sm xl:text-lg 2xl:text-xl text-slate-400 font-bold">
@@ -955,11 +989,11 @@ export default function Dashboard() {
             <div className="relative z-10 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-blue-100/70">
               <div className="clay-badge-blue px-2 sm:px-2.5 xl:px-3 py-1 sm:py-1.5 xl:py-2 rounded-full flex items-center justify-between w-full gap-1">
                 <span className="text-blue-700 text-[9px] sm:text-[9.5px] xl:text-[10.5px] 2xl:text-xs font-extrabold flex items-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0">
-                  <div className="w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.9)]" />
+                  <span className="inline-block w-1.5 h-1.5 xl:w-2 xl:h-2 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.9)]" />
                   Laporan Masuk
                 </span>
                 <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-600 text-white text-[7.5px] sm:text-[8px] xl:text-[9px] font-black uppercase flex items-center gap-1 shadow-xs shrink-0 whitespace-nowrap">
-                  Realtime <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                  Realtime <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 </span>
               </div>
             </div>
@@ -968,8 +1002,17 @@ export default function Dashboard() {
 
         {/* Card 4: Total Indikator */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Total Indikator Aktif"
           onClick={() => setActiveModal("ALL")}
-          className="clay-card-orange p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setActiveModal("ALL");
+            }
+          }}
+          className="clay-card-orange p-3 sm:p-3.5 xl:p-4.5 2xl:p-5 flex flex-col cursor-pointer relative overflow-hidden group h-full select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
         >
           {/* Garis Warna Efek Bawah Card */}
           <div className="absolute bottom-0 left-0 right-0 h-1.5 md:h-2 bg-gradient-to-r from-orange-400 to-orange-600 shadow-[0_0_15px_rgba(234,88,12,0.8)] opacity-90 group-hover:opacity-100 group-hover:h-2.5 transition-all duration-300" />
@@ -988,7 +1031,7 @@ export default function Dashboard() {
               <p className="text-[10px] sm:text-[10.5px] md:text-[10px] lg:text-[10.5px] xl:text-[12px] 2xl:text-[13px] font-extrabold text-slate-500 uppercase tracking-tight whitespace-nowrap overflow-hidden text-ellipsis leading-tight mb-0.5">
                 Total Indikator Aktif
               </p>
-              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight">
+              <h3 className="text-[24px] sm:text-[28px] lg:text-[32px] xl:text-[38px] 2xl:text-[44px] font-black text-slate-800 leading-none mt-1 sm:mt-1.5 md:mt-2 mb-1.5 md:mb-2 tracking-tight tabular-nums">
                 {indicatorProfiles.length}
               </h3>
             </div>
@@ -996,19 +1039,19 @@ export default function Dashboard() {
             <div className="grid grid-cols-2 gap-1 sm:gap-1.5 xl:gap-2 mt-auto pt-2 sm:pt-2.5 xl:pt-3.5 border-t border-orange-100/70">
               <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
                 <PhShieldCheck weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
-                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">INM: <strong className="text-slate-900">{inmCount}</strong></span>
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate tabular-nums">INM: <strong className="text-slate-900">{inmCount}</strong></span>
               </div>
               <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
                 <Buildings weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0" />
-                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">IMP-RS: <strong className="text-slate-900">{impRsCount}</strong></span>
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate tabular-nums">IMP-RS: <strong className="text-slate-900">{impRsCount}</strong></span>
               </div>
               <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
                 <PhHospital weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600 shrink-0" />
-                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">IMP-U: <strong className="text-slate-900">{impUnitCount}</strong></span>
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate tabular-nums">IMP-U: <strong className="text-slate-900">{impUnitCount}</strong></span>
               </div>
               <div className="clay-badge-orange px-1.5 sm:px-2 py-1 xl:py-1.5 rounded-lg xl:rounded-xl flex items-center justify-center sm:justify-start gap-1 min-w-0">
                 <PhFileText weight="duotone" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 shrink-0" />
-                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate">SPM: <strong className="text-slate-900">{spmCount}</strong></span>
+                <span className="text-[8.5px] sm:text-[9px] xl:text-[10px] font-bold text-slate-600 whitespace-nowrap truncate tabular-nums">SPM: <strong className="text-slate-900">{spmCount}</strong></span>
               </div>
             </div>
           </div>

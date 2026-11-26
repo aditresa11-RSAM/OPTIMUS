@@ -25,24 +25,14 @@ const DEFAULT_SETTINGS: WelcomeSettings = {
   video_url: "",
   youtube_url: "",
   google_drive_url: "",
-  updated_at: new Date().toISOString()
+  updated_at: ""
 };
 
 export default function WelcomePage() {
   const router = useRouter();
   const hospitalLogo = useStore((state) => state.hospitalLogo);
   const [currentTime, setCurrentTime] = useState<Date>(() => new Date());
-  const [settings, setSettings] = useState<WelcomeSettings>(() => {
-    if (typeof window !== "undefined") {
-      const cached = localStorage.getItem("welcome_settings_cache");
-      if (cached) {
-        try {
-          return JSON.parse(cached);
-        } catch (e) {}
-      }
-    }
-    return DEFAULT_SETTINGS;
-  });
+  const [settings, setSettings] = useState<WelcomeSettings>(DEFAULT_SETTINGS);
 
   const [loading, setLoading] = useState(true);
   const [muted, setMuted] = useState(true);
@@ -90,6 +80,20 @@ export default function WelcomePage() {
 
   // Fetch Welcome Page Assets Configuration
   useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      try {
+        const cached = localStorage.getItem("welcome_settings_cache");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === "object") {
+            setSettings(parsed);
+          }
+        }
+      } catch {
+        // Ignore malformed cache
+      }
+    });
+
     const loadSettings = async () => {
       try {
         const { data } = await supabase.from("welcome_settings").select("*").eq("id", "1");
@@ -122,6 +126,7 @@ export default function WelcomePage() {
       .subscribe();
 
     return () => {
+      cancelAnimationFrame(rafId);
       supabase.removeChannel(channel);
     };
   }, []);

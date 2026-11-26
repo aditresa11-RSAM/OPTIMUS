@@ -44,13 +44,24 @@ export const ROLES: Record<UserRole, RoleInfo> = {
 interface RoleState {
   currentRole: UserRole;
   userName: string;
+  hydrateRole: () => void;
   setRole: (role: UserRole) => void;
   setUserName: (name: string) => void;
 }
 
 export const useRoleStore = create<RoleState>((set) => ({
-  currentRole: (typeof window !== 'undefined' && (localStorage.getItem('optimus_user_role') as UserRole)) || 'ADMIN_MUTU',
-  userName: (typeof window !== 'undefined' && localStorage.getItem('optimus_user_name')) || 'Petugas RSUD Al-Mulk',
+  currentRole: 'ADMIN_MUTU',
+  userName: 'Petugas RSUD Al-Mulk',
+  hydrateRole: () => {
+    if (typeof window !== 'undefined') {
+      const savedRole = localStorage.getItem('optimus_user_role') as UserRole | null;
+      const savedName = localStorage.getItem('optimus_user_name');
+      set({
+        currentRole: savedRole && savedRole in ROLES ? savedRole : 'ADMIN_MUTU',
+        userName: savedName || 'Petugas RSUD Al-Mulk',
+      });
+    }
+  },
   setRole: (role: UserRole) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('optimus_user_role', role);
