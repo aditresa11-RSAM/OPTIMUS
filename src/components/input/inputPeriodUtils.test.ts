@@ -9,6 +9,7 @@ import {
   parseSavedNotes,
   matchUnitAndMonth,
   countSavedDetailRows,
+  splitChecklistIntoColumns,
 } from "./inputPeriodUtils";
 
 test("stripIndicatorCountSuffix removes trailing indicator count in parentheses", () => {
@@ -51,4 +52,25 @@ test("parseSavedNotes and countSavedDetailRows extract saved table rows safely",
   assert.equal(parsed.keterangan, "Lengkap");
   assert.equal(countSavedDetailRows(parsed), 2);
   assert.deepEqual(parseSavedNotes("Catatan biasa"), { keterangan: "Catatan biasa" });
+});
+
+test("splitChecklistIntoColumns arranges numbers top-to-bottom then right column", () => {
+  assert.deepEqual(splitChecklistIntoColumns([1, 2, 3, 4, 5, 6]), [
+    [1, 2, 3],
+    [4, 5, 6],
+  ]);
+  assert.deepEqual(splitChecklistIntoColumns([1, 2, 3, 4]), [
+    [1, 2],
+    [3, 4],
+  ]);
+  assert.deepEqual(splitChecklistIntoColumns([1, 2, 3, 4, 5, 6, 7]), [
+    [1, 2, 3, 4],
+    [5, 6, 7],
+  ]);
+  assert.deepEqual(splitChecklistIntoColumns([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), [
+    [1, 2, 3, 4, 5, 6],
+    [7, 8, 9, 10, 11],
+  ]);
+  assert.deepEqual(splitChecklistIntoColumns([1]), [[1], []]);
+  assert.deepEqual(splitChecklistIntoColumns([]), [[], []]);
 });

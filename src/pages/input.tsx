@@ -83,14 +83,13 @@ import RadiologiAuditForm, {
 } from "@/components/input/RadiologiAuditForm";
 import UnitCardSelector from "@/components/input/UnitCardSelector";
 import PeriodCalendarPicker from "@/components/input/PeriodCalendarPicker";
-import SavedRoomDataSection, {
-  SavedRoomEntryView,
-} from "@/components/input/SavedRoomDataSection";
+import type { SavedRoomEntryView } from "@/components/input/SavedRoomDataSection";
 import {
   stripIndicatorCountSuffix,
   parseSavedNotes,
   matchUnitAndMonth,
   countSavedDetailRows,
+  splitChecklistIntoColumns,
 } from "@/components/input/inputPeriodUtils";
 import PrognasMutuForm, {
   PrognasIndicatorType,
@@ -5403,94 +5402,109 @@ export default function InputData() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {activeUnitBlueprint.items.map((item) => {
-                  const matchedProfile = resolveBlueprintProfile(item);
-                  const isActive =
-                    !!matchedProfile && watchIndikatorId === matchedProfile.id;
-                  const isDone =
-                    !!matchedProfile && guidedCompletionSet.has(matchedProfile.id);
+              <div
+                data-testid="unit-checklist-grid"
+                className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start"
+              >
+                {splitChecklistIntoColumns(activeUnitBlueprint.items).map(
+                  (colItems, colIdx) =>
+                    colItems.length > 0 ? (
+                      <div
+                        key={colIdx}
+                        data-testid={`unit-checklist-col-${colIdx}`}
+                        className="flex flex-col gap-3"
+                      >
+                        {colItems.map((item) => {
+                          const matchedProfile = resolveBlueprintProfile(item);
+                          const isActive =
+                            !!matchedProfile && watchIndikatorId === matchedProfile.id;
+                          const isDone =
+                            !!matchedProfile && guidedCompletionSet.has(matchedProfile.id);
 
-                  const badgeStyle =
-                    item.badge === "INM"
-                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                      : item.badge === "IMP-RS"
-                        ? "bg-sky-100 text-sky-800 border-sky-200"
-                        : item.badge === "SPM"
-                          ? "bg-amber-100 text-amber-800 border-amber-200"
-                          : "bg-violet-100 text-violet-800 border-violet-200";
+                          const badgeStyle =
+                            item.badge === "INM"
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                              : item.badge === "IMP-RS"
+                                ? "bg-sky-100 text-sky-800 border-sky-200"
+                                : item.badge === "SPM"
+                                  ? "bg-amber-100 text-amber-800 border-amber-200"
+                                  : "bg-violet-100 text-violet-800 border-violet-200";
 
-                  return (
-                    <button
-                      key={`${activeBlueprintKey}-${item.order}`}
-                      type="button"
-                      onClick={() => handleSelectGuidedMutu(item)}
-                      className={`group text-left p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 ${
-                        isActive
-                          ? "bg-emerald-600 text-white border-emerald-700 shadow-lg shadow-emerald-600/20 scale-[1.01]"
-                          : isDone
-                            ? "bg-emerald-50/70 hover:bg-emerald-50 border-emerald-200 text-slate-800 shadow-2xs"
-                            : "bg-white hover:bg-emerald-50/40 border-slate-200/90 hover:border-emerald-300 text-slate-800 shadow-xs"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span
-                          className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center text-xs font-black transition-colors ${
-                            isActive
-                              ? "bg-white text-emerald-700"
-                              : isDone
-                                ? "bg-emerald-600 text-white"
-                                : "bg-slate-100 text-slate-700 group-hover:bg-emerald-100 group-hover:text-emerald-800"
-                          }`}
-                        >
-                          {isDone && !isActive ? <Check size={14} /> : item.order}
-                        </span>
-                        <div className="space-y-1.5 min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black border ${
+                          return (
+                            <button
+                              key={`${activeBlueprintKey}-${item.order}`}
+                              type="button"
+                              onClick={() => handleSelectGuidedMutu(item)}
+                              className={`w-full group text-left p-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 cursor-pointer ${
                                 isActive
-                                  ? "bg-white/20 text-white border-white/30"
-                                  : badgeStyle
+                                  ? "bg-emerald-600 text-white border-emerald-700 shadow-lg shadow-emerald-600/20 scale-[1.01]"
+                                  : isDone
+                                    ? "bg-emerald-50/70 hover:bg-emerald-50 border-emerald-200 text-slate-800 shadow-2xs"
+                                    : "bg-white hover:bg-emerald-50/40 border-slate-200/90 hover:border-emerald-300 text-slate-800 shadow-xs"
                               }`}
                             >
-                              {item.badgeLabel || item.badge}
-                            </span>
-                            {isDone && (
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              <div className="flex items-start gap-3 min-w-0">
+                                <span
+                                  data-testid={`unit-checklist-order-${item.order}`}
+                                  className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center text-xs font-black transition-colors ${
+                                    isActive
+                                      ? "bg-white text-emerald-700"
+                                      : isDone
+                                        ? "bg-emerald-600 text-white"
+                                        : "bg-slate-100 text-slate-700 group-hover:bg-emerald-100 group-hover:text-emerald-800"
+                                  }`}
+                                >
+                                  {isDone && !isActive ? <Check size={14} /> : item.order}
+                                </span>
+                                <div className="space-y-1.5 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span
+                                      className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black border ${
+                                        isActive
+                                          ? "bg-white/20 text-white border-white/30"
+                                          : badgeStyle
+                                      }`}
+                                    >
+                                      {item.badgeLabel || item.badge}
+                                    </span>
+                                    {isDone && (
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                          isActive
+                                            ? "bg-emerald-900/40 text-white"
+                                            : "bg-emerald-100 text-emerald-800"
+                                        }`}
+                                      >
+                                        <CheckCircle2 size={10} /> Sudah Diinput
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p
+                                    className={`text-xs md:text-[13px] font-bold leading-snug ${
+                                      isActive ? "text-white" : "text-slate-800"
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div
+                                className={`shrink-0 flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition-all ${
                                   isActive
-                                    ? "bg-emerald-900/40 text-white"
-                                    : "bg-emerald-100 text-emerald-800"
+                                    ? "bg-white/20 text-white"
+                                    : "bg-slate-100 text-slate-600 group-hover:bg-emerald-600 group-hover:text-white"
                                 }`}
                               >
-                                <CheckCircle2 size={10} /> Sudah Diinput
-                              </span>
-                            )}
-                          </div>
-                          <p
-                            className={`text-xs md:text-[13px] font-bold leading-snug ${
-                              isActive ? "text-white" : "text-slate-800"
-                            }`}
-                          >
-                            {item.label}
-                          </p>
-                        </div>
+                                <span>{isActive ? "Aktif" : "Isi Tabel"}</span>
+                                <ArrowRight size={13} />
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-
-                      <div
-                        className={`shrink-0 flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition-all ${
-                          isActive
-                            ? "bg-white/20 text-white"
-                            : "bg-slate-100 text-slate-600 group-hover:bg-emerald-600 group-hover:text-white"
-                        }`}
-                      >
-                        <span>{isActive ? "Aktif" : "Isi Tabel"}</span>
-                        <ArrowRight size={13} />
-                      </div>
-                    </button>
-                  );
-                })}
+                    ) : null,
+                )}
               </div>
 
               {errors.indikator_id && (
@@ -5648,7 +5662,7 @@ export default function InputData() {
                       onClick={handleAddVisiteRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -5888,7 +5902,7 @@ export default function InputData() {
                         onClick={handleAddJatuhRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
-                        <Plus size={14} /> Tambah Pasien
+                        Tambah Pasien
                       </button>
                     </div>
 
@@ -6401,7 +6415,6 @@ export default function InputData() {
                           onClick={handleAddIdentifikasiRow}
                           className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-[#059669] px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm"
                         >
-                          <Plus size={16} strokeWidth={3} />
                           Tambah Baris Observasi
                         </button>
                       </div>
@@ -6631,7 +6644,7 @@ export default function InputData() {
                       onClick={handleAddRacikanRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -6854,7 +6867,7 @@ export default function InputData() {
                       onClick={handleAddHighAlertRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -7050,7 +7063,7 @@ export default function InputData() {
                       onClick={handleAddKekosonganObatRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Baris Data
+                      Tambah Baris Data
                     </button>
                   </div>
 
@@ -7272,7 +7285,7 @@ export default function InputData() {
                       onClick={handleAddClinicalPathwayRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -7478,7 +7491,7 @@ export default function InputData() {
                       onClick={handleAddVerifikasiTeleponRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -7694,7 +7707,7 @@ export default function InputData() {
                       onClick={handleAddYaTidakRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -7881,7 +7894,7 @@ export default function InputData() {
                       onClick={handleAddSBARRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -8094,7 +8107,7 @@ export default function InputData() {
                       onClick={handleAddPenundaanRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -8317,7 +8330,7 @@ export default function InputData() {
                       onClick={handleAddSscRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -8514,7 +8527,7 @@ export default function InputData() {
                       onClick={handleAddPembatalanRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Baris Data
+                      Tambah Baris Data
                     </button>
                   </div>
 
@@ -8730,7 +8743,7 @@ export default function InputData() {
                       onClick={handleAddPenyediaanDarahRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -8961,7 +8974,7 @@ export default function InputData() {
                       onClick={handleAddImdRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Bayi
+                      Tambah Bayi
                     </button>
                   </div>
 
@@ -9152,7 +9165,7 @@ export default function InputData() {
                       onClick={handleAddKematianRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Baris Data
+                      Tambah Baris Data
                     </button>
                   </div>
 
@@ -9404,7 +9417,7 @@ export default function InputData() {
                       onClick={handleAddPengkajianNyeriRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -9602,7 +9615,7 @@ export default function InputData() {
                         onClick={handleAddEmergencyResponRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
-                        <Plus size={14} /> Tambah Pasien
+                        Tambah Pasien
                       </button>
                     </div>
                   </div>
@@ -9834,7 +9847,7 @@ export default function InputData() {
                       onClick={handleAddScEmergencyRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -10058,7 +10071,7 @@ export default function InputData() {
                       onClick={handleAddKomplikasiRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -10304,7 +10317,7 @@ export default function InputData() {
                       onClick={handleAddHasilKritisRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Pasien
+                      Tambah Pasien
                     </button>
                   </div>
 
@@ -10535,7 +10548,7 @@ export default function InputData() {
                         onClick={handleAddSampelLabRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
-                        <Plus size={14} /> Tambah Sampel
+                        Tambah Sampel
                       </button>
                     </div>
                   </div>
@@ -10858,7 +10871,7 @@ export default function InputData() {
                         onClick={handleAddKunjunganRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
-                        <Plus size={14} /> Tambah Pengunjung
+                        Tambah Pengunjung
                       </button>
                     </div>
                   </div>
@@ -11117,7 +11130,7 @@ export default function InputData() {
                       onClick={handleAddSanitasiRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Unit Inspeksi
+                      Tambah Unit Inspeksi
                     </button>
                   </div>
 
@@ -11344,7 +11357,7 @@ export default function InputData() {
                       onClick={handleAddLimbahRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Jadwal
+                      Tambah Jadwal
                     </button>
                   </div>
 
@@ -11526,7 +11539,7 @@ export default function InputData() {
                       onClick={handleAddAlatSterilRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Permintaan
+                      Tambah Permintaan
                     </button>
                   </div>
 
@@ -11761,7 +11774,7 @@ export default function InputData() {
                       onClick={handleAddLinenRow}
                       className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                     >
-                      <Plus size={14} /> Tambah Permintaan
+                      Tambah Permintaan
                     </button>
                   </div>
 
@@ -12022,7 +12035,7 @@ export default function InputData() {
                         onClick={handleAddAirBersihRow}
                         className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
                       >
-                        <Plus size={14} /> Tambah Baris Data
+                        Tambah Baris Data
                       </button>
                     </div>
                   </div>
@@ -12406,19 +12419,6 @@ export default function InputData() {
             </div>
           )}
         </form>
-
-        {/* REKAP SEMUA DATA TERINPUT UNTUK RUANGAN & BULAN AKTIF (SELALU TERLIHAT DI INPUT DATA) */}
-        {selectedUnit && savedRoomEntries.length > 0 && (
-          <SavedRoomDataSection
-            unitName={selectedUnit.name}
-            monthLabel={formattedBulanLabel}
-            entries={savedRoomEntries}
-            activeIndicatorId={watchIndikatorId || ""}
-            activeEditingId={activeSavedEntryId}
-            onOpenEntry={(entry) => hydrateSavedEntryIntoForm(entry)}
-            onDeleteEntry={handleDeleteSavedEntry}
-          />
-        )}
       </div>
 
       {/* DYNAMIC ROOM/UNIT MANAGEMENT MODAL (ADMIN ONLY) */}

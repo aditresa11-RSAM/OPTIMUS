@@ -211,11 +211,10 @@ export default function UnitCardSelector({
           <button
             type="button"
             onClick={onAddRoom}
-            className="h-10 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100/90 text-[#0d8c6d] border border-emerald-200/80 text-xs font-extrabold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="h-10 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100/90 text-[#0d8c6d] border border-emerald-200/80 text-xs font-extrabold flex items-center justify-center transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             title="Tambah Ruangan"
           >
-            <Plus size={15} className="stroke-[2.75]" />
-            <span className="hidden sm:inline">Tambah Unit</span>
+            <span>Tambah Unit</span>
           </button>
         </div>
       </div>

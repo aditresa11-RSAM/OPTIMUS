@@ -173,3 +173,12 @@ export function countSavedDetailRows(details: Record<string, any>): number {
 
   return 0;
 }
+
+/**
+ * Splits checklist items into two vertical columns so numbers flow top-to-bottom
+ * in column 1 (1, 2, 3...) before continuing in column 2 (4, 5, 6...).
+ */
+export function splitChecklistIntoColumns<T>(items: T[]): [T[], T[]] {
+  const midpoint = Math.ceil(items.length / 2);
+  return [items.slice(0, midpoint), items.slice(midpoint)];
+}

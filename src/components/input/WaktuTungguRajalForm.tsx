@@ -328,9 +328,9 @@ export default function WaktuTungguRajalForm({
           <button
             type="button"
             onClick={handleAddRow}
-            className="flex items-center gap-1.5 bg-white text-emerald-800 hover:bg-emerald-50 px-3.5 py-1.5 rounded-xl text-xs font-black transition-colors"
+            className="flex items-center justify-center bg-white text-emerald-800 hover:bg-emerald-50 px-4 py-1.5 rounded-xl text-xs font-black transition-colors cursor-pointer"
           >
-            <Plus size={14} /> Tambah Pasien
+            Tambah Pasien
           </button>
         </div>
       </div>
