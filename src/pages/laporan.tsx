@@ -1,512 +1,611 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import KopSurat from "@/components/common/KopSurat";
 import {
   Download,
   FileText,
   Printer,
   FileSpreadsheet,
-  RotateCcw,
   Filter,
-  CheckCircle2,
   X,
   Calendar,
   Activity,
-  ChevronRight,
-  Calculator,
-  PieChart,
-  Info,
   BookOpen,
-  Clock,
-  Building2,
-  User,
-  Target,
-  TrendingUp,
+  Sparkles,
+  KeyRound,
+  Table2,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-} from "recharts";
-import { useStore, DataMutuPayload } from "@/store/useStore";
+import { useStore, DataMutuPayload, IndicatorProfile } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
 import { formatTarget } from "../../lib/utils";
+import OfficialMutuReport, {
+  ReportChapterFilter,
+  ReportSignatures,
+  DEFAULT_REPORT_SIGNATURES,
+} from "@/components/laporan/OfficialMutuReport";
+import {
+  buildPeriodMeta,
+  buildOfficialReportModel,
+  INM_13_SPECS,
+} from "@/components/laporan/laporanAggregation";
+import {
+  DEFAULT_RAWAT_INAP_STATS,
+  RawatInapStatItem,
+} from "@/components/laporan/RiskRegisterDefaults";
+import { AiNarrativeResult } from "@/pages/api/ai-laporan";
+
+const adaptProfileFromDb = (dbItem: any): IndicatorProfile => ({
+  id: dbItem.id,
+  category:
+    dbItem.category === "IMP Unit" ? "IMP-Unit" : dbItem.category || "INM",
+  indicator_title: dbItem.title || dbItem.indicator_title || "",
+  rationale: dbItem.rationale || "—",
+  quality_dimension: dbItem.quality_dimension || "—",
+  objective: dbItem.purpose || dbItem.objective || "—",
+  operational_definition: dbItem.operational_definition || "—",
+  indicator_type: dbItem.indicator_type || "Proses",
+  measurement_unit:
+    dbItem.satuan_pengukuran || dbItem.measurement_unit || "Persen (%)",
+  numerator: dbItem.numerator || "—",
+  denominator: dbItem.denominator || "—",
+  target: String(dbItem.target ?? "100%"),
+  criteria: dbItem.criteria || "—",
+  formula: dbItem.formula || "—",
+  data_collection_method: dbItem.data_collection_method || "Retrospektif",
+  data_source: dbItem.data_source || "Rekam Medis",
+  sampling_method: dbItem.sampling_method || "Total Sampling",
+  data_collection_tool:
+    dbItem.data_collection_instrument || dbItem.data_collection_tool || "—",
+  sample_size: dbItem.sample_size || "—",
+  collection_period: dbItem.collection_period || "Bulanan",
+  analysis_period: dbItem.analysis_period || "Triwulanan",
+  data_presentation: dbItem.data_presentation || "Tabel & Grafik",
+  person_responsible:
+    dbItem.person_in_charge || dbItem.person_responsible || "—",
+  reverse: Boolean(dbItem.reverse),
+  created_at: dbItem.created_at,
+});
 
 export default function Laporan() {
   const dataMutuList = useStore((state) => state.dataMutuList);
   const setDataMutuList = useStore((state) => state.setDataMutuList);
   const indicatorProfiles = useStore((state) => state.indicatorProfiles);
-  const reportRef = useRef<HTMLDivElement>(null);
+  const setIndicatorProfiles = useStore((state) => state.setIndicatorProfiles);
 
-  // Fetch inputs from Supabase on mount to ensure real-time reporting from supabase
-  useEffect(() => {
-    const fetchSupabaseInputs = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("indicator_inputs")
-          .select("*")
-          .order("created_at", { ascending: true });
+  const reportBookRef = useRef<HTMLDivElement>(null);
+  const matrixRef = useRef<HTMLDivElement>(null);
 
-        if (data && data.length >= 0) {
-          const newDataList = data.map((dbInput: any) => {
-            const matchedProfile = indicatorProfiles.find(
-              (p) => p.id === dbInput.indicator_id,
-            );
-            const persentase = dbInput.achievement_percentage || 0;
-            const rawTarget = dbInput.target || matchedProfile?.target || 80;
-            const target =
-              parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
+  // Primary View Mode: Official Book (default) vs Quick Matrix Table
+  const [viewMode, setViewMode] = useState<"official" | "matrix">("official");
+  const [chapterFilter, setChapterFilter] = useState<ReportChapterFilter>("ALL");
 
-            // Determine achievement status
-            const isReverse = matchedProfile?.reverse || false;
-            let computedStatus: "Tercapai" | "Mendekati" | "Tidak Tercapai" =
-              "Tidak Tercapai";
-            const isSuccess = isReverse
-              ? persentase <= target
-              : persentase >= target;
-            if (isSuccess) {
-              computedStatus = "Tercapai";
-            } else {
-              const gap = isReverse ? persentase - target : target - persentase;
-              if (gap <= 10) computedStatus = "Mendekati";
-            }
+  // Period Filter States (defaults to current quarter & year)
+  const currentQuarter = String(Math.floor(new Date().getMonth() / 3) + 1);
+  const [periode, setPeriode] = useState("Triwulan");
+  const [bulan, setBulan] = useState(String(new Date().getMonth()));
+  const [triwulan, setTriwulan] = useState(currentQuarter);
+  const [semester, setSemester] = useState(Number(currentQuarter) <= 2 ? "1" : "2");
+  const [tahun, setTahun] = useState(new Date().getFullYear().toString());
+  const [kategoriMatrix, setKategoriMatrix] = useState("Mutu Keseluruhan");
 
-            let notesData: any = {};
-            if (dbInput.notes) {
-              try {
-                const parsed = JSON.parse(dbInput.notes);
-                if (typeof parsed === "object" && parsed !== null) {
-                  notesData = parsed;
-                }
-              } catch (e) {
-                notesData = { keterangan: dbInput.notes };
-              }
-            }
+  // Extra DB tables for full report integration
+  const [liveRiskRecords, setLiveRiskRecords] = useState<any[]>([]);
+  const [surveiBudayaRows, setSurveiBudayaRows] = useState<any[]>([]);
+  const [rawatInapStats, setRawatInapStats] = useState<RawatInapStatItem[]>(
+    DEFAULT_RAWAT_INAP_STATS,
+  );
+  const [signatures, setSignatures] = useState<ReportSignatures>(
+    DEFAULT_REPORT_SIGNATURES,
+  );
 
-            return {
-              id: dbInput.id,
-              unit: dbInput.unit_id,
-              tanggal: dbInput.input_date,
-              kategori: dbInput.category_id,
-              indikator_id: dbInput.indicator_id || undefined,
-              indikator_name: matchedProfile?.indicator_title || undefined,
-              numerator: dbInput.numerator_value || 0,
-              denominator: dbInput.denominator_value || 1,
-              target: target,
-              capaian: persentase,
-              status: (dbInput.category_id === "IKP"
-                ? "N/A"
-                : computedStatus) as any,
-              keterangan: notesData.keterangan || "",
-              kpc: notesData.kpc || 0,
-              knc: notesData.knc || 0,
-              ktc: notesData.ktc || 0,
-              ktd: notesData.ktd || 0,
-              sentinel: notesData.sentinel || 0,
-              visite_details: notesData.visite_details || [],
-              jatuh_details: notesData.jatuh_details || [],
-              identifikasi_details: notesData.identifikasi_details || [],
-              waktu_tunggu_details:
-                notesData.waktu_tunggu_details || notesData.details || [],
-            };
-          });
-          setDataMutuList(newDataList);
-        }
-      } catch (err) {
-        console.warn("Supabase load error in laporan", err);
+  // AI Narrative States
+  const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiSource, setAiSource] = useState<string>("none");
+  const [aiNarratives, setAiNarratives] = useState<Record<string, AiNarrativeResult>>({});
+  const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+  const [aiProgressText, setAiProgressText] = useState<string>("");
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: "ok" | "err" } | null>(
+    null,
+  );
+
+  const showToast = useCallback((text: string, type: "ok" | "err" = "ok") => {
+    setToastMsg({ text, type });
+    setTimeout(() => setToastMsg(null), 4500);
+  }, []);
+
+  const periodMeta = useMemo(
+    () => buildPeriodMeta({ periode, bulan, triwulan, semester, tahun }),
+    [periode, bulan, triwulan, semester, tahun],
+  );
+
+  // 1. Load Master Indikator, Inputs, Risiko, Survei Budaya
+  const fetchAllReportData = useCallback(async () => {
+    try {
+      const [profRes, inpRes, riskRes, survRes] = await Promise.all([
+        supabase.from("master_indikator").select("*").order("created_at", { ascending: true }),
+        supabase.from("indicator_inputs").select("*").order("created_at", { ascending: true }),
+        supabase.from("manajemen_risiko").select("*"),
+        supabase.from("survei_budaya").select("*"),
+      ]);
+
+      let activeProfiles = indicatorProfiles;
+      if (Array.isArray(profRes.data) && profRes.data.length > 0) {
+        activeProfiles = profRes.data.map(adaptProfileFromDb);
+        setIndicatorProfiles(activeProfiles);
       }
-    };
-    fetchSupabaseInputs();
 
-    const inputsChannel = supabase
-      .channel("laporan-inputs-realtime")
+      if (Array.isArray(inpRes.data)) {
+        const mappedInputs: DataMutuPayload[] = inpRes.data.map((dbInput: any) => {
+          const matchedProfile = activeProfiles.find(
+            (p) => p.id === dbInput.indicator_id,
+          );
+          const persentase = Number(dbInput.achievement_percentage) || 0;
+          const rawTarget = dbInput.target || matchedProfile?.target || 80;
+          const targetNum =
+            parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
+          const isReverse = matchedProfile?.reverse || false;
+          const isSuccess = isReverse
+            ? persentase <= targetNum
+            : persentase >= targetNum;
+
+          let notesData: any = {};
+          if (dbInput.notes) {
+            try {
+              const parsed = JSON.parse(dbInput.notes);
+              if (typeof parsed === "object" && parsed !== null) {
+                notesData = parsed;
+              }
+            } catch {
+              notesData = { keterangan: dbInput.notes };
+            }
+          }
+
+          return {
+            id: dbInput.id,
+            unit: dbInput.unit_id,
+            tanggal: dbInput.input_date,
+            kategori: dbInput.category_id,
+            indikator_id: dbInput.indicator_id || undefined,
+            indikator_name: matchedProfile?.indicator_title || undefined,
+            numerator: Number(dbInput.numerator_value) || 0,
+            denominator: Number(dbInput.denominator_value) || 1,
+            target: rawTarget,
+            capaian: persentase,
+            status:
+              dbInput.category_id === "IKP"
+                ? "N/A"
+                : isSuccess
+                  ? "Tercapai"
+                  : "Tidak Tercapai",
+            keterangan: notesData.keterangan || "",
+            kpc: Number(notesData.kpc) || 0,
+            knc: Number(notesData.knc) || 0,
+            ktc: Number(notesData.ktc) || 0,
+            ktd: Number(notesData.ktd) || 0,
+            sentinel: Number(notesData.sentinel) || 0,
+            visite_details: notesData.visite_details || [],
+            jatuh_details: notesData.jatuh_details || [],
+            identifikasi_details: notesData.identifikasi_details || [],
+            waktu_tunggu_details:
+              notesData.waktu_tunggu_details || notesData.details || [],
+            ...(notesData.fullFormData ? { fullFormData: notesData.fullFormData } : {}),
+          } as DataMutuPayload;
+        });
+        setDataMutuList(mappedInputs);
+      }
+
+      if (Array.isArray(riskRes.data)) setLiveRiskRecords(riskRes.data);
+      if (Array.isArray(survRes.data)) setSurveiBudayaRows(survRes.data);
+    } catch (err) {
+      console.warn("Error loading report data:", err);
+    }
+  }, [indicatorProfiles, setDataMutuList, setIndicatorProfiles]);
+
+  useEffect(() => {
+    fetchAllReportData();
+    const ch = supabase
+      .channel("laporan-official-sync")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "indicator_inputs" },
-        () => {
-          fetchSupabaseInputs();
-        },
+        () => fetchAllReportData(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manajemen_risiko" },
+        () => fetchAllReportData(),
       )
       .subscribe();
-
     return () => {
-      supabase.removeChannel(inputsChannel);
+      supabase.removeChannel(ch);
     };
-  }, [indicatorProfiles, setDataMutuList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const allIndicators = useMemo(() => {
-    let profiles = indicatorProfiles.map((p) => ({
+  // 2. Load cached AI narratives & Rawat Inap overrides when period changes
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/ai-laporan?periodKey=${encodeURIComponent(periodMeta.periodKey)}`,
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (!active) return;
+          setAiConfigured(Boolean(json.configured));
+          setAiSource(json.source || "none");
+          setAiNarratives(json.cachedNarratives || {});
+        }
+      } catch {
+        // Ignore offline errors
+      }
+
+      try {
+        const [ranapRes, sigRes] = await Promise.all([
+          supabase
+            .from("settings")
+            .select("*")
+            .eq("key", `rawat_inap_stats_${periodMeta.periodKey}`),
+          supabase.from("settings").select("*").eq("key", "laporan_signatures"),
+        ]);
+        if (active && Array.isArray(ranapRes.data) && ranapRes.data[0]?.value) {
+          setRawatInapStats(JSON.parse(ranapRes.data[0].value));
+        } else if (active) {
+          setRawatInapStats(DEFAULT_RAWAT_INAP_STATS);
+        }
+        if (active && Array.isArray(sigRes.data) && sigRes.data[0]?.value) {
+          setSignatures({ ...DEFAULT_REPORT_SIGNATURES, ...JSON.parse(sigRes.data[0].value) });
+        }
+      } catch {
+        if (active) setRawatInapStats(DEFAULT_RAWAT_INAP_STATS);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [periodMeta.periodKey]);
+
+  // 3. Build Complete Official Report Model
+  const reportModel = useMemo(
+    () =>
+      buildOfficialReportModel({
+        period: periodMeta,
+        dataMutuList,
+        indicatorProfiles,
+        rawatInapStats,
+        liveRiskRecords,
+        surveiBudayaRows,
+        aiNarratives,
+      }),
+    [
+      periodMeta,
+      dataMutuList,
+      indicatorProfiles,
+      rawatInapStats,
+      liveRiskRecords,
+      surveiBudayaRows,
+      aiNarratives,
+    ],
+  );
+
+  // 4. Handlers for AI & Manual Narrative Saves
+  const handleSaveManualNarrative = async (
+    itemKey: string,
+    updated: AiNarrativeResult,
+  ) => {
+    const nextMap = { ...aiNarratives, [itemKey]: updated };
+    setAiNarratives(nextMap);
+    try {
+      await fetch("/api/ai-laporan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_cache",
+          periodKey: periodMeta.periodKey,
+          saveNarratives: nextMap,
+        }),
+      });
+      showToast("Narasi analisa & rekomendasi berhasil disimpan.");
+    } catch {
+      showToast("Narasi tersimpan secara lokal.");
+    }
+  };
+
+  const handleUpdateRawatInapStats = async (next: RawatInapStatItem[]) => {
+    setRawatInapStats(next);
+    try {
+      await supabase.from("settings").upsert({
+        key: `rawat_inap_stats_${periodMeta.periodKey}`,
+        value: JSON.stringify(next),
+      });
+      showToast("Data indikator pelayanan rawat inap berhasil diperbarui.");
+    } catch {
+      showToast("Gagal menyimpan ke database.", "err");
+    }
+  };
+
+  const handleUpdateSignatures = async (next: ReportSignatures) => {
+    setSignatures(next);
+    try {
+      await supabase.from("settings").upsert({
+        key: "laporan_signatures",
+        value: JSON.stringify(next),
+      });
+      showToast("Nama penandatangan laporan resmi berhasil disimpan.");
+    } catch {
+      showToast("Gagal menyimpan data penandatangan.", "err");
+    }
+  };
+
+  const handleGenerateSingleAi = async (itemKey: string) => {
+    const targetItem = reportModel.aiPromptItems.find((x) => x.key === itemKey);
+    if (!targetItem) return;
+
+    setGeneratingKey(itemKey);
+    try {
+      const res = await fetch("/api/ai-laporan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate",
+          periodKey: periodMeta.periodKey,
+          periodLabel: `${periodMeta.shortPeriodTitle} (${periodMeta.rangeLabel})`,
+          items: [targetItem],
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.missingKey) {
+          setShowAiModal(true);
+        }
+        showToast(json.error || "Gagal memproses AI.", "err");
+        setGeneratingKey(null);
+        return;
+      }
+      if (json.narratives) {
+        setAiNarratives((prev) => ({ ...prev, ...json.narratives }));
+        setAiConfigured(true);
+        showToast(`Narasi "${targetItem.title}" berhasil diperbarui dengan AI (${json.model}).`);
+      }
+    } catch (err: any) {
+      showToast(`Kesalahan koneksi AI: ${err?.message || ""}`, "err");
+    } finally {
+      setGeneratingKey(null);
+    }
+  };
+
+  const handleGenerateAllAi = async () => {
+    if (!aiConfigured) {
+      setShowAiModal(true);
+      return;
+    }
+    const allItems = reportModel.aiPromptItems;
+    if (allItems.length === 0) return;
+
+    setGeneratingKey("__ALL__");
+    const chunkSize = 8;
+    let merged = { ...aiNarratives };
+
+    try {
+      for (let i = 0; i < allItems.length; i += chunkSize) {
+        const batch = allItems.slice(i, i + chunkSize);
+        setAiProgressText(
+          `Menganalisis ${Math.min(i + chunkSize, allItems.length)} / ${allItems.length} indikator...`,
+        );
+        const res = await fetch("/api/ai-laporan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "generate",
+            periodKey: periodMeta.periodKey,
+            periodLabel: `${periodMeta.shortPeriodTitle} (${periodMeta.rangeLabel})`,
+            items: batch,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          if (json.missingKey) setShowAiModal(true);
+          throw new Error(json.error || "Gagal memproses batch AI");
+        }
+        if (json.narratives) {
+          merged = { ...merged, ...json.narratives };
+          setAiNarratives({ ...merged });
+        }
+      }
+      showToast("Seluruh narasi Analisa & Rekomendasi berhasil diperbarui oleh AI Gemini!");
+    } catch (err: any) {
+      showToast(err?.message || "Proses AI terhenti.", "err");
+    } finally {
+      setGeneratingKey(null);
+      setAiProgressText("");
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    try {
+      const res = await fetch("/api/ai-laporan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_key", apiKey: apiKeyDraft }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setAiConfigured(Boolean(json.configured));
+        setAiSource(json.source || "db");
+        setShowAiModal(false);
+        setApiKeyDraft("");
+        showToast(
+          json.configured
+            ? "API Key Gemini berhasil disimpan dan siap digunakan."
+            : "API Key dikosongkan; menggunakan Mesin Narasi Standar Mutu RS otomatis.",
+        );
+      }
+    } catch {
+      showToast("Gagal menyimpan API Key.", "err");
+    }
+  };
+
+  // 5. Print & Exports
+  const handlePrintOfficial = () => {
+    if (viewMode === "official" && chapterFilter !== "ALL") {
+      setChapterFilter("ALL");
+      setTimeout(() => window.print(), 350);
+    } else {
+      window.print();
+    }
+  };
+
+  const handleExportWord = () => {
+    const container =
+      viewMode === "official" ? reportBookRef.current : matrixRef.current;
+    if (!container) return;
+
+    const cloned = container.cloneNode(true) as HTMLElement;
+    cloned
+      .querySelectorAll(".no-print, .print\\:hidden, button")
+      .forEach((el) => el.remove());
+
+    const htmlBody = cloned.innerHTML;
+    const docHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8" />
+        <title>Laporan Terintegrasi PMKP RSUD Al-Mulk ${periodMeta.shortPeriodTitle}</title>
+        <style>
+          @page Section1 {
+            size: 21.5cm 33.0cm;
+            margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+            mso-header-margin: 1.25cm;
+            mso-footer-margin: 1.25cm;
+          }
+          div.Section1 { page: Section1; }
+          body { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #0f172a; }
+          p, li { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; }
+          table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-family: Arial, sans-serif; font-size: 10.5pt; line-height: 1.35; }
+          th, td { border: 1px solid #0f172a; padding: 3.5pt 5pt; }
+          th { background: #f1f5f9; font-weight: bold; }
+          h1, h2, h3, h4 { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; color: #0f172a; margin-top: 8pt; margin-bottom: 4pt; }
+          section.official-f4-page { page-break-after: always; }
+          section.official-f4-page:last-child { page-break-after: auto; }
+        </style>
+      </head>
+      <body><div class="Section1">${htmlBody}</div></body>
+    </html>`;
+
+    const blob = new Blob([`\uFEFF${docHtml}`], {
+      type: "application/msword;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Laporan_Resmi_PMKP_F4_RSUD_AlMulk_${periodMeta.periodKey}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    const container =
+      viewMode === "official" ? reportBookRef.current : matrixRef.current;
+    if (!container) return;
+    const tables = Array.from(container.querySelectorAll("table"))
+      .map((t) => t.outerHTML)
+      .join("<br/><br/>");
+    if (!tables) return;
+    const blob = new Blob([`\uFEFF<html><head><meta charset="utf-8"/></head><body>${tables}</body></html>`], {
+      type: "application/vnd.ms-excel;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Tabel_Laporan_Mutu_RSUD_AlMulk_${periodMeta.periodKey}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // --- Matrix & Unit Drilldown Modal Support ---
+  const [selectedIndikatorDetail, setSelectedIndikatorDetail] = useState<{
+    id: string;
+    matchIds: string[];
+    name: string;
+    category: string;
+  } | null>(null);
+
+  const handleInspectFromOfficial = (
+    inmKey: string,
+    title: string,
+    category: string,
+  ) => {
+    const spec = INM_13_SPECS.find((s) => s.key === inmKey);
+    const prof = indicatorProfiles.find((p) =>
+      spec?.matchIds.includes(p.id),
+    );
+    setSelectedIndikatorDetail({
+      id: prof?.id || spec?.matchIds[0] || inmKey,
+      matchIds: spec?.matchIds || [inmKey],
+      name: title,
+      category,
+    });
+  };
+
+  const detailInputsByUnit = useMemo(() => {
+    if (!selectedIndikatorDetail) return {};
+    const mSet = new Set(
+      selectedIndikatorDetail.matchIds.map((s) => s.toLowerCase()),
+    );
+    const mIndices = new Set(periodMeta.monthCols.map((m) => m.monthIndex));
+    const filtered = dataMutuList.filter((d) => {
+      if (!d.tanggal) return false;
+      const dt = new Date(d.tanggal);
+      if (String(dt.getFullYear()) !== periodMeta.currYear) return false;
+      if (!mIndices.has(dt.getMonth())) return false;
+      return mSet.has(String(d.indikator_id || "").toLowerCase());
+    });
+    const grouped: Record<string, DataMutuPayload[]> = {};
+    filtered.forEach((item) => {
+      const u = item.unit || "Unit Pelayanan";
+      if (!grouped[u]) grouped[u] = [];
+      grouped[u].push(item);
+    });
+    return grouped;
+  }, [selectedIndikatorDetail, dataMutuList, periodMeta]);
+
+  const allMatrixIndicators = useMemo(() => {
+    return indicatorProfiles.map((p) => ({
       id: p.id,
       category: p.category,
       name: p.indicator_title,
-      target: p.target,
       formattedTarget: formatTarget(p.target, p.measurement_unit, p.reverse),
       targetVal: parseFloat(String(p.target).replace(/[^0-9.]/g, "")) || 80,
       reverse: p.reverse,
     }));
-
-    profiles.sort((a, b) => {
-      const aIsKKT = (a.name || "").toLowerCase().includes("kebersihan tangan");
-      const bIsKKT = (b.name || "").toLowerCase().includes("kebersihan tangan");
-      if (aIsKKT && !bIsKKT) return -1;
-      if (!aIsKKT && bIsKKT) return 1;
-      return 0;
-    });
-
-    return profiles;
   }, [indicatorProfiles]);
 
-  const [periode, setPeriode] = useState("Triwulan");
-  const [bulan, setBulan] = useState("0");
-  const [triwulan, setTriwulan] = useState("1");
-  const [semester, setSemester] = useState("1");
-  const [tahun, setTahun] = useState(new Date().getFullYear().toString());
-  const [kategori, setKategori] = useState("Mutu Keseluruhan");
-
-  // Display states
-  const [appliedFilters, setAppliedFilters] = useState({
-    periode,
-    bulan,
-    triwulan,
-    semester,
-    tahun,
-    kategori,
-  });
-
-  // Auto-apply filter secara otomatis saat opsi dropdown dipilih
-  useEffect(() => {
-    setAppliedFilters({
-      periode,
-      bulan,
-      triwulan,
-      semester,
-      tahun,
-      kategori,
-    });
-  }, [periode, bulan, triwulan, semester, tahun, kategori]);
-
-  // Format number
-  const formatNum = (num: number | undefined) => {
-    if (num === undefined || isNaN(num)) return 0;
-    return Number.isInteger(num) ? num : parseFloat(num.toFixed(2));
-  };
-
-  // Detail Modal States
-  const [selectedIndikatorDetail, setSelectedIndikatorDetail] = useState<
-    any | null
-  >(null);
-  const [visiteDetails, setVisiteDetails] = useState<any[]>([]);
-  const [waktuTungguDetails, setWaktuTungguDetails] = useState<any[]>([]);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-
-  const selectedProfileData = useMemo(() => {
-    return indicatorProfiles.find((p) => p.id === selectedIndikatorDetail?.id);
-  }, [selectedIndikatorDetail, indicatorProfiles]);
-
-  const activePeriodInputs = useMemo(() => {
-    if (!selectedIndikatorDetail) return [];
-    return dataMutuList
-      .filter((d) => {
-        if (d.indikator_id !== selectedIndikatorDetail.id) return false;
-        const date = new Date(d.tanggal);
-        const m = date.getMonth() + 1;
-        const y = date.getFullYear().toString();
-
-        if (y !== appliedFilters.tahun) return false;
-
-        if (
-          appliedFilters.periode === "Bulanan" &&
-          date.getMonth().toString() !== appliedFilters.bulan
-        )
-          return false;
-        if (appliedFilters.periode === "Triwulan") {
-          if (appliedFilters.triwulan === "1" && m > 3) return false;
-          if (appliedFilters.triwulan === "2" && (m < 4 || m > 6)) return false;
-          if (appliedFilters.triwulan === "3" && (m < 7 || m > 9)) return false;
-          if (appliedFilters.triwulan === "4" && m < 10) return false;
-        }
-        if (appliedFilters.periode === "Semester") {
-          if (appliedFilters.semester === "1" && m > 6) return false;
-          if (appliedFilters.semester === "2" && m < 7) return false;
-        }
-        return true;
-      })
-      .sort(
-        (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime(),
+  const getMatrixCell = (indId: string, mIdx: number) => {
+    const recs = dataMutuList.filter((d) => {
+      if (!d.tanggal || d.indikator_id !== indId) return false;
+      const dt = new Date(d.tanggal);
+      return (
+        dt.getMonth() === mIdx &&
+        String(dt.getFullYear()) === periodMeta.currYear
       );
-  }, [dataMutuList, selectedIndikatorDetail, appliedFilters]);
-
-  const inputsGroupedByUnit = useMemo(() => {
-    const grouped: Record<string, DataMutuPayload[]> = {};
-    activePeriodInputs.forEach((input) => {
-      if (!grouped[input.unit]) {
-        grouped[input.unit] = [];
-      }
-      grouped[input.unit].push(input);
     });
-    return grouped;
-  }, [activePeriodInputs]);
-
-  const globalTotals = useMemo(() => {
-    let num = 0,
-      den = 0,
-      kpc = 0,
-      knc = 0,
-      ktc = 0,
-      ktd = 0,
-      sentinel = 0;
-    activePeriodInputs.forEach((u) => {
-      num += Number(u.numerator) || 0;
-      den += Number(u.denominator) || 0;
-      kpc += Number(u.kpc) || 0;
-      knc += Number(u.knc) || 0;
-      ktc += Number(u.ktc) || 0;
-      ktd += Number(u.ktd) || 0;
-      sentinel += Number(u.sentinel) || 0;
-    });
-
-    let capaian = 0;
-    let isTargetMet = false;
-    let targetVal =
-      parseFloat(
-        String(selectedProfileData?.target || 0).replace(/[^0-9.]/g, ""),
-      ) || 0;
-
-    if (selectedProfileData) {
-      const isPersen = selectedProfileData.measurement_unit === "Persen (%)";
-      const isIndeks = selectedProfileData.measurement_unit === "Indeks";
-      const multiplier = isIndeks ? 25 : isPersen ? 100 : 1;
-      capaian = den > 0 ? (num / den) * multiplier : 0;
-      isTargetMet = selectedProfileData.reverse
-        ? capaian <= targetVal
-        : capaian >= targetVal;
-    } else if (activePeriodInputs.length > 0) {
-      targetVal =
-        parseFloat(
-          String(activePeriodInputs[0].target || 0).replace(/[^0-9.]/g, ""),
-        ) || 0;
-      capaian = den > 0 ? (num / den) * 100 : 0; // Default fallback calculation
-      isTargetMet = capaian >= targetVal;
-    }
-
-    // Previous Period Calculation
-    let prevNum = 0,
-      prevDen = 0,
-      prevCapaian = 0;
-    if (selectedIndikatorDetail && dataMutuList) {
-      const prevInputs = dataMutuList.filter((d) => {
-        if (d.indikator_id !== selectedIndikatorDetail.id) return false;
-        const date = new Date(d.tanggal);
-        const m = date.getMonth() + 1;
-        const y = parseInt(date.getFullYear().toString());
-
-        const currYear = parseInt(appliedFilters.tahun);
-
-        if (appliedFilters.periode === "Bulanan") {
-          const currMonth = parseInt(appliedFilters.bulan) + 1;
-          const prevMonth = currMonth === 1 ? 12 : currMonth - 1;
-          const targetYear = currMonth === 1 ? currYear - 1 : currYear;
-          return m === prevMonth && y === targetYear;
-        }
-        if (appliedFilters.periode === "Triwulan") {
-          const currTriwulan = parseInt(appliedFilters.triwulan);
-          const prevTriwulan = currTriwulan === 1 ? 4 : currTriwulan - 1;
-          const targetYear = currTriwulan === 1 ? currYear - 1 : currYear;
-          if (y !== targetYear) return false;
-          if (prevTriwulan === 1 && m <= 3) return true;
-          if (prevTriwulan === 2 && m >= 4 && m <= 6) return true;
-          if (prevTriwulan === 3 && m >= 7 && m <= 9) return true;
-          if (prevTriwulan === 4 && m >= 10) return true;
-          return false;
-        }
-        if (appliedFilters.periode === "Semester") {
-          const currSemester = parseInt(appliedFilters.semester);
-          const prevSemester = currSemester === 1 ? 2 : 1;
-          const targetYear = currSemester === 1 ? currYear - 1 : currYear;
-          if (y !== targetYear) return false;
-          if (prevSemester === 1 && m <= 6) return true;
-          if (prevSemester === 2 && m >= 7) return true;
-          return false;
-        }
-        if (appliedFilters.periode === "Tahunan") {
-          return y === currYear - 1;
-        }
-        return false;
-      });
-
-      prevInputs.forEach((u) => {
-        prevNum += Number(u.numerator) || 0;
-        prevDen += Number(u.denominator) || 0;
-      });
-
-      if (selectedProfileData) {
-        const isPersen = selectedProfileData.measurement_unit === "Persen (%)";
-        const isIndeks = selectedProfileData.measurement_unit === "Indeks";
-        const multiplier = isIndeks ? 25 : isPersen ? 100 : 1;
-        prevCapaian = prevDen > 0 ? (prevNum / prevDen) * multiplier : 0;
-      }
-    }
-
-    const tren = prevDen > 0 ? capaian - prevCapaian : 0;
-
-    return {
-      num,
-      den,
-      kpc,
-      knc,
-      ktc,
-      ktd,
-      sentinel,
-      capaian,
-      targetVal,
-      isTargetMet,
-      tren,
-      prevDen,
-    };
-  }, [
-    activePeriodInputs,
-    selectedProfileData,
-    appliedFilters,
-    dataMutuList,
-    selectedIndikatorDetail,
-  ]);
-
-  const loadDetailData = async (indicator: any) => {
-    // Check if it's visite docter
-    if (indicator.name.toLowerCase().includes("visite")) {
-      setIsDetailLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("visite_dpjp")
-          .select("*")
-          .eq("indikator_id", indicator.id)
-          .order("tanggal_visite", { ascending: true });
-        if (data) setVisiteDetails(data);
-      } catch (e) {}
-      setIsDetailLoading(false);
-    } else if (indicator.name.toLowerCase().includes("waktu tunggu")) {
-      setIsDetailLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("waktu_tunggu_rajal")
-          .select("*")
-          .eq("indikator_id", indicator.id)
-          .order("tanggal", { ascending: true });
-        if (data) setWaktuTungguDetails(data);
-      } catch (e) {}
-      setIsDetailLoading(false);
-    }
+    if (recs.length === 0) return "-";
+    const avg =
+      recs.reduce((acc, c) => acc + (Number(c.capaian) || 0), 0) / recs.length;
+    return `${avg.toFixed(2)}%`;
   };
 
-  useEffect(() => {
-    if (!selectedIndikatorDetail) return;
-
-    let channel: any = null;
-
-    if (selectedIndikatorDetail.name.toLowerCase().includes("visite")) {
-      channel = supabase
-        .channel("laporan-visite-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "visite_dpjp" },
-          () => {
-            loadDetailData(selectedIndikatorDetail);
-          },
-        )
-        .subscribe();
-    } else if (
-      selectedIndikatorDetail.name.toLowerCase().includes("waktu tunggu")
-    ) {
-      channel = supabase
-        .channel("laporan-waktu-tunggu-realtime")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "waktu_tunggu_rajal" },
-          () => {
-            loadDetailData(selectedIndikatorDetail);
-          },
-        )
-        .subscribe();
-    }
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [selectedIndikatorDetail]);
-
-  const handleOpenDetail = (indicator: any) => {
-    setSelectedIndikatorDetail(indicator);
-    loadDetailData(indicator);
-  };
-
-  const getMonths = () => {
-    if (appliedFilters.periode === "Bulanan") {
-      return [parseInt(appliedFilters.bulan)];
-    }
-    if (appliedFilters.periode === "Triwulan") {
-      if (appliedFilters.triwulan === "1") return [0, 1, 2];
-      if (appliedFilters.triwulan === "2") return [3, 4, 5];
-      if (appliedFilters.triwulan === "3") return [6, 7, 8];
-      if (appliedFilters.triwulan === "4") return [9, 10, 11];
-    }
-    if (appliedFilters.periode === "Semester") {
-      if (appliedFilters.semester === "1") return [0, 1, 2, 3, 4, 5];
-      if (appliedFilters.semester === "2") return [6, 7, 8, 9, 10, 11];
-    }
-    if (appliedFilters.periode === "Tahunan") {
-      return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    }
-    return [0, 1, 2];
-  };
-
-  const formattedMonthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
-  ];
-
-  const getPeriodeText = () => {
-    if (appliedFilters.periode === "Bulanan") {
-      return `${formattedMonthNames[parseInt(appliedFilters.bulan)]} ${appliedFilters.tahun}`;
-    }
-    if (appliedFilters.periode === "Triwulan") {
-      const label = ["I", "II", "III", "IV"][
-        parseInt(appliedFilters.triwulan) - 1
-      ];
-      let range = "";
-      if (appliedFilters.triwulan === "1") range = "Januari - Maret";
-      if (appliedFilters.triwulan === "2") range = "April - Juni";
-      if (appliedFilters.triwulan === "3") range = "Juli - September";
-      if (appliedFilters.triwulan === "4") range = "Oktober - Desember";
-      return `Triwulan ${label} (${range}) Tahun ${appliedFilters.tahun}`;
-    }
-    if (appliedFilters.periode === "Semester") {
-      const label = ["I", "II"][parseInt(appliedFilters.semester) - 1];
-      return `Semester ${label} Tahun ${appliedFilters.tahun}`;
-    }
-    if (appliedFilters.periode === "Tahunan") {
-      return `Tahun ${appliedFilters.tahun}`;
-    }
-    return "";
-  };
-
-  const monthNames = [
+  const monthNamesFull = [
     "JANUARI",
     "FEBRUARI",
     "MARET",
@@ -520,110 +619,73 @@ export default function Laporan() {
     "NOVEMBER",
     "DESEMBER",
   ];
-  const displayMonths = getMonths();
 
-  const handleExportExcel = () => {
-    if (!reportRef.current) return;
-    const table = reportRef.current.querySelector("table");
-    if (!table) return;
-    const html = table.outerHTML;
-    const blob = new Blob([`\uFEFF${html}`], {
-      type: "application/vnd.ms-excel;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Laporan_Mutu_RSUD_${appliedFilters.tahun}.xls`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportPDF = async () => {
-    if (!reportRef.current) return;
-    const canvas = await html2canvas(reportRef.current, { scale: 2 });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("l", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save("Laporan_Mutu_RSUD.pdf");
-  };
-
-  const getCellData = (
-    indikatorId: string,
-    monthIndex: number,
-    year: string,
-  ) => {
-    const records = dataMutuList.filter((d) => {
-      const date = new Date(d.tanggal);
-      return (
-        d.indikator_id === indikatorId &&
-        date.getMonth() === monthIndex &&
-        date.getFullYear().toString() === year
-      );
-    });
-
-    if (records.length === 0) return "-";
-
-    const avgCapaian = parseFloat(
-      (
-        records.reduce((acc, curr) => acc + (curr.capaian || 0), 0) /
-        records.length
-      ).toFixed(2),
-    );
-    return isNaN(avgCapaian) ? "0.00%" : `${avgCapaian.toFixed(2)}%`;
-  };
-
-  // Group by Category
-  const categories = ["INM", "IMP-RS"];
+  const chapterTabs: Array<{ key: ReportChapterFilter; label: string }> = [
+    { key: "ALL", label: "Semua Halaman (F4 Lengkap)" },
+    { key: "COVER_FRONT", label: "Sampul & Daftar (i–iv)" },
+    { key: "BAB_1", label: "BAB I (Pendahuluan)" },
+    { key: "BAB_2", label: "BAB II (Situasi Awal)" },
+    { key: "BAB_3", label: "BAB III (Tujuan & Sasaran)" },
+    { key: "BAB_4", label: "BAB IV (Strategi)" },
+    { key: "BAB_5_INM", label: "BAB V: Program, Ranap & INM 1–13" },
+    { key: "BAB_5_IMP_PPI", label: "BAB V: IMP-RS, IMP-Unit & PPI" },
+    { key: "BAB_5_SPM", label: "BAB V: Indikator SPM" },
+    { key: "BAB_5_CP_IKP", label: "BAB V: PPK/CP & IKP" },
+    { key: "BAB_5_RISIKO", label: "BAB V: Manajemen Risiko (26 Unit)" },
+    { key: "BAB_6", label: "BAB VI (Penutup & Disposisi)" },
+  ];
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-7xl mx-auto w-full p-2 md:p-0">
-      {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Laporan Mutu RS) */}
-      <div id="laporan-header-panel" className="relative pt-0 group">
-        {/* Card Main Body */}
-        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
-          {/* Top Edge Highlight Line */}
-          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-5 max-w-7xl mx-auto w-full p-2 md:p-0">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div
+          className={`no-print fixed bottom-5 right-5 z-[120] px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-bottom-3 ${
+            toastMsg.type === "ok"
+              ? "bg-emerald-900 text-white border-emerald-700"
+              : "bg-red-900 text-white border-red-700"
+          }`}
+        >
+          {toastMsg.type === "ok" ? (
+            <CheckCircle2 size={16} className="text-emerald-300 shrink-0" />
+          ) : (
+            <AlertCircle size={16} className="text-red-300 shrink-0" />
+          )}
+          <span>{toastMsg.text}</span>
+        </div>
+      )}
 
-          {/* 3D Animated Hospital Background (RSUD AL-MULK) - Original Vibrant Colors */}
+      {/* 3D Hero Greeting Banner (Hidden during print) */}
+      <div id="laporan-header-panel" className="no-print relative pt-0 group">
+        <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
+          <div className="absolute top-0 left-8 right-8 h-[1.5px] bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent pointer-events-none" />
           <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[55%] xl:w-[50%] pointer-events-none z-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/uploads/hospital_background_3d.png?v=3"
-              alt="Gedung RSUD Al-Mulk 3D Animation"
+              alt="Gedung RSUD Al-Mulk 3D"
               className="w-full h-full object-cover object-[center_35%] opacity-100 select-none"
             />
           </div>
 
-          {/* Left Side: Real Vector Typography & Description with Accent Bar */}
           <div className="relative z-10 flex items-start gap-3.5 md:gap-4 flex-1 min-w-0 w-full lg:max-w-[60%] xl:max-w-[62%]">
-            {/* Vertical Green Accent Bar */}
             <div className="w-1.5 self-stretch bg-gradient-to-b from-[#10a37f] via-[#059669] to-[#007A4D] rounded-full shrink-0 shadow-[0_0_12px_rgba(16,163,127,0.4)]" />
-
             <div className="space-y-1.5 sm:space-y-2 min-w-0">
               <h1 className="text-2xl sm:text-3xl md:text-[31px] font-extrabold text-[#007A4D] tracking-tight leading-tight">
                 Laporan Mutu RS
               </h1>
-
               <p className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-800 leading-snug pt-0.5">
-                Rekapitulasi, Analisis Capaian, dan Ekspor Laporan Akreditasi
+                Buku Laporan Resmi Terintegrasi PMKP (BAB I – VI) & Analisis AI Otomatis
               </p>
-
               <p className="text-xs sm:text-[13px] text-slate-500 leading-relaxed italic max-w-xl">
-                &quot;Laporan komprehensif indikator nasional mutu dan indikator prioritas rumah sakit untuk akuntabilitas pelayanan publik.&quot;
+                &quot;Dokumen resmi pertanggungjawaban tata kelola mutu, keselamatan pasien, dan manajemen risiko UOBK RSUD Al-Mulk Kota Sukabumi.&quot;
               </p>
             </div>
           </div>
 
-          {/* Spacer on Desktop for the 3D Pop-Out Characters */}
           <div className="hidden lg:block w-[320px] xl:w-[370px] shrink-0" />
         </div>
 
-        {/* 3D Out-of-Bounds Pop-Out Characters Layer */}
         <div className="relative lg:absolute lg:bottom-[1px] lg:right-5 xl:right-8 z-20 flex justify-center lg:justify-end mt-2 lg:mt-0 pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -634,78 +696,130 @@ export default function Laporan() {
         </div>
       </div>
 
-      {/* Action Toolbar with Cetak, Excel, PDF */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold border border-emerald-200/60 shadow-2xs">
-            <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+      {/* Control Panel: Mode Switcher, AI Actions, Exports & Period Selectors */}
+      <div className="no-print bg-white rounded-3xl border border-slate-200/90 drop-shadow-card p-4 sm:p-6 space-y-5">
+        {/* Top Row: View Mode + AI + Export Buttons */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          {/* View Mode Toggle */}
+          <div className="inline-flex p-1 rounded-2xl bg-slate-100 border border-slate-200/80 self-start">
+            <button
+              type="button"
+              onClick={() => setViewMode("official")}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                viewMode === "official"
+                  ? "bg-[#007A4D] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <BookOpen size={15} />
+              <span>Buku Laporan Resmi (BAB I – VI)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("matrix")}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                viewMode === "matrix"
+                  ? "bg-[#007A4D] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Table2 size={15} />
+              <span>Tabel Matriks Cepat</span>
+            </button>
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-900">
-              Dokumentasi & Ekspor Laporan Mutu
-            </h4>
-            <p className="text-xs text-slate-500">
-              Cetak fisik berkas resmi atau unduh format digital (Excel & PDF) terintegrasi
-            </p>
+
+          {/* AI & Export Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {viewMode === "official" && (
+              <>
+                <button
+                  type="button"
+                  disabled={generatingKey !== null}
+                  onClick={handleGenerateAllAi}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {generatingKey === "__ALL__" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                  <span>
+                    {generatingKey === "__ALL__"
+                      ? aiProgressText || "Memproses AI..."
+                      : "Analisis AI Seluruh Laporan"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAiModal(true)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    aiConfigured
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                      : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                  }`}
+                  title="Konfigurasi API Key Gemini AI"
+                >
+                  <KeyRound size={14} />
+                  <span>{aiConfigured ? "AI Aktif" : "Set API Key AI"}</span>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={handlePrintOfficial}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <Printer size={15} />
+              <span>Cetak / PDF F4</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportWord}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <FileText size={15} />
+              <span>Export Word F4</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-[#10a37f] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <FileSpreadsheet size={15} />
+              <span>Export Excel</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            onClick={() => window.print()}
-            title="Cetak Berkas"
-            aria-label="Cetak Berkas"
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-102 active:scale-98 cursor-pointer"
-          >
-            <Printer size={16} />
-            <span>Cetak Berkas</span>
-          </button>
-          <button 
-            onClick={handleExportExcel}
-            title="Export Excel"
-            aria-label="Export Excel"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#10a37f] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_10px_-2px_rgba(16,185,129,0.3)] hover:scale-102 active:scale-98 cursor-pointer"
-          >
-            <FileSpreadsheet size={16} />
-            <span>Export Excel</span>
-          </button>
-          <button
-            onClick={handleExportPDF}
-            title="Export PDF"
-            aria-label="Export PDF"
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#c2410c] hover:bg-orange-800 text-white rounded-xl text-xs font-bold transition-all shadow-[0_4px_10px_-2px_rgba(194,65,12,0.3)] hover:scale-102 active:scale-98 cursor-pointer"
-          >
-            <Download size={16} />
-            <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="drop-shadow-card p-4 md:p-8 w-full overflow-hidden">
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-6">
-          <div className="space-y-2">
+        {/* Period Selectors */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-1.5">
             <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Periode
+              Jenis Periode Laporan
             </label>
             <div className="relative">
               <Filter
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                size={15}
               />
               <select
                 value={periode}
                 onChange={(e) => setPeriode(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
               >
+                <option value="Triwulan">Triwulan (Standar Buku Resmi)</option>
                 <option value="Bulanan">Bulanan</option>
-                <option value="Triwulan">Triwulan</option>
                 <option value="Semester">Semester</option>
                 <option value="Tahunan">Tahunan</option>
               </select>
             </div>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-1.5">
             <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
               {periode === "Bulanan"
                 ? "Pilih Bulan"
@@ -713,15 +827,15 @@ export default function Laporan() {
                   ? "Pilih Triwulan"
                   : periode === "Semester"
                     ? "Pilih Semester"
-                    : "Pilih Tahun"}
+                    : "Cakupan Tahun"}
             </label>
             {periode === "Bulanan" && (
               <select
                 value={bulan}
                 onChange={(e) => setBulan(e.target.value)}
-                className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
               >
-                {monthNames.map((m, i) => (
+                {monthNamesFull.map((m, i) => (
                   <option key={i} value={i}>
                     {m}
                   </option>
@@ -732,186 +846,195 @@ export default function Laporan() {
               <select
                 value={triwulan}
                 onChange={(e) => setTriwulan(e.target.value)}
-                className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
               >
-                <option value="1">Triwulan 1 (Jan-Mar)</option>
-                <option value="2">Triwulan 2 (Apr-Jun)</option>
-                <option value="3">Triwulan 3 (Jul-Sep)</option>
-                <option value="4">Triwulan 4 (Okt-Des)</option>
+                <option value="1">Triwulan I (Januari – Maret)</option>
+                <option value="2">Triwulan II (April – Juni)</option>
+                <option value="3">Triwulan III (Juli – September)</option>
+                <option value="4">Triwulan IV (Oktober – Desember)</option>
               </select>
             )}
             {periode === "Semester" && (
               <select
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
-                className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
               >
-                <option value="1">Semester 1 (Jan-Jun)</option>
-                <option value="2">Semester 2 (Jul-Des)</option>
+                <option value="1">Semester I (Januari – Juni)</option>
+                <option value="2">Semester II (Juli – Desember)</option>
               </select>
             )}
             {periode === "Tahunan" && (
+              <div className="px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600">
+                Januari – Desember (12 Bulan)
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+              Tahun Pelaporan
+            </label>
+            <select
+              value={tahun}
+              onChange={(e) => setTahun(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              <option value="2027">2027</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+              {viewMode === "official" ? "Ringkasan Data Terintegrasi" : "Filter Kategori Matriks"}
+            </label>
+            {viewMode === "official" ? (
+              <div className="px-3.5 py-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-[11px] font-bold text-emerald-900 flex items-center justify-between">
+                <span>INM Terukur: {reportModel.inmMeasuredCount}/13</span>
+                <span>•</span>
+                <span>IKP: {reportModel.ikp.totals.total}</span>
+                <span>•</span>
+                <span>SPM: {reportModel.spmTotalCount}</span>
+              </div>
+            ) : (
               <select
-                value={tahun}
-                onChange={(e) => setTahun(e.target.value)}
-                className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
+                value={kategoriMatrix}
+                onChange={(e) => setKategoriMatrix(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] outline-none text-xs font-bold text-slate-800 cursor-pointer"
               >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
+                <option value="Mutu Keseluruhan">Semua Kategori</option>
+                <option value="INM">INM</option>
+                <option value="IMP-RS">IMP-RS</option>
+                <option value="IMP-Unit">IMP-Unit</option>
+                <option value="SPM">SPM</option>
               </select>
             )}
           </div>
-          {periode !== "Tahunan" && (
-            <div className="space-y-2">
-              <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                Tahun
-              </label>
-              <select
-                value={tahun}
-                onChange={(e) => setTahun(e.target.value)}
-                className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Kategori
-            </label>
-            <select
-              value={kategori}
-              onChange={(e) => setKategori(e.target.value)}
-              className="w-full px-4 py-3 bg-[#fafdfc] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#10a37f] focus:border-[#10a37f] outline-none text-sm font-bold text-slate-800 transition-all appearance-none cursor-pointer"
-            >
-              <option value="Mutu Keseluruhan">Mutu Keseluruhan</option>
-              <option value="INM">INM</option>
-              <option value="IMP-RS">IMP-RS</option>
-            </select>
-          </div>
         </div>
 
-        {/* Table Area with Official Letterhead */}
-        <div
-          className="drop-shadow-table overflow-x-auto bg-white w-full p-4 md:p-8"
-          ref={reportRef}
-        >
-          {/* KOP SURAT RESMI RSUD AL-MULK */}
-          <KopSurat 
-            subJudul={`LAPORAN PENCAPAIAN INDIKATOR MUTU TAHUN ${tahun}`}
-          />
+        {/* Quick Chapter Filter Pills (when in Official Book Mode) */}
+        {viewMode === "official" && (
+          <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+            <span className="text-[11px] font-extrabold text-slate-400 uppercase mr-1 shrink-0">
+              Navigasi Bab:
+            </span>
+            {chapterTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setChapterFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  chapterFilter === tab.key
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
+      {/* =========================================================
+          MAIN CONTENT AREA: OFFICIAL BOOK vs MATRIX VIEW
+      ========================================================= */}
+      {viewMode === "official" ? (
+        <div ref={reportBookRef} className="pt-1">
+          <OfficialMutuReport
+            model={reportModel}
+            chapterFilter={chapterFilter}
+            generatingKey={generatingKey}
+            signatures={signatures}
+            onGenerateSingleAi={handleGenerateSingleAi}
+            onSaveManualNarrative={handleSaveManualNarrative}
+            onUpdateRawatInapStats={handleUpdateRawatInapStats}
+            onUpdateSignatures={handleUpdateSignatures}
+            onInspectIndicator={handleInspectFromOfficial}
+            onRequestChapter={setChapterFilter}
+          />
+        </div>
+      ) : (
+        <div
+          ref={matrixRef}
+          className="drop-shadow-table overflow-x-auto bg-white w-full p-4 md:p-8 rounded-3xl"
+        >
+          <KopSurat
+            subJudul={`REKAPITULASI MATRIKS INDIKATOR MUTU — ${periodMeta.shortPeriodTitle.toUpperCase()}`}
+          />
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-[#10a37f] text-white">
-                <th className="py-4 px-6 font-extrabold text-xs text-center border-r border-[#10a37f]/20 w-16">
-                  NO
-                </th>
-                <th className="py-4 px-6 font-extrabold text-xs tracking-wider uppercase">
-                  INDIKATOR
-                </th>
-                <th className="py-4 px-6 font-extrabold text-xs text-center tracking-wider uppercase border-l border-[#10a37f]/20">
+                <th className="py-3.5 px-4 font-extrabold text-xs text-center w-14">NO</th>
+                <th className="py-3.5 px-4 font-extrabold text-xs uppercase">INDIKATOR</th>
+                <th className="py-3.5 px-4 font-extrabold text-xs text-center uppercase w-28">
                   TARGET
                 </th>
-                {displayMonths.map((mIdx) => (
+                {periodMeta.monthCols.map((mc) => (
                   <th
-                    key={mIdx}
-                    className="py-4 px-6 font-extrabold text-xs text-center tracking-wider uppercase border-l border-[#10a37f]/20"
+                    key={mc.monthIndex}
+                    className="py-3.5 px-4 font-extrabold text-xs text-center uppercase"
                   >
-                    {monthNames[mIdx]}
+                    {mc.upper}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {categories.map((cat) => {
-                const categoryIndicators = allIndicators.filter(
-                  (i) => i.category === cat,
-                );
-                if (categoryIndicators.length === 0) return null;
-
-                // If filter specific category
+              {(["INM", "IMP-RS", "IMP-Unit", "SPM"] as const).map((cat) => {
                 if (
-                  appliedFilters.kategori !== "Mutu Keseluruhan" &&
-                  appliedFilters.kategori !== cat
-                )
+                  kategoriMatrix !== "Mutu Keseluruhan" &&
+                  kategoriMatrix !== cat
+                ) {
                   return null;
-
+                }
+                const rows = allMatrixIndicators.filter((i) => i.category === cat);
+                if (rows.length === 0) return null;
                 return (
                   <React.Fragment key={cat}>
-                    {/* Category Header */}
-                    <tr className="bg-emerald-50/50">
+                    <tr className="bg-emerald-50/70">
                       <td
-                        colSpan={3 + displayMonths.length}
-                        className="px-6 py-4"
+                        colSpan={3 + periodMeta.monthCols.length}
+                        className="px-4 py-3 font-extrabold text-xs text-emerald-950 uppercase tracking-wider"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-1.5 h-4 bg-[#10a37f] rounded-full"></div>
-                          <span className="font-extrabold text-sm text-[#064e3b] tracking-wider uppercase">
-                            {cat}
-                          </span>
-                        </div>
+                        Kategori: {cat} ({rows.length} Indikator)
                       </td>
                     </tr>
-
-                    {/* Indicators */}
-                    {categoryIndicators.map((row, idx) => (
+                    {rows.map((row, idx) => (
                       <tr
-                        key={`${row.id}-${idx}`}
-                        className="border-b border-gray-100 hover:bg-gray-50/40 transition-colors bg-white"
+                        key={row.id}
+                        className="border-b border-slate-100 hover:bg-slate-50/60"
                       >
-                        <td className="py-4 px-6 text-sm font-semibold text-gray-500 text-center">
+                        <td className="py-3 px-4 text-xs text-center text-slate-500 font-semibold">
                           {idx + 1}
                         </td>
                         <td
-                          className={`py-4 px-6 text-sm cursor-pointer transition-all duration-300 ${
-                            selectedIndikatorDetail?.id === row.id
-                              ? "text-[#10a37f] font-bold"
-                              : "text-slate-600 font-medium hover:text-[#10a37f] hover:font-semibold"
-                          }`}
-                          onClick={() => handleOpenDetail(row)}
+                          onClick={() =>
+                            setSelectedIndikatorDetail({
+                              id: row.id,
+                              matchIds: [row.id],
+                              name: row.name,
+                              category: row.category,
+                            })
+                          }
+                          className="py-3 px-4 text-xs font-semibold text-slate-800 hover:text-emerald-700 cursor-pointer"
                         >
                           {row.name}
                         </td>
-                        <td className="py-4 px-6 text-slate-600 text-center text-sm font-semibold whitespace-nowrap">
+                        <td className="py-3 px-4 text-xs text-center font-bold text-slate-700">
                           {row.formattedTarget}
                         </td>
-
-                        {displayMonths.map((mIdx) => {
-                          const valStr = getCellData(
-                            row.id,
-                            mIdx,
-                            appliedFilters.tahun,
-                          );
-
-                          let isTargetMet = false;
-                          if (valStr !== "-") {
-                            const numVal = parseFloat(valStr.replace("%", ""));
-                            if (row.reverse) {
-                              isTargetMet = numVal <= row.targetVal;
-                            } else {
-                              isTargetMet = numVal >= row.targetVal;
-                            }
-                          }
-
+                        {periodMeta.monthCols.map((mc) => {
+                          const cell = getMatrixCell(row.id, mc.monthIndex);
                           return (
-                            <td key={mIdx} className="py-4 px-6 text-center">
-                              {valStr === "-" ? (
-                                <span className="inline-block w-8 h-8 rounded-lg bg-gray-50 text-gray-400 font-bold leading-8 text-sm border border-gray-100 shadow-sm">
-                                  -
-                                </span>
-                              ) : (
-                                <span
-                                  className={`inline-block px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm border ${
-                                    isTargetMet
-                                      ? "bg-emerald-50 text-[#10a37f] border-emerald-100"
-                                      : "bg-[#fffbeb] text-[#d97706] border-[#fde68a]"
-                                  }`}
-                                >
-                                  {valStr}
-                                </span>
-                              )}
+                            <td
+                              key={mc.monthIndex}
+                              className="py-3 px-4 text-xs text-center font-bold"
+                            >
+                              {cell}
                             </td>
                           );
                         })}
@@ -922,965 +1045,163 @@ export default function Laporan() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
 
-          {/* Official Signatures Block */}
-          <div className="grid grid-cols-2 gap-8 mt-12 pt-6 text-center text-xs font-bold text-slate-800">
-            <div>
-              <p className="text-slate-500 font-semibold mb-1">Mengetahui,</p>
-              <p className="text-sm font-extrabold uppercase">Direktur UOBK RSUD Al-Mulk</p>
-              <div className="h-20 flex items-center justify-center">
-                <span className="text-[10px] text-slate-300 italic">(Tanda Tangan & Cap Resmi)</span>
+      {/* =========================================================
+          MODAL PENGATURAN API KEY GEMINI AI
+      ========================================================= */}
+      {showAiModal && (
+        <div className="no-print fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Konfigurasi AI Gemini (Analisis Standar Mutu RS)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Model: <code className="font-bold">gemini-3.8-flash</code> • Acuan STARKES & PMK 80/2020
+                  </p>
+                </div>
               </div>
-              <p className="text-sm font-extrabold underline underline-offset-2">dr. H. Munifah Rohmawati</p>
-              <p className="text-slate-500 font-medium">NIP. 19780512 200604 2 018</p>
+              <button
+                type="button"
+                onClick={() => setShowAiModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div>
-              <p className="text-slate-500 font-semibold mb-1">Sukabumi, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p className="text-sm font-extrabold uppercase">Ketua Komite Mutu & Keselamatan Pasien</p>
-              <div className="h-20 flex items-center justify-center">
-                <span className="text-[10px] text-slate-300 italic">(Tanda Tangan)</span>
-              </div>
-              <p className="text-sm font-extrabold underline underline-offset-2">Tim Mutu RSUD Al-Mulk</p>
-              <p className="text-slate-500 font-medium">Komite Mutu Rumah Sakit</p>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-1.5 leading-relaxed">
+              <p>
+                <strong>Status Saat Ini:</strong>{" "}
+                {aiConfigured ? (
+                  <span className="text-emerald-700 font-bold">
+                    Terhubung (Sumber: {aiSource === "env" ? ".env.local" : "Database Lokal"})
+                  </span>
+                ) : (
+                  <span className="text-amber-700 font-bold">
+                    Menggunakan Mesin Narasi Otomatis Standar Mutu RS (Bawaan)
+                  </span>
+                )}
+              </p>
+              <p>
+                Secara otomatis setiap tabel sudah dilengkapi Analisa & Rekomendasi dinamis
+                sesuai capaian data. Untuk menghasilkan narasi mendalam menggunakan model AI
+                terbaru Google Gemini, masukkan <strong>API Key Google AI Studio</strong> di bawah
+                ini (tersimpan aman secara lokal di komputer rumah sakit).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Google Gemini API Key
+              </label>
+              <input
+                type="password"
+                placeholder="Tempel API Key (AIzaSy...)"
+                value={apiKeyDraft}
+                onChange={(e) => setApiKeyDraft(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAiModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveApiKey}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
+              >
+                Simpan Konfigurasi AI
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* --- MODAL DETAIL RIWAYAT INPUT INDIKATOR --- */}
+      {/* =========================================================
+          MODAL RINCIAN INPUT UNIT PER INDIKATOR
+      ========================================================= */}
       {selectedIndikatorDetail && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 md:p-8 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-7xl max-h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-emerald-50/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-emerald-100/50 flex items-center justify-center border border-emerald-200 shrink-0">
-                  <BookOpen className="text-emerald-600" size={24} />
-                </div>
-                <div>
-                  <h2 className="text-lg md:text-xl font-black text-slate-800 tracking-tight leading-tight">
-                    Detail Riwayat Input Indikator
-                  </h2>
-                  <p className="text-xs font-semibold text-emerald-700/80 mt-0.5">
-                    {selectedIndikatorDetail.name} •{" "}
-                    {selectedIndikatorDetail.category}
-                  </p>
-                </div>
+        <div className="no-print fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/45 backdrop-blur-xs p-4 md:p-8">
+          <div className="bg-white w-full max-w-4xl max-h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/40">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Rincian Data Input Unit — {selectedIndikatorDetail.name}
+                </h3>
+                <p className="text-xs text-emerald-800 font-semibold">
+                  {selectedIndikatorDetail.category} • {periodMeta.shortPeriodTitle} ({periodMeta.rangeLabel})
+                </p>
               </div>
-              <div className="flex items-center gap-4 w-full md:w-auto mt-2 md:mt-0">
-                <div className="flex items-center gap-2.5 bg-white border border-emerald-500/20 px-4 py-2.5 rounded-2xl shadow-sm text-sm font-bold text-slate-800 shrink-0">
-                  <Calendar size={18} className="text-[#10a37f]" />
-                  <span>{getPeriodeText()}</span>
-                </div>
-                <button
-                  onClick={() => setSelectedIndikatorDetail(null)}
-                  className="p-2 hover:bg-slate-200/50 rounded-xl transition-colors text-slate-400 hover:text-slate-600 bg-white border border-gray-100 shadow-sm ml-auto md:ml-0"
-                >
-                  <X size={20} />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedIndikatorDetail(null)}
+                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 scrollbar-thin scrollbar-thumb-gray-200">
-              {/* Detail Data Table */}
-              {isDetailLoading ? (
-                <div className="p-12 text-center bg-slate-50 rounded-2xl border border-slate-100 animate-pulse flex flex-col items-center justify-center gap-2">
-                  <Activity className="animate-spin text-[#10a37f]" size={24} />
-                  <p className="text-xs font-bold text-slate-500">
-                    Memuat rincian data...
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {Object.keys(detailInputsByUnit).length === 0 ? (
+                <div className="p-10 text-center bg-slate-50 rounded-2xl border border-slate-200/70">
+                  <Calendar className="mx-auto text-slate-400 mb-2" size={26} />
+                  <p className="text-sm font-bold text-slate-600">
+                    Belum ada data input dari unit untuk indikator ini pada {periodMeta.shortPeriodTitle}.
                   </p>
-                </div>
-              ) : Object.keys(inputsGroupedByUnit).length > 0 ? (
-                <div className="space-y-12 pb-4">
-                  {Object.entries(inputsGroupedByUnit).map(
-                    ([unitName, unitInputs], idx) => {
-                      // Calculate totals for this unit
-                      let totalNum = 0;
-                      let totalDen = 0;
-                      let totalKpc = 0,
-                        totalKnc = 0,
-                        totalKtc = 0,
-                        totalKtd = 0,
-                        totalSentinel = 0;
-
-                      unitInputs.forEach((u) => {
-                        totalNum += Number(u.numerator) || 0;
-                        totalDen += Number(u.denominator) || 0;
-                        totalKpc += Number(u.kpc) || 0;
-                        totalKnc += Number(u.knc) || 0;
-                        totalKtc += Number(u.ktc) || 0;
-                        totalKtd += Number(u.ktd) || 0;
-                        totalSentinel += Number(u.sentinel) || 0;
-                      });
-
-                      const isPersen =
-                        selectedProfileData?.measurement_unit === "Persen (%)";
-                      const isIndeks =
-                        selectedProfileData?.measurement_unit === "Indeks";
-                      const formulaMultiplier = isIndeks
-                        ? 25
-                        : isPersen
-                          ? 100
-                          : 1;
-
-                      // recalculate capaian based on formula type
-                      const capaian =
-                        totalDen > 0
-                          ? (totalNum / totalDen) * formulaMultiplier
-                          : 0;
-                      const targetVal =
-                        parseFloat(
-                          String(
-                            selectedProfileData?.target ||
-                              unitInputs[0]?.target ||
-                              0,
-                          ).replace(/[^0-9.]/g, ""),
-                        ) || 0;
-
-                      // reverse logic
-                      let isTargetMet = false;
-                      if (selectedProfileData?.reverse) {
-                        isTargetMet = capaian <= targetVal;
-                      } else {
-                        isTargetMet = capaian >= targetVal;
-                      }
-
-                      // Fetch Waktu Tunggu Detaisl
-                      let activeWaktuTungguFiltered = unitInputs.flatMap(
-                        (u) => u.waktu_tunggu_details || [],
-                      );
-
-                      if (
-                        activeWaktuTungguFiltered.length === 0 &&
-                        waktuTungguDetails.length > 0
-                      ) {
-                        const validDates = unitInputs.map((u) =>
-                          u.tanggal.substring(0, 10),
-                        );
-                        activeWaktuTungguFiltered = waktuTungguDetails.filter(
-                          (wd) => {
-                            return (
-                              wd.tanggal &&
-                              validDates.some((vd) => wd.tanggal.startsWith(vd))
-                            );
-                          },
-                        );
-                      }
-
-                      // Fetch Visite
-                      let activeVisiteFiltered = visiteDetails.filter((vd) => {
-                        const validDates = unitInputs.map((u) =>
-                          u.tanggal.substring(0, 10),
-                        );
-                        return (
-                          vd.tanggal_visite &&
-                          validDates.some((vd_d) =>
-                            vd.tanggal_visite.startsWith(vd_d),
-                          )
-                        );
-                      });
-                      if (activeVisiteFiltered.length === 0) {
-                        activeVisiteFiltered = unitInputs.flatMap(
-                          (u) => u.visite_details || [],
-                        );
-                      }
-
-                      // Fetch Risiko Jatuh
-                      let activeJatuhFiltered = unitInputs.flatMap(
-                        (u) => u.jatuh_details || [],
-                      );
-
-                      // Fetch Identifikasi
-                      let activeIdentifikasiFiltered = unitInputs.flatMap(
-                        (u) => {
-                          if (!u.identifikasi_details) return [];
-                          const flat: any[] = [];
-                          u.identifikasi_details.forEach(pasien => {
-                            if (pasien.moments) {
-                              Object.entries(pasien.moments).forEach(([momentName, momentData]) => {
-                                if (momentData.aktif) {
-                                  flat.push({
-                                    ...pasien,
-                                    moment: momentName,
-                                    petugas: momentData.petugas,
-                                    lokasi: momentData.lokasi,
-                                    patuh: momentData.patuh,
-                                  });
-                                }
-                              });
-                            }
-                          });
-                          return flat;
-                        }
-                      );
-
-                      return (
-                        <div key={unitName} className="space-y-6">
-                          {/* Unit Section Header */}
-                          <div className="flex items-center gap-3 pl-4 border-l-4 border-[#059669] py-2 mb-2 bg-[#f8fafc] rounded-r-xl shadow-xs">
-                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">
-                              UNIT : {unitName}
-                            </h3>
-                          </div>
-
-                          {/* Table Container */}
-                          {selectedIndikatorDetail.name
-                            .toLowerCase()
-                            .includes("visite") ? (
-                            <div className="bg-white border border-[#10a37f]/20 rounded-2xl overflow-hidden shadow-xs">
-                              <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
-                                <table className="w-full text-left text-xs border-collapse min-w-[600px]">
-                                  <thead className="sticky top-0 bg-[#059669] text-white h-11 select-none">
-                                    <tr>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        Tanggal Visite
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        Nama Pasien No-RM
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        ≤ 14.00 (Tepat)
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        &gt; 14.00 (Terlambat)
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        Dokter DPJP
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        Keterangan
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {activeVisiteFiltered.length > 0 ? (
-                                      activeVisiteFiltered.map((v, i) => {
-                                        const tanggalStr =
-                                          v.tanggal || v.tanggal_visite;
-                                        const tepat =
-                                          v.jam_visite_kurang_14 ??
-                                          v.visite_sebelum_14;
-                                        const lambat =
-                                          v.jam_visite_lebih_14 ??
-                                          v.visite_setelah_14;
-                                        const dokter =
-                                          v.dokter_visite ||
-                                          v.nama_dokter ||
-                                          "-";
-                                        return (
-                                          <tr
-                                            key={`${v.id || i}-${i}`}
-                                            className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
-                                          >
-                                            <td className="px-4 py-3 text-slate-600 font-semibold">
-                                              {tanggalStr &&
-                                                new Date(
-                                                  tanggalStr,
-                                                ).toLocaleDateString("id-ID")}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-800 font-bold">
-                                              {v.nama_pasien}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                              {tepat ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-150/40 text-emerald-800 text-xs font-black">
-                                                  ✓
-                                                </span>
-                                              ) : (
-                                                "-"
-                                              )}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                              {lambat ? (
-                                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-150/40 text-red-800 text-xs font-black">
-                                                  ✗
-                                                </span>
-                                              ) : (
-                                                "-"
-                                              )}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-700 font-bold">
-                                              {dokter}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-500 font-medium">
-                                              {v.keterangan || "-"}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })
-                                    ) : (
-                                      <tr>
-                                        <td
-                                          colSpan={6}
-                                          className="text-center py-8 text-slate-400 font-bold bg-slate-50/50"
-                                        >
-                                          Tidak ada rincian data observasi di
-                                          database untuk unit ini.
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ) : selectedIndikatorDetail.name
-                              .toLowerCase()
-                              .includes("waktu tunggu") ? (
-                            <div className="bg-white border border-[#10a37f]/20 rounded-2xl overflow-hidden shadow-xs">
-                              <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
-                                <table className="w-full text-left text-xs border-collapse min-w-[700px]">
-                                  <thead className="sticky top-0 bg-[#059669] text-white h-11 select-none">
-                                    <tr>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        NO
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        TANGGAL
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        NAMA PASIEN
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        NO RM
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        JAM DATANG
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        JAM PEMERIKSAAN
-                                        <br />
-                                        DOKTER
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        SELISIH WAKTU
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {activeWaktuTungguFiltered.length > 0 ? (
-                                      activeWaktuTungguFiltered.map((v, i) => {
-                                        const hours = Math.floor(
-                                          v.selisih_menit / 60,
-                                        );
-                                        const minutes = v.selisih_menit % 60;
-                                        const isStandar =
-                                          v.memenuhi_standar !== undefined
-                                            ? v.memenuhi_standar
-                                            : v.selisih_menit <= 60;
-
-                                        return (
-                                          <tr
-                                            key={`${v.id || i}-${i}`}
-                                            className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
-                                          >
-                                            <td className="px-4 py-3 text-slate-600 font-semibold text-center">
-                                              {i + 1}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600 font-semibold">
-                                              {v.tanggal &&
-                                                new Date(
-                                                  v.tanggal,
-                                                ).toLocaleDateString("id-ID")}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-800 font-bold">
-                                              {v.nama_pasien}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-800 font-semibold">
-                                              {v.no_rm}
-                                            </td>
-                                            <td className="px-4 py-3 text-center font-semibold text-slate-700">
-                                              {v.jam_datang}
-                                            </td>
-                                            <td className="px-4 py-3 text-center font-semibold text-slate-700">
-                                              {v.jam_dilayani}
-                                            </td>
-                                            <td className="px-4 py-3 text-center font-bold">
-                                              <span
-                                                className={`${isStandar ? "text-[#059669]" : "text-red-600"} text-[11px]`}
-                                              >
-                                                {hours > 0
-                                                  ? `${hours} Jam `
-                                                  : ""}
-                                                {minutes} Menit
-                                              </span>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })
-                                    ) : (
-                                      <tr>
-                                        <td
-                                          colSpan={7}
-                                          className="text-center py-8 text-slate-400 font-bold bg-slate-50/50"
-                                        >
-                                          Tidak ada data pasien di tabulasi
-                                          database untuk periode ini.
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ) : selectedIndikatorDetail.name
-                              .toLowerCase()
-                              .includes("jatuh") ? (
-                            <div className="bg-white border border-[#10a37f]/20 rounded-2xl overflow-hidden shadow-xs">
-                              <div className="overflow-x-auto max-h-[350px] overflow-y-auto">
-                                <table className="w-full text-left text-xs border-collapse min-w-[600px]">
-                                  <thead className="sticky top-0 bg-[#059669] text-white h-11 select-none">
-                                    <tr>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        NO
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        NAMA PASIEN
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px]">
-                                        NO RM
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        ASESMEN AWAL
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        ASESMEN ULANG
-                                      </th>
-                                      <th className="px-4 py-2 font-bold uppercase tracking-wider text-[10px] text-center">
-                                        INTERVENSI
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {activeJatuhFiltered.length > 0 ? (
-                                      activeJatuhFiltered.map((v, i) => (
-                                        <tr
-                                          key={`${v.id || i}-${i}`}
-                                          className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
-                                        >
-                                          <td className="px-4 py-3 text-slate-600 font-semibold text-center">
-                                            {i + 1}
-                                          </td>
-                                          <td className="px-4 py-3 text-slate-800 font-bold">
-                                            {v.nama_pasien}
-                                          </td>
-                                          <td className="px-4 py-3 text-slate-800 font-semibold">
-                                            {v.no_rm}
-                                          </td>
-                                          <td className="px-4 py-3 text-center">
-                                            {v.asesmen_awal === null ? (
-                                              "-"
-                                            ) : v.asesmen_awal ? (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-150/40 text-emerald-800 text-xs font-black">
-                                                ✓
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-150/40 text-red-800 text-xs font-black">
-                                                ✗
-                                              </span>
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-3 text-center">
-                                            {v.asesmen_ulang === null ? (
-                                              "-"
-                                            ) : v.asesmen_ulang ? (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-150/40 text-emerald-800 text-xs font-black">
-                                                ✓
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-150/40 text-red-800 text-xs font-black">
-                                                ✗
-                                              </span>
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-3 text-center">
-                                            {v.intervensi === null ? (
-                                              "-"
-                                            ) : v.intervensi ? (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-150/40 text-emerald-800 text-xs font-black">
-                                                ✓
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-150/40 text-red-800 text-xs font-black">
-                                                ✗
-                                              </span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))
-                                    ) : (
-                                      <tr>
-                                        <td
-                                          colSpan={6}
-                                          className="text-center py-8 text-slate-400 font-bold bg-slate-50/50"
-                                        >
-                                          Tidak ada data observasi risiko jatuh
-                                          untuk periode ini.
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ) : selectedIndikatorDetail.name
-                              .toLowerCase()
-                              .includes("identifikasi pasien") ? (
-                            <div className="bg-white border text-left border-gray-200 rounded-2xl shadow-sm overflow-x-auto w-full">
-                              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
-                                <thead className="bg-[#059669] text-white select-none">
-                                  <tr>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider text-center w-12 rounded-tl-xl border-r border-[#047857]">
-                                      NO
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      HARI/TANGGAL
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      JAM
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      NAMA OBSERVER
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      LOKASI
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      PROFESI/PETUGAS
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider border-r border-[#047857]">
-                                      MOMEN (1-9)
-                                    </th>
-                                    <th className="px-4 py-3 font-bold uppercase tracking-wider text-center border-r border-[#047857]">
-                                      KEPATUHAN
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {activeIdentifikasiFiltered.length > 0 ? (
-                                    activeIdentifikasiFiltered.map((v, i) => (
-                                      <tr
-                                        key={`${v.id || i}-${i}`}
-                                        className="border-b border-gray-50 hover:bg-slate-50/50 transition-colors"
-                                      >
-                                        <td className="px-4 py-3 text-slate-600 font-semibold text-center">
-                                          {i + 1}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600 font-semibold">
-                                          {v.tanggal_observasi
-                                            ? new Date(
-                                                v.tanggal_observasi,
-                                              ).toLocaleDateString("id-ID")
-                                            : "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600 font-semibold">
-                                          {v.jam_observasi || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-800 font-semibold">
-                                          {v.nama_observer || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-800 font-semibold">
-                                          {v.lokasi || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-800 font-semibold">
-                                          {v.petugas || "-"}
-                                        </td>
-                                        <td
-                                          className="px-4 py-3 text-slate-500 font-medium max-w-[200px] truncate"
-                                          title={v.moment}
-                                        >
-                                          {v.moment || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                          {v.patuh === true ? (
-                                            <span className="inline-flex items-center justify-center bg-emerald-150/40 text-emerald-800 text-xs font-black px-2 py-1 rounded-md">
-                                              PATUH
-                                            </span>
-                                          ) : v.patuh === false ? (
-                                            <span className="inline-flex items-center justify-center bg-red-150/40 text-red-800 text-xs font-black px-2 py-1 rounded-md">
-                                              TIDAK PATUH
-                                            </span>
-                                          ) : (
-                                            "-"
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    <tr>
-                                      <td
-                                        colSpan={8}
-                                        className="text-center py-8 text-slate-400 font-bold bg-slate-50/50"
-                                      >
-                                        Tidak ada data observasi kepatuhan
-                                        identifikasi pasien untuk periode ini.
-                                      </td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : selectedIndikatorDetail.category === "IKP" ? (
-                            <div className="bg-white border border-gray-205 rounded-2xl overflow-hidden shadow-xs flex flex-col md:flex-row">
-                              <div className="bg-rose-50 px-5 py-5 md:w-52 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-rose-100/50 select-none">
-                                <p className="text-[10px] font-black tracking-widest text-[#991b1b] uppercase">
-                                  TOTAL IKP
-                                </p>
-                                <span className="text-[9px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-md mt-1">
-                                  Pada Unit Ini
-                                </span>
-                              </div>
-                              <div className="flex-1 w-full overflow-x-auto">
-                                <table className="w-full text-left text-xs border-collapse">
-                                  <thead className="bg-[#fffdfd] border-b border-gray-150 select-none">
-                                    <tr>
-                                      <th className="px-5 py-3 font-black text-slate-500 text-center uppercase tracking-wider text-[10px]">
-                                        KPC
-                                      </th>
-                                      <th className="px-5 py-3 font-black text-slate-500 text-center uppercase tracking-wider text-[10px]">
-                                        KNC
-                                      </th>
-                                      <th className="px-5 py-3 font-black text-slate-500 text-center uppercase tracking-wider text-[10px]">
-                                        KTC
-                                      </th>
-                                      <th className="px-5 py-3 font-black text-rose-600 text-center uppercase tracking-wider text-[10px]">
-                                        KTD
-                                      </th>
-                                      <th className="px-5 py-3 font-black text-rose-600 text-center uppercase tracking-wider text-[10px]">
-                                        Sentinel
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    <tr className="hover:bg-slate-50/20">
-                                      <td className="px-5 py-5 text-slate-800 font-black text-center text-xl bg-slate-50/40">
-                                        {totalKpc}
-                                      </td>
-                                      <td className="px-5 py-5 text-slate-800 font-black text-center text-xl">
-                                        {totalKnc}
-                                      </td>
-                                      <td className="px-5 py-5 text-slate-800 font-black text-center text-xl bg-slate-50/40">
-                                        {totalKtc}
-                                      </td>
-                                      <td className="px-5 py-5 text-rose-600 font-black text-center text-xl">
-                                        {totalKtd}
-                                      </td>
-                                      <td className="px-5 py-5 text-rose-600 font-black text-center text-xl bg-slate-50/40">
-                                        {totalSentinel}
-                                      </td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
-                              <div className="w-full overflow-x-auto max-h-[350px]">
-                                <table className="w-full text-center text-xs border-collapse min-w-[700px]">
-                                  <thead className="sticky top-0 bg-[#059669] text-white h-11 select-none">
-                                    <tr>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[15%] text-center align-middle">
-                                        Tanggal
-                                      </th>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[20%] text-center align-middle">
-                                        Unit
-                                      </th>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[15%] text-center align-middle">
-                                        Numerator
-                                      </th>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[15%] text-center align-middle">
-                                        Denominator
-                                      </th>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[15%] text-center align-middle">
-                                        Target
-                                      </th>
-                                      <th className="px-5 py-3 font-bold uppercase text-[10px] w-[20%] text-center align-middle">
-                                        Capaian
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {unitInputs.map((u, i) => {
-                                      const uTarget =
-                                        parseFloat(
-                                          String(
-                                            selectedProfileData?.target ||
-                                              u.target ||
-                                              0,
-                                          ).replace(/[^0-9.]/g, ""),
-                                        ) || 0;
-                                      const uCapaian = Number(u.capaian);
-                                      let statusBadge = null;
-                                      if (selectedProfileData?.reverse) {
-                                        if (uCapaian <= uTarget) {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-emerald-100 text-emerald-700 font-bold rounded-md whitespace-nowrap">
-                                                🟢 Target Tercapai
-                                              </span>
-                                            </div>
-                                          );
-                                        } else if (uCapaian - uTarget <= 5) {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-yellow-100 text-yellow-700 font-bold rounded-md whitespace-nowrap">
-                                                🟡 Mendekati Target
-                                              </span>
-                                            </div>
-                                          );
-                                        } else {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-red-100 text-red-700 font-bold rounded-md whitespace-nowrap">
-                                                🔴 Belum Tercapai
-                                              </span>
-                                            </div>
-                                          );
-                                        }
-                                      } else {
-                                        if (uCapaian >= uTarget) {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-emerald-100 text-emerald-700 font-bold rounded-md whitespace-nowrap">
-                                                🟢 Target Tercapai
-                                              </span>
-                                            </div>
-                                          );
-                                        } else if (uTarget - uCapaian <= 5) {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-yellow-100 text-yellow-700 font-bold rounded-md whitespace-nowrap">
-                                                🟡 Mendekati Target
-                                              </span>
-                                            </div>
-                                          );
-                                        } else {
-                                          statusBadge = (
-                                            <div className="mt-1 flex justify-center">
-                                              <span className="text-[9px] px-2 py-1 bg-red-100 text-red-700 font-bold rounded-md whitespace-nowrap">
-                                                🔴 Belum Tercapai
-                                              </span>
-                                            </div>
-                                          );
-                                        }
-                                      }
-                                      return (
-                                        <tr
-                                          key={`${u.id || i}-${i}`}
-                                          className="hover:bg-slate-50/40 border-b border-gray-50"
-                                        >
-                                          <td className="px-5 py-4 text-slate-600 font-bold text-center align-middle whitespace-nowrap">
-                                            {new Date(
-                                              u.tanggal,
-                                            ).toLocaleDateString("id-ID", {
-                                              day: "numeric",
-                                              month: "short",
-                                              year: "numeric",
-                                            })}
-                                          </td>
-                                          <td className="px-5 py-4 text-slate-800 font-bold text-center align-middle">
-                                            {u.unit || unitName}
-                                          </td>
-                                          <td className="px-5 py-4 text-slate-800 font-black text-center align-middle text-sm">
-                                            {formatNum(u.numerator)}
-                                          </td>
-                                          <td className="px-5 py-4 text-slate-800 font-black text-center align-middle text-sm">
-                                            {formatNum(u.denominator)}
-                                          </td>
-                                          <td className="px-5 py-4 text-slate-500 font-bold text-center align-middle text-xs">
-                                            {selectedProfileData?.reverse
-                                              ? "≤"
-                                              : "≥"}{" "}
-                                            {uTarget}%
-                                          </td>
-                                          <td className="px-5 py-4 font-black text-center align-middle">
-                                            <div className="text-sm text-slate-800">
-                                              {formatNum(uCapaian)}%
-                                            </div>
-                                            {statusBadge}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    },
-                  )}
-
-                  {/* Integrated Global Recap Card */}
-                  {selectedIndikatorDetail.category !== "IKP" &&
-                    activePeriodInputs.length > 0 && (
-                      <div className="pt-8 border-t border-gray-100 flex flex-col items-center mt-6 gap-8">
-                        <div className="w-full max-w-4xl bg-white border border-emerald-100/60 rounded-[32px] shadow-[0_8px_32px_-12px_rgba(16,163,127,0.15)] overflow-hidden transition-all hover:shadow-[0_16px_48px_-12px_rgba(16,163,127,0.25)] group relative">
-                          <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-emerald-50/30 opacity-50 z-0 pointer-events-none"></div>
-                          <div className="relative z-10">
-                            <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 py-5 px-8 text-center flex items-center justify-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm">
-                                <TrendingUp size={16} />
-                              </div>
-                              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">
-                                REKAPITULASI CAPAIAN INDIKATOR TERINTEGRASI
-                              </h3>
-                            </div>
-                            <div className="p-8 md:p-12 flex flex-col items-center">
-                              {/* Numerator & Denominator Modules */}
-                              <div className="flex flex-col md:flex-row justify-center w-full gap-6 md:gap-16 mb-12">
-                                <div className="flex-1 flex flex-col items-center p-6 rounded-3xl bg-emerald-50/50 border border-emerald-100/50">
-                                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1 shadow-sm">
-                                    Total Numerator
-                                  </span>
-                                  <span className="text-4xl md:text-5xl font-black text-slate-800">
-                                    {formatNum(globalTotals.num)}
-                                  </span>
-                                </div>
-                                <div className="flex-1 flex flex-col items-center p-6 rounded-3xl bg-indigo-50/50 border border-indigo-100/50">
-                                  <span className="text-xs font-black text-slate-500 uppercase tracking-widest mb-1 shadow-sm">
-                                    Total Denominator
-                                  </span>
-                                  <span className="text-4xl md:text-5xl font-black text-slate-800">
-                                    {formatNum(globalTotals.den)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col items-center text-center relative w-full">
-                                <span className="text-sm rounded-full px-4 py-1.5 bg-slate-100 text-slate-600 font-bold uppercase tracking-widest mb-4 shadow-sm border border-slate-200/50">
-                                  Target{" "}
-                                  {selectedProfileData?.reverse ? "≤" : "≥"}{" "}
-                                  {globalTotals.targetVal}%
-                                </span>
-
-                                <div className="relative flex items-center justify-center">
-                                  <span
-                                    className={`text-[90px] md:text-[120px] font-black leading-none tracking-tighter ${
-                                      globalTotals.isTargetMet
-                                        ? "text-[#10a37f]"
-                                        : selectedProfileData?.reverse
-                                          ? globalTotals.capaian -
-                                              globalTotals.targetVal <=
-                                            5
-                                            ? "text-yellow-500"
-                                            : "text-red-500"
-                                          : globalTotals.targetVal -
-                                                globalTotals.capaian <=
-                                              5
-                                            ? "text-yellow-500"
-                                            : "text-red-500"
-                                    }`}
-                                  >
-                                    {formatNum(globalTotals.capaian)}
-                                    <span className="text-5xl md:text-6xl">
-                                      %
-                                    </span>
-                                  </span>
-                                </div>
-
-                                <div className="mt-8 flex flex-col md:flex-row items-center gap-4">
-                                  <span
-                                    className={`px-8 py-3 rounded-2xl text-sm font-black tracking-widest uppercase shadow-sm ${
-                                      globalTotals.isTargetMet
-                                        ? "bg-emerald-500 text-white shadow-emerald-500/20"
-                                        : selectedProfileData?.reverse
-                                          ? globalTotals.capaian -
-                                              globalTotals.targetVal <=
-                                            5
-                                            ? "bg-yellow-500 text-white shadow-yellow-500/20"
-                                            : "bg-red-500 text-white shadow-red-500/20"
-                                          : globalTotals.targetVal -
-                                                globalTotals.capaian <=
-                                              5
-                                            ? "bg-yellow-500 text-white shadow-yellow-500/20"
-                                            : "bg-red-500 text-white shadow-red-500/20"
-                                    }`}
-                                  >
-                                    {globalTotals.isTargetMet
-                                      ? "🟢 TARGET TERCAPAI"
-                                      : selectedProfileData?.reverse
-                                        ? globalTotals.capaian -
-                                            globalTotals.targetVal <=
-                                          5
-                                          ? "🟡 MENDEKATI TARGET"
-                                          : "🔴 BELUM TERCAPAI"
-                                        : globalTotals.targetVal -
-                                              globalTotals.capaian <=
-                                            5
-                                          ? "🟡 MENDEKATI TARGET"
-                                          : "🔴 BELUM TERCAPAI"}
-                                  </span>
-
-                                  {globalTotals.prevDen > 0 && (
-                                    <div className="flex flex-col items-center justify-center px-6 py-2 rounded-2xl bg-slate-50 border border-slate-100">
-                                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                        Tren Periode Lali
-                                      </span>
-                                      <div
-                                        className={`flex items-center gap-1 font-black ${globalTotals.tren > 0 ? "text-emerald-500" : globalTotals.tren < 0 ? "text-red-500" : "text-slate-500"}`}
-                                      >
-                                        {globalTotals.tren > 0
-                                          ? "▲"
-                                          : globalTotals.tren < 0
-                                            ? "▼"
-                                            : "—"}{" "}
-                                        {globalTotals.tren > 0 ? "+" : ""}
-                                        {formatNum(globalTotals.tren)}%
-                                      </div>
-                                      <span className="text-[9px] font-bold text-slate-400 mt-0.5">
-                                        {globalTotals.tren > 0
-                                          ? "Naik"
-                                          : globalTotals.tren < 0
-                                            ? "Turun"
-                                            : "Sama"}{" "}
-                                        dibanding sebelumnya
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="bg-slate-50/80 backdrop-blur-sm border-t border-gray-100 p-6 md:px-12 flex flex-wrap justify-center md:justify-between gap-6 md:gap-4 text-center text-xs font-bold text-slate-600">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-                                  Periode
-                                </span>
-                                <span>{getPeriodeText()}</span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-                                  Kategori
-                                </span>
-                                <span>{selectedIndikatorDetail.category}</span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-                                  Unit Berpartisipasi
-                                </span>
-                                <span>
-                                  {Object.keys(inputsGroupedByUnit).length} Unit
-                                </span>
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">
-                                  Data Observasi
-                                </span>
-                                <span>{formatNum(globalTotals.den)} Data</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  <p className="text-xs text-slate-400 mt-1">
+                    Silakan input data melalui menu Input Data agar otomatis terintegrasi ke buku laporan.
+                  </p>
                 </div>
               ) : (
-                <div className="p-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
-                  <p className="text-sm font-bold text-slate-400">
-                    Belum ada data input pada filter periode yang terpilih.
-                  </p>
-                </div>
+                Object.entries(detailInputsByUnit).map(([unitName, list]) => (
+                  <div key={unitName} className="space-y-2">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg border-l-4 border-emerald-600">
+                      Unit: {unitName} ({list.length} Entri)
+                    </h4>
+                    <table className="w-full border-collapse border border-slate-200 text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 font-bold text-center">
+                          <th className="border border-slate-200 px-3 py-2">Tanggal</th>
+                          <th className="border border-slate-200 px-3 py-2">Numerator</th>
+                          <th className="border border-slate-200 px-3 py-2">Denominator</th>
+                          <th className="border border-slate-200 px-3 py-2">Capaian</th>
+                          <th className="border border-slate-200 px-3 py-2 text-left">Keterangan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map((u) => (
+                          <tr key={u.id} className="text-center hover:bg-slate-50">
+                            <td className="border border-slate-200 px-3 py-2 font-semibold">
+                              {u.tanggal}
+                            </td>
+                            <td className="border border-slate-200 px-3 py-2">{u.numerator}</td>
+                            <td className="border border-slate-200 px-3 py-2">{u.denominator}</td>
+                            <td className="border border-slate-200 px-3 py-2 font-bold text-emerald-700">
+                              {Number(u.capaian || 0).toFixed(2)}%
+                            </td>
+                            <td className="border border-slate-200 px-3 py-2 text-left text-slate-600">
+                              {u.keterangan || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
               )}
             </div>
           </div>
