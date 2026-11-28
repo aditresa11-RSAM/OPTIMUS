@@ -3,9 +3,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Layout from "@/components/Layout";
+import GlobalFastDatePicker from "@/components/GlobalFastDatePicker";
 import { supabase } from "@/lib/supabase";
 import { useStore } from "@/store/useStore";
 import { useRoleStore } from "@/store/useRoleStore";
+import {
+  adaptMasterProfileFromDb,
+  mapDbInputsToMutuPayloads,
+} from "@/lib/mutuSync";
 import "@/styles/globals.css";
 
 // Prevents Next.js HMR TypeError: Cannot read properties of undefined (reading 'components') during dynamic hot-reloading
@@ -77,6 +82,7 @@ if (typeof window !== "undefined") {
 function GlobalInitializer() {
   const setHospitalLogo = useStore((state) => state.setHospitalLogo);
   const setIndicatorProfiles = useStore((state) => state.setIndicatorProfiles);
+  const setDataMutuList = useStore((state) => state.setDataMutuList);
   const addUnit = useStore((state) => state.addUnit);
   const hydrateRole = useRoleStore((state) => state.hydrateRole);
 
@@ -137,72 +143,78 @@ function GlobalInitializer() {
     };
     loadGlobalSettings();
 
-    // 3. Central Data Synchronization for Master Indikator & Units
-    const syncMasterData = async () => {
+    // 3. Central Realtime Synchronization for Units, Master Indikator & Indicator Inputs
+    const syncAllData = async () => {
       try {
-        // Sync Units
-        const { data: unitsData } = await supabase.from("units").select("*");
-        if (unitsData && Array.isArray(unitsData) && unitsData.length > 0) {
-          unitsData.forEach((u: any) => addUnit(u));
+        const [unitsRes, masterRes, inputsRes] = await Promise.all([
+          supabase.from("units").select("*"),
+          supabase
+            .from("master_indikator")
+            .select("*")
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("indicator_inputs")
+            .select("*")
+            .order("created_at", { ascending: true }),
+        ]);
+
+        if (Array.isArray(unitsRes.data) && unitsRes.data.length > 0) {
+          unitsRes.data.forEach((u: any) => addUnit(u));
         }
 
-        // Sync Master Indikator
-        const { data, error } = await supabase
-          .from("master_indikator")
-          .select("*")
-          .order("created_at", { ascending: true });
+        let activeProfiles = useStore.getState().indicatorProfiles;
+        if (Array.isArray(masterRes.data) && !masterRes.error) {
+          activeProfiles = masterRes.data.map(adaptMasterProfileFromDb);
+          setIndicatorProfiles(activeProfiles);
+        }
 
-        if (data && !error) {
-          const adapted = data.map((d: any) => ({
-            id: d.id,
-            category: d.category,
-            indicator_title: d.title,
-            rationale: d.rationale,
-            quality_dimension: d.quality_dimension,
-            objective: d.purpose,
-            operational_definition: d.operational_definition,
-            indicator_type: d.indicator_type,
-            measurement_unit: d.measurement_unit === "Rasio" ? "Indeks" : d.measurement_unit,
-            numerator: d.numerator,
-            denominator: d.denominator,
-            target: d.target === null || d.target === undefined ? "" : String(d.target),
-            criteria: d.criteria,
-            formula: d.formula,
-            data_collection_method: d.data_collection_method,
-            data_source: d.data_source,
-            sampling_method: d.sampling_method,
-            data_collection_tool: d.data_collection_instrument,
-            sample_size: d.sample_size,
-            collection_period: d.collection_period,
-            analysis_period: d.analysis_period,
-            data_presentation: d.data_presentation,
-            person_responsible: d.person_in_charge,
-            reverse: d.reverse,
-            created_at: d.created_at,
-            updated_at: d.updated_at
-          }));
-          setIndicatorProfiles(adapted);
+        if (Array.isArray(inputsRes.data) && !inputsRes.error) {
+          setDataMutuList(
+            mapDbInputsToMutuPayloads(inputsRes.data, activeProfiles),
+          );
         }
       } catch (err) {}
     };
-    syncMasterData();
+    syncAllData();
 
-    // Central Realtime Sync Channel
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncAllData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Central Realtime Sync Channel across all core tables
     const psqlChannel = supabase
-      .channel("master-indikator-changes")
+      .channel("global-optimus-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "master_indikator" },
         () => {
-          syncMasterData();
-        }
+          syncAllData();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "indicator_inputs" },
+        () => {
+          syncAllData();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "units" },
+        () => {
+          syncAllData();
+        },
       )
       .subscribe();
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(psqlChannel);
     };
-  }, [setHospitalLogo, setIndicatorProfiles, addUnit, hydrateRole]);
+  }, [setHospitalLogo, setIndicatorProfiles, setDataMutuList, addUnit, hydrateRole]);
 
   return null;
 }
@@ -221,6 +233,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <link rel="apple-touch-icon" href={hospitalLogo || "/favicon.png"} />
       </Head>
       <GlobalInitializer />
+      <GlobalFastDatePicker />
       <Layout router={router}>
         <Component {...pageProps} />
       </Layout>

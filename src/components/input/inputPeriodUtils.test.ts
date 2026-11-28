@@ -10,6 +10,8 @@ import {
   matchUnitAndMonth,
   countSavedDetailRows,
   splitChecklistIntoColumns,
+  buildCalendarDaysGrid,
+  buildYearRange,
 } from "./inputPeriodUtils";
 
 test("stripIndicatorCountSuffix removes trailing indicator count in parentheses", () => {
@@ -27,13 +29,28 @@ test("stripIndicatorCountSuffix removes trailing indicator count in parentheses"
   );
 });
 
-test("buildIsoDate clamps invalid end-of-month days safely", () => {
+test("buildIsoDate clamps invalid end-of-month days safely and supports birth years back to 1900", () => {
   assert.equal(buildIsoDate(2026, 2, 31), "2026-02-28");
   assert.equal(buildIsoDate(2024, 2, 31), "2024-02-29");
+  assert.equal(buildIsoDate(1965, 5, 14), "1965-05-14");
   assert.equal(buildIsoDate(2026, 10, 15), "2026-10-15");
-  assert.deepEqual(parseIsoDateParts("2026-10-15"), { year: 2026, month: 10, day: 15 });
+  assert.deepEqual(parseIsoDateParts("1965-05-14"), { year: 1965, month: 5, day: 14 });
   assert.equal(formatIndonesianMonthYear("2026-10-15"), "Oktober 2026");
   assert.equal(formatIndonesianDate("2026-10-15"), "15 Okt 2026");
+});
+
+test("buildCalendarDaysGrid generates 42 calendar cells and buildYearRange spans descending years", () => {
+  const cells = buildCalendarDaysGrid(2026, 11);
+  assert.equal(cells.length, 42);
+  const currentMonthCells = cells.filter((c) => c.isCurrentMonth);
+  assert.equal(currentMonthCells.length, 30);
+  assert.equal(currentMonthCells[0].isoDate, "2026-11-01");
+  assert.equal(currentMonthCells[29].isoDate, "2026-11-30");
+
+  const years = buildYearRange(1920, 2035);
+  assert.equal(years[0], 2035);
+  assert.equal(years[years.length - 1], 1920);
+  assert.equal(years.includes(1985), true);
 });
 
 test("matchUnitAndMonth matches exact unit and sub-unit entries for a given month", () => {

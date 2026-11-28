@@ -54,6 +54,17 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
+import {
+  INDONESIAN_MONTHS,
+  normalizeCategory,
+  parseIsoDateParts,
+  getLocalCurrentYearMonth,
+  evaluateAchievementStatus,
+  mapDbInputsToMutuPayloads,
+  aggregateEntriesCapaian,
+  parseNumericTarget,
+  isReverseIndicatorTarget,
+} from "@/lib/mutuSync";
 import { formatTarget } from "../../lib/utils";
 import Link from "next/link";
 
@@ -134,15 +145,22 @@ export default function Dashboard() {
   const setDataMutuList = useStore((state) => state.setDataMutuList);
   const indicatorProfiles = useStore((state) => state.indicatorProfiles);
 
-  const inmCount = indicatorProfiles.filter((p) => p.category === "INM").length;
+  const inmCount = indicatorProfiles.filter(
+    (p) => normalizeCategory(p.category) === "INM",
+  ).length;
   const impRsCount = indicatorProfiles.filter(
-    (p) => p.category === "IMP-RS",
+    (p) => normalizeCategory(p.category) === "IMP-RS",
   ).length;
   const impUnitCount = indicatorProfiles.filter(
-    (p) => p.category === "IMP-Unit",
+    (p) => normalizeCategory(p.category) === "IMP-Unit",
   ).length;
-  const spmCount = indicatorProfiles.filter((p) => p.category === "SPM").length;
+  const spmCount = indicatorProfiles.filter(
+    (p) => normalizeCategory(p.category) === "SPM",
+  ).length;
 
+  const [chartCategory, setChartCategory] = useState<
+    "INM" | "IMP-RS" | "IMP-Unit" | "SPM"
+  >("INM");
   const [selectedIndikatorId, setSelectedIndikatorId] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState("");
@@ -157,10 +175,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
-      const now = new Date();
-      setCurrentYear(now.getFullYear());
-      setSelectedBulan(now.toLocaleString("id-ID", { month: "long" }));
-      setSelectedTahun(String(now.getFullYear()));
+      const localNow = getLocalCurrentYearMonth();
+      setCurrentYear(localNow.year);
+      setSelectedBulan(localNow.monthName);
+      setSelectedTahun(localNow.yearStr);
     });
     return () => cancelAnimationFrame(rafId);
   }, []);
@@ -239,19 +257,42 @@ export default function Dashboard() {
     return cleaned.slice(0, 13);
   }, [indicatorProfiles]);
 
+  const chartCategoryProfiles = useMemo(() => {
+    if (chartCategory === "INM") return strictlyInmProfiles;
+    return indicatorProfiles.filter(
+      (p) => normalizeCategory(p.category) === chartCategory,
+    );
+  }, [chartCategory, strictlyInmProfiles, indicatorProfiles]);
+
   const filteredDropdownProfiles = useMemo(() => {
-    let profiles = strictlyInmProfiles.filter(
+    return chartCategoryProfiles.filter(
       (p) =>
         !dropdownSearch ||
         p.indicator_title.toLowerCase().includes(dropdownSearch.toLowerCase()),
     );
-    return profiles;
-  }, [strictlyInmProfiles, dropdownSearch]);
+  }, [chartCategoryProfiles, dropdownSearch]);
 
-  const activeIndikatorId =
-    selectedIndikatorId || filteredDropdownProfiles[0]?.id || strictlyInmProfiles[0]?.id || "";
+  const activeIndikatorId = useMemo(() => {
+    if (
+      selectedIndikatorId &&
+      chartCategoryProfiles.some((p) => p.id === selectedIndikatorId)
+    ) {
+      return selectedIndikatorId;
+    }
+    return (
+      filteredDropdownProfiles[0]?.id ||
+      chartCategoryProfiles[0]?.id ||
+      strictlyInmProfiles[0]?.id ||
+      ""
+    );
+  }, [
+    selectedIndikatorId,
+    chartCategoryProfiles,
+    filteredDropdownProfiles,
+    strictlyInmProfiles,
+  ]);
 
-  // Fetch inputs from Supabase on mount to show correct user inputs in real-time
+  // Fetch inputs from Local DB on mount & subscribe to realtime updates
   useEffect(() => {
     const fetchSupabaseInputs = async () => {
       try {
@@ -260,69 +301,9 @@ export default function Dashboard() {
           .select("*")
           .order("created_at", { ascending: true });
 
-        if (data && data.length >= 0) {
-          const newDataList = data.map((dbInput: any) => {
-            const matchedProfile = indicatorProfiles.find(
-              (p) => p.id === dbInput.indicator_id,
-            );
-            const persentase = dbInput.achievement_percentage || 0;
-            const rawTarget = dbInput.target || matchedProfile?.target || 80;
-            const target =
-              parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
-
-            // Determine achievement status
-            const isReverse = matchedProfile?.reverse || false;
-            let computedStatus: "Tercapai" | "Mendekati" | "Tidak Tercapai" =
-              "Tidak Tercapai";
-            const isSuccess = isReverse
-              ? persentase <= target
-              : persentase >= target;
-            if (isSuccess) {
-              computedStatus = "Tercapai";
-            } else {
-              const gap = isReverse ? persentase - target : target - persentase;
-              if (gap <= 10) computedStatus = "Mendekati";
-            }
-
-            let ikpData: any = null;
-            if (dbInput.category_id === "IKP" && dbInput.notes) {
-              try {
-                const parsed = JSON.parse(dbInput.notes);
-                if (
-                  typeof parsed === "object" &&
-                  parsed !== null &&
-                  ("kpc" in parsed || "knc" in parsed)
-                ) {
-                  ikpData = parsed;
-                }
-              } catch (e) {
-                // Not JSON, fallback to legacy
-              }
-            }
-
-            return {
-              id: dbInput.id,
-              unit: dbInput.unit_id,
-              tanggal: dbInput.input_date,
-              kategori: dbInput.category_id,
-              indikator_id: dbInput.indicator_id || undefined,
-              indikator_name: matchedProfile?.indicator_title || undefined,
-              numerator: dbInput.numerator_value || 0,
-              denominator: dbInput.denominator_value || 1,
-              target: target,
-              capaian: persentase,
-              status: (dbInput.category_id === "IKP"
-                ? "N/A"
-                : computedStatus) as any,
-              keterangan: ikpData ? ikpData.keterangan : dbInput.notes || "",
-              kpc: ikpData ? ikpData.kpc : 0,
-              knc: ikpData ? ikpData.knc : 0,
-              ktc: ikpData ? ikpData.ktc : 0,
-              ktd: ikpData ? ikpData.ktd : 0,
-              sentinel: ikpData ? ikpData.sentinel : 0,
-            };
-          });
-          setDataMutuList(newDataList);
+        if (!error && Array.isArray(data)) {
+          const currentProfiles = useStore.getState().indicatorProfiles;
+          setDataMutuList(mapDbInputsToMutuPayloads(data, currentProfiles));
         }
       } catch (err) {
         console.warn(
@@ -333,9 +314,16 @@ export default function Dashboard() {
     };
     fetchSupabaseInputs();
 
-    // Set up Realtime listener for indicator inputs
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchSupabaseInputs();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Set up Realtime listener for indicator inputs & master indicator updates
     const inputsChannel = supabase
-      .channel("inputs-realtime")
+      .channel("dashboard-inputs-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "indicator_inputs" },
@@ -343,21 +331,29 @@ export default function Dashboard() {
           fetchSupabaseInputs();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "master_indikator" },
+        () => {
+          fetchSupabaseInputs();
+        },
+      )
       .subscribe();
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(inputsChannel);
     };
   }, [indicatorProfiles, setDataMutuList]);
 
-  // Filtered Input Data based on Period (Real-Time)
+  // Filtered Input Data based on Period (Timezone-Safe & Real-Time)
   const filteredDataMutu = useMemo(() => {
     return dataMutuList.filter((d) => {
-      if (!d.tanggal) return false;
-      const date = new Date(d.tanggal);
-      const mYear = String(date.getFullYear());
-      const monthIndex = date.getMonth(); // 0 - 11
-      const mMonthName = date.toLocaleString("id-ID", { month: "long" });
+      const parts = parseIsoDateParts(d.tanggal);
+      if (!parts) return false;
+      const mYear = String(parts.year);
+      const monthIndex = parts.monthIndex; // 0 - 11
+      const mMonthName = parts.monthName;
 
       if (mYear !== selectedTahun) return false;
 
@@ -394,36 +390,23 @@ export default function Dashboard() {
     selectedSemester,
   ]);
 
-  // Map 13 indicators table data based strictly on standard INM profiles
-  let inmTableData = strictlyInmProfiles.map((item, index) => {
+  const buildTableRowForProfile = (item: any, index: number) => {
     const matchingEntries = filteredDataMutu.filter(
       (d) => d.indikator_id === item.id,
     );
     let capaianVal = 0;
-    let status = "red";
+    let status: "green" | "orange" | "red" = "red";
 
     if (matchingEntries.length > 0) {
-      const totalCapaian = matchingEntries.reduce(
-        (sum, entry) => sum + (entry.capaian || 0),
-        0,
+      const agg = aggregateEntriesCapaian(matchingEntries);
+      capaianVal = agg.capaian;
+      const rawTarget = item.target || matchingEntries[0]?.target || 80;
+      const evalRes = evaluateAchievementStatus(
+        capaianVal,
+        rawTarget,
+        item.reverse,
       );
-      capaianVal = totalCapaian / matchingEntries.length;
-
-      const rawTarget = matchingEntries[0]?.target || item.target || 80;
-      const targetVal =
-        parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
-      const isReverse = item.reverse || false;
-      const isSuccess = isReverse
-        ? capaianVal <= targetVal
-        : capaianVal >= targetVal;
-
-      if (isSuccess) {
-        status = "green";
-      } else if (Math.abs(capaianVal - targetVal) <= 10) {
-        status = "orange";
-      } else {
-        status = "red";
-      }
+      status = evalRes.colorStatus;
     }
 
     const formattedTarget = formatTarget(
@@ -432,24 +415,36 @@ export default function Dashboard() {
       item.reverse,
     );
 
+    const uniqueUnits = Array.from(
+      new Set(matchingEntries.map((e) => e.unit).filter(Boolean)),
+    );
+
     return {
       no: index + 1,
       id: item.id,
       name: item.indicator_title,
+      category: normalizeCategory(item.category),
       target: formattedTarget,
-      targetNum: item.target,
+      targetNum: parseNumericTarget(item.target, 80),
       capaian: matchingEntries.length > 0 ? `${capaianVal.toFixed(1)}%` : "0%",
       status: matchingEntries.length > 0 ? status : "red",
-      unit_id:
-        matchingEntries.length > 0
-          ? matchingEntries[matchingEntries.length - 1].unit
-          : "-",
+      unit_id: uniqueUnits.length > 0 ? uniqueUnits.join(", ") : "-",
       tanggal:
         matchingEntries.length > 0
           ? matchingEntries[matchingEntries.length - 1].tanggal
           : "-",
     };
-  });
+  };
+
+  // Map 13 indicators table data based strictly on standard INM profiles
+  const inmTableData = strictlyInmProfiles.map((item, index) =>
+    buildTableRowForProfile(item, index),
+  );
+
+  // Full active indicators table data (INM, IMP-RS, IMP-Unit, SPM) for "Total Indikator Aktif" modal
+  const allIndicatorsTableData = indicatorProfiles.map((item, index) =>
+    buildTableRowForProfile(item, index),
+  );
 
   const tercapaiCount = inmTableData.filter((i) => i.status === "green").length;
   const belumTercapaiCount = inmTableData.filter(
@@ -495,41 +490,33 @@ export default function Dashboard() {
     );
     if (matching.length === 0) return [];
 
-    // Sort chronologically based on input date
-    const sorted = [...matching].sort(
-      (a, b) => new Date(a.tanggal).getTime() - new Date(b.tanggal).getTime(),
+    // Group actual records by Month index (timezone-safe) to yield authentic progress statistics
+    const monthlyGroups = new Map<number, typeof matching>();
+    matching.forEach((item) => {
+      const parts = parseIsoDateParts(item.tanggal);
+      if (!parts) return;
+      const list = monthlyGroups.get(parts.monthIndex) || [];
+      list.push(item);
+      monthlyGroups.set(parts.monthIndex, list);
+    });
+
+    const rawTarget = selectedIndikatorProfile?.target ?? matching[0]?.target ?? 80;
+    const isRev = isReverseIndicatorTarget(
+      rawTarget,
+      selectedIndikatorProfile?.reverse,
     );
+    const numTarget = parseNumericTarget(rawTarget, isRev ? 0 : 80);
 
-    // Group actual records by Month & Year to yield authentic progress statistics without dummy data
-    const monthlyGroups: {
-      [key: string]: { totalCapaian: number; count: number; target: number };
-    } = {};
-    sorted.forEach((item) => {
-      const d = new Date(item.tanggal);
-      let mLabel = d.toLocaleString("id-ID", { month: "long" });
-
-      if (!monthlyGroups[mLabel]) {
-        const rawTarget = item.target || selectedIndikatorProfile?.target || 80;
-        const numTarget =
-          parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
-        monthlyGroups[mLabel] = {
-          totalCapaian: 0,
-          count: 0,
-          target: numTarget,
+    return Array.from(monthlyGroups.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([monthIdx, items]) => {
+        const agg = aggregateEntriesCapaian(items);
+        return {
+          name: INDONESIAN_MONTHS[monthIdx] || "Januari",
+          Capaian: Number.isNaN(agg.capaian) ? 0 : agg.capaian,
+          Target: numTarget,
         };
-      }
-      monthlyGroups[mLabel].totalCapaian += item.capaian || 0;
-      monthlyGroups[mLabel].count += 1;
-    });
-
-    return Object.entries(monthlyGroups).map(([month, val]) => {
-      const cap = parseFloat((val.totalCapaian / val.count).toFixed(2));
-      return {
-        name: month,
-        Capaian: isNaN(cap) ? 0 : cap,
-        Target: val.target,
-      };
-    });
+      });
   }, [filteredDataMutu, activeIndikatorId, selectedIndikatorProfile]);
 
   const selectedChartAnalysis = useMemo(() => {
@@ -546,14 +533,18 @@ export default function Dashboard() {
       selectedChartData.length > 0
         ? parseFloat((totalCap / selectedChartData.length).toFixed(2))
         : 0;
-    const target = selectedChartData[0]?.Target || 80;
+    const target = selectedChartData[0]?.Target ?? 80;
 
-    const isReverse = selectedIndikatorProfile?.reverse || false;
-    const isSuccess = isReverse ? avgCap <= target : avgCap >= target;
+    const evalRes = evaluateAchievementStatus(
+      avgCap,
+      selectedIndikatorProfile.target ?? target,
+      selectedIndikatorProfile.reverse,
+    );
+    const isReverse = evalRes.isReverse;
+    const isSuccess = evalRes.isSuccess;
 
-    let status = "Tidak Tercapai";
-    if (isSuccess) status = "Tercapai";
-    else if (Math.abs(avgCap - target) <= 10) status = "Mendekati Target";
+    const status =
+      evalRes.status === "Mendekati" ? "Mendekati Target" : evalRes.status;
 
     let longPeriodName = `Tahun ${selectedTahun}`;
     let shortPeriod = "Tahunan";
@@ -1141,20 +1132,41 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 2. INM Real-time Performance Interactive Chart (Diagram Batang & Line Bar) */}
+      {/* 2. Real-time Performance Interactive Chart (INM, IMP-RS, IMP-Unit, SPM) */}
       <div className="clay-surface p-4 lg:p-8 space-y-4 md:space-y-6 transition-all duration-300">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 md:gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <BarChart3 className="text-[#10a37f] h-[18px] w-[18px] md:h-5 md:w-5" />
               <h3 className="text-sm md:text-xl font-extrabold text-[#10a37f] tracking-tight leading-normal" style={{ fontSize: "16px" }}>
-                GRAFIK CAPAIAN MUTU INM
+                GRAFIK CAPAIAN MUTU {chartCategory}
               </h3>
+            </div>
+            <div className="inline-flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 gap-1">
+              {(["INM", "IMP-RS", "IMP-Unit", "SPM"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setChartCategory(cat);
+                    setSelectedIndikatorId("");
+                    setDropdownSearch("");
+                    setIsDropdownOpen(false);
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                    chartCategory === cat
+                      ? "bg-[#10a37f] text-white shadow-xs"
+                      : "text-slate-600 hover:text-emerald-700"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Interactive Selection filter - Professional Searchable Dropdown */}
-          <div className="relative w-full md:w-96 select-none z-30">
+          <div className="relative w-full lg:w-96 select-none z-30">
             <button
               type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -1673,6 +1685,7 @@ export default function Dashboard() {
         activeModal={activeModal}
         setActiveModal={setActiveModal}
         inmTableData={inmTableData}
+        allIndicatorsTableData={allIndicatorsTableData}
         ikpDataRaw={ikpDataRaw}
         indicatorProfiles={indicatorProfiles}
         filteredDataMutu={filteredDataMutu}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   INDONESIAN_MONTHS_SHORT,
   buildIsoDate,
@@ -70,8 +70,7 @@ export default function PeriodCalendarPicker({
         data-testid="period-calendar-trigger"
         className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs sm:text-[13px] font-bold shadow-2xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       >
-        <Calendar size={14} className="text-emerald-600 shrink-0" />
-        <span>Bulan: {formattedLabel}</span>
+        <span>{formattedLabel}</span>
         <ChevronDown
           size={14}
           className={`text-slate-400 transition-transform duration-200 ${open ? "rotate-180 text-emerald-600" : ""}`}

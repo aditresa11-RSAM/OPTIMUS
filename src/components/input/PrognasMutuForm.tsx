@@ -5,6 +5,7 @@ export type PrognasIndicatorType = PrognasMutuData["indicator_type"];
 
 interface PrognasPreset {
   sectionTitle: string;
+  displayTitle: string;
   targetLabel: string;
   targetPct: string;
   capaianLabel: string;
@@ -17,6 +18,7 @@ interface PrognasPreset {
 export const PROGNAS_PRESETS: Record<PrognasIndicatorType, PrognasPreset> = {
   hiv_aids: {
     sectionTitle: "PELAYANAN ORANG DENGAN RESIKO TERINFEKSI HIV/AIDS",
+    displayTitle: "Pelayanan Orang Dengan Resiko Terinfeksi HIV/AIDS",
     targetLabel: "Jumlah Pasien yang Beresiko Terinfeksi HIV/AIDS (Target)",
     targetPct: "100%",
     capaianLabel: "Jumlah Pasien Beresiko yang dicek HIV/AIDS (Capaian)",
@@ -27,6 +29,7 @@ export const PROGNAS_PRESETS: Record<PrognasIndicatorType, PrognasPreset> = {
   },
   kematian_bayi: {
     sectionTitle: "ANGKA KEMATIAN BAYI",
+    displayTitle: "Angka Kematian Bayi",
     targetLabel: "Angka Kematian Bayi (Target) / Total Bayi Dirawat",
     targetPct: "0%",
     capaianLabel: "Kejadian Angka Kematian Bayi (Capaian)",
@@ -38,6 +41,7 @@ export const PROGNAS_PRESETS: Record<PrognasIndicatorType, PrognasPreset> = {
   },
   kematian_ibu: {
     sectionTitle: "ANGKA KEMATIAN IBU",
+    displayTitle: "Angka Kematian Ibu",
     targetLabel: "Angka Kematian Ibu (Target) / Total Pasien Ibu",
     targetPct: "0%",
     capaianLabel: "Kejadian Angka Kematian Ibu (Capaian)",
@@ -49,6 +53,7 @@ export const PROGNAS_PRESETS: Record<PrognasIndicatorType, PrognasPreset> = {
   },
   imd: {
     sectionTitle: "ANGKA KEJADIAN INISIASI MENYUSU DINI",
+    displayTitle: "Angka Kejadian Inisiasi Menyusu Dini",
     targetLabel: "Angka Bayi Lahir (Target)",
     targetPct: "100%",
     capaianLabel: "Bayi yang di IMD (Capaian)",
@@ -60,6 +65,7 @@ export const PROGNAS_PRESETS: Record<PrognasIndicatorType, PrognasPreset> = {
   },
   rooming_in: {
     sectionTitle: "ANGKA KEJADIAN ROOMING IN",
+    displayTitle: "Angka Kejadian Rooming In",
     targetLabel: "Angka Bayi Lahir (Target)",
     targetPct: "100%",
     capaianLabel: "Bayi Rooming In (Capaian)",
@@ -149,10 +155,10 @@ export default function PrognasMutuForm({
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-            LAPORAN MUTU PROGNAS — {bulanLabel.toUpperCase()} TAHUN {tahunLabel}
+            Tabel Input Data {preset.displayTitle}
           </h3>
           <p className="text-[11px] font-semibold text-emerald-100">
-            Unit: Prognas • Indikator: {preset.sectionTitle} • Target: {preset.targetPct}
+            Unit: Prognas • Bulan: {bulanLabel} {tahunLabel} • Target: {preset.targetPct}
           </p>
         </div>
         <div className="flex items-center gap-2 bg-white/15 px-3 py-1.5 rounded-xl">

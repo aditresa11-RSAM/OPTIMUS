@@ -1,4 +1,5 @@
 import { DataMutuPayload, IndicatorProfile } from "@/store/useStore";
+import { parseIsoDateParts } from "@/lib/mutuSync";
 import { AiNarrativeItemInput, AiNarrativeResult } from "@/pages/api/ai-laporan";
 import {
   BASELINE_UNIT_RISK_GROUPS,
@@ -841,15 +842,32 @@ function matchRecordsForSpec(
   });
 }
 
+function matchRecordsForProfile(
+  allInputs: DataMutuPayload[],
+  profile: IndicatorProfile,
+): DataMutuPayload[] {
+  const targetId = String(profile.id || "").toLowerCase();
+  const targetTitle = String(profile.indicator_title || "").trim().toLowerCase();
+  return allInputs.filter((d) => {
+    if (d.kategori === "IKP") return false;
+    const indId = String(d.indikator_id || "").toLowerCase();
+    if (indId) {
+      return indId === targetId;
+    }
+    const indName = String(d.indikator_name || "").trim().toLowerCase();
+    return Boolean(targetTitle && indName === targetTitle);
+  });
+}
+
 function computeMonthAvg(
   records: DataMutuPayload[],
   year: string,
   monthIdx: number,
 ): { val: number | null; num: number; den: number; units: string[] } {
   const filtered = records.filter((r) => {
-    if (!r.tanggal) return false;
-    const dt = new Date(r.tanggal);
-    return String(dt.getFullYear()) === year && dt.getMonth() === monthIdx;
+    const parts = parseIsoDateParts(r.tanggal);
+    if (!parts) return false;
+    return String(parts.year) === year && parts.monthIndex === monthIdx;
   });
   if (filtered.length === 0) {
     return { val: null, num: 0, den: 0, units: [] };
@@ -1257,7 +1275,7 @@ export function buildOfficialReportModel(params: {
   const impUnitRows: ImpUnitSummaryRow[] = impUnitProfiles.map((p, idx) => {
     const pTargetStr = String(p.target || "100%");
     const reverse = isReverseTarget(pTargetStr, p.reverse);
-    const records = matchRecordsForSpec(dataMutuList, [p.id], [p.indicator_title]);
+    const records = matchRecordsForProfile(dataMutuList, p);
     const monthVals = period.monthCols.map(
       (mc) => computeMonthAvg(records, period.currYear, mc.monthIndex).val,
     );
@@ -1512,10 +1530,10 @@ export function buildOfficialReportModel(params: {
   // 8. Keselamatan Pasien & IKP (5.9)
   const periodMonthSet = new Set(period.monthCols.map((m) => m.monthIndex));
   const ikpEntries = dataMutuList.filter((d) => {
-    if (!d.tanggal) return false;
-    const dt = new Date(d.tanggal);
-    if (String(dt.getFullYear()) !== period.currYear) return false;
-    if (!periodMonthSet.has(dt.getMonth())) return false;
+    const parts = parseIsoDateParts(d.tanggal);
+    if (!parts) return false;
+    if (String(parts.year) !== period.currYear) return false;
+    if (!periodMonthSet.has(parts.monthIndex)) return false;
     const hasIkpCounts =
       (Number(d.kpc) || 0) +
         (Number(d.knc) || 0) +
@@ -1569,8 +1587,9 @@ export function buildOfficialReportModel(params: {
   };
 
   ikpEntries.forEach((entry: any) => {
-    const dt = new Date(entry.tanggal);
-    const colIdx = period.monthCols.findIndex((m) => m.monthIndex === dt.getMonth());
+    const parts = parseIsoDateParts(entry.tanggal);
+    if (!parts) return;
+    const colIdx = period.monthCols.findIndex((m) => m.monthIndex === parts.monthIndex);
     if (colIdx === -1) return;
 
     const eKnc = Number(entry.knc) || 0;

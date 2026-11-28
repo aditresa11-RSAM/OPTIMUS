@@ -449,7 +449,12 @@ export default function RadiologiAuditForm({
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-            Formulir Mutu Ruang Radiologi
+            Tabel Input Data{" "}
+            {defaultTab === "thorax_wt"
+              ? "Waktu Tunggu Thorax Foto ≤ 180 Menit"
+              : defaultTab === "reject_analisis"
+                ? "Reject Analisis Pelayanan Rontgent"
+                : "Pelaksana Ekspertisi Hasil Pemeriksaan"}
           </h3>
           <p className="text-[11px] font-semibold text-emerald-100">
             Unit: Radiologi • Bulan: {bulanLabel} {tahunLabel} • Indikator Aktif:{" "}

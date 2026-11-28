@@ -314,7 +314,7 @@ export default function WaktuTungguRajalForm({
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-            Formulir Waktu Tunggu Rawat Jalan &lt; 60 Menit
+            Tabel Input Data Waktu Tunggu Rawat Jalan &lt; 60 Menit
           </h3>
           <p className="text-[11px] font-semibold text-emerald-100">
             Unit: Rawat Jalan • Sheet Aktif: Poli {activeSheet} • Bulan:{" "}

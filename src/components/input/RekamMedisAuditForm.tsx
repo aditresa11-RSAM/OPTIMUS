@@ -1078,7 +1078,7 @@ export default function RekamMedisAuditForm({
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-            Audit Mutu Ruang Rekam Medis
+            Tabel Input Data Kelengkapan Pengisian Rekam Medik Elektronik 24 Jam Setelah Selesai Pelayanan
           </h3>
           <p className="text-[11px] font-semibold text-emerald-100">
             Unit: {unitLabel || "Rekam Medis"} • Bulan: {bulanLabel} • Target: 100%

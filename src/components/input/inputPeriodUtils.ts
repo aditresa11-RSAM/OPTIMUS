@@ -45,7 +45,7 @@ export interface IsoDateParts {
 export function parseIsoDateParts(isoDate?: string): IsoDateParts {
   if (isoDate && /^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
     const [y, m, d] = isoDate.split("-").map(Number);
-    if (y >= 2000 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+    if (y >= 1900 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
       return { year: y, month: m, day: d };
     }
   }
@@ -57,12 +57,87 @@ export function parseIsoDateParts(isoDate?: string): IsoDateParts {
   };
 }
 
+export interface CalendarCell {
+  isoDate: string;
+  year: number;
+  month: number;
+  day: number;
+  isCurrentMonth: boolean;
+}
+
+/**
+ * Generates a 42-cell (6 weeks × 7 days, Monday-first) calendar grid for a given year & month (1..12).
+ */
+export function buildCalendarDaysGrid(year: number, month: number): CalendarCell[] {
+  const safeYear = Math.min(2100, Math.max(1900, Math.floor(year)));
+  const safeMonth = Math.min(12, Math.max(1, Math.floor(month)));
+  const firstOfMonth = new Date(safeYear, safeMonth - 1, 1);
+  // Convert Sunday=0..Saturday=6 into Monday=0..Sunday=6
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const daysInCurrentMonth = new Date(safeYear, safeMonth, 0).getDate();
+
+  const prevMonthYear = safeMonth === 1 ? safeYear - 1 : safeYear;
+  const prevMonth = safeMonth === 1 ? 12 : safeMonth - 1;
+  const daysInPrevMonth = new Date(prevMonthYear, prevMonth, 0).getDate();
+
+  const nextMonthYear = safeMonth === 12 ? safeYear + 1 : safeYear;
+  const nextMonth = safeMonth === 12 ? 1 : safeMonth + 1;
+
+  const cells: CalendarCell[] = [];
+
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const day = daysInPrevMonth - i;
+    cells.push({
+      isoDate: buildIsoDate(prevMonthYear, prevMonth, day),
+      year: prevMonthYear,
+      month: prevMonth,
+      day,
+      isCurrentMonth: false,
+    });
+  }
+
+  for (let day = 1; day <= daysInCurrentMonth; day++) {
+    cells.push({
+      isoDate: buildIsoDate(safeYear, safeMonth, day),
+      year: safeYear,
+      month: safeMonth,
+      day,
+      isCurrentMonth: true,
+    });
+  }
+
+  let nextDay = 1;
+  while (cells.length < 42) {
+    cells.push({
+      isoDate: buildIsoDate(nextMonthYear, nextMonth, nextDay),
+      year: nextMonthYear,
+      month: nextMonth,
+      day: nextDay,
+      isCurrentMonth: false,
+    });
+    nextDay++;
+  }
+
+  return cells;
+}
+
+/**
+ * Generates a descending list of years from maxYear down to minYear for fast year selection.
+ */
+export function buildYearRange(minYear = 1920, maxYear = 2035): number[] {
+  const years: number[] = [];
+  for (let y = maxYear; y >= minYear; y--) {
+    years.push(y);
+  }
+  return years;
+}
+
 /**
  * Builds a valid YYYY-MM-DD date string, clamping day to the last day of the target month.
  */
 export function buildIsoDate(year: number, month: number, day: number): string {
   const safeMonth = Math.min(12, Math.max(1, Math.floor(month)));
-  const safeYear = Math.min(2100, Math.max(2000, Math.floor(year)));
+  const safeYear = Math.min(2100, Math.max(1900, Math.floor(year)));
   const maxDay = new Date(safeYear, safeMonth, 0).getDate();
   const safeDay = Math.min(maxDay, Math.max(1, Math.floor(day)));
 

@@ -7,6 +7,7 @@ interface PremiumModalProps {
   activeModal: "TERCAPAI" | "BELUM_TERCAPAI" | "IKP" | "ALL" | null;
   setActiveModal: (val: any) => void;
   inmTableData: any[];
+  allIndicatorsTableData?: any[];
   ikpDataRaw: any[];
   indicatorProfiles: any[];
   filteredDataMutu: any[];
@@ -18,6 +19,7 @@ export default function InteractiveDashboardModal({
   activeModal,
   setActiveModal,
   inmTableData,
+  allIndicatorsTableData,
   ikpDataRaw,
   indicatorProfiles,
   filteredDataMutu,
@@ -53,24 +55,22 @@ export default function InteractiveDashboardModal({
     return min;
   }, [filteredDataMutu]);
 
-  // Enrich inmTableData with previous period logic
-  const enrichedInmTableData = useMemo(() => {
-    return inmTableData.map(item => {
+  const enrichTableRows = (rows: any[]) => {
+    return rows.map(item => {
       // Find all data for this indicator before the current period
       const previousEntries = dataMutuList.filter(
         d => d.indikator_id === item.id && new Date(d.tanggal).getTime() < minDateInFilter
       ).sort((a,b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
 
-      // Let's just grab the latest available entry before the current period as "previous period"
       let priorCapaian = 0;
       let hasPrior = false;
       if (previousEntries.length > 0) {
         priorCapaian = previousEntries[0].capaian || 0;
         hasPrior = true;
       }
-      
-      const capaian = Number(item.capaian) || 0;
-      const target = Number(String(item.target).replace(/[^0-9.]/g, "")) || 80;
+
+      const capaian = parseFloat(String(item.capaian ?? "0").replace(/[^0-9.-]/g, "")) || 0;
+      const target = parseFloat(String(item.target ?? "80").replace(/[^0-9.]/g, "")) || 80;
       const tdiff = (capaian - target).toFixed(1);
 
       return {
@@ -82,7 +82,19 @@ export default function InteractiveDashboardModal({
         hasPrior
       };
     });
-  }, [inmTableData, dataMutuList, minDateInFilter]);
+  };
+
+  // Enrich inmTableData with previous period logic
+  const enrichedInmTableData = useMemo(
+    () => enrichTableRows(inmTableData),
+    [inmTableData, dataMutuList, minDateInFilter],
+  );
+
+  // Enrich all active indicators (INM, IMP-RS, IMP-Unit, SPM) for ALL modal
+  const enrichedAllTableData = useMemo(
+    () => enrichTableRows(allIndicatorsTableData && allIndicatorsTableData.length > 0 ? allIndicatorsTableData : inmTableData),
+    [allIndicatorsTableData, inmTableData, dataMutuList, minDateInFilter],
+  );
 
   // Aggregations
   const summaryTercapai = enrichedInmTableData.filter(i => i.status === "green");
@@ -263,7 +275,7 @@ export default function InteractiveDashboardModal({
                     </thead>
                     <tbody className="divide-y divide-slate-100 flex flex-col md:table-row-group bg-white">
                        {filterList(
-                         activeModal === "TERCAPAI" ? summaryTercapai : activeModal === "BELUM_TERCAPAI" ? summaryBelumTercapai : enrichedInmTableData, 
+                         activeModal === "TERCAPAI" ? summaryTercapai : activeModal === "BELUM_TERCAPAI" ? summaryBelumTercapai : enrichedAllTableData, 
                          ['name', 'unit_id', 'category']
                        ).map((row, i) => {
                          let trendIcon = <Minus size={16} className="text-slate-400" />;
@@ -279,13 +291,17 @@ export default function InteractiveDashboardModal({
                            }
                          }
 
+                         const formattedCapaian = String(row.capaian ?? "0%").endsWith("%")
+                           ? String(row.capaian)
+                           : `${row.capaian}%`;
+
                          return (
-                           <tr key={i} className={`${themeColors.hoverBg} transition border-b border-slate-100 flex flex-col md:table-row p-4 md:p-0`}>
+                           <tr key={row.id || i} className={`${themeColors.hoverBg} transition border-b border-slate-100 flex flex-col md:table-row p-4 md:p-0`}>
                               <td className="px-6 py-4 font-black text-slate-800">{row.name}</td>
                               <td className="px-6 md:py-4 text-slate-500 font-bold md:text-center text-xs md:text-sm">{row.category || "INM"}</td>
                               <td className="px-6 md:py-4 text-slate-600 md:text-center text-xs md:text-sm">{row.unit_id}</td>
                               <td className="px-6 md:py-4 text-slate-600 md:text-center flex justify-between md:table-cell"><span className="md:hidden font-bold">Target:</span> {row.target}</td>
-                              <td className="px-6 md:py-4 font-bold md:text-center flex justify-between md:table-cell"><span className="md:hidden font-bold">Capaian:</span> {row.capaian}%</td>
+                              <td className="px-6 md:py-4 font-bold md:text-center flex justify-between md:table-cell"><span className="md:hidden font-bold">Capaian:</span> {formattedCapaian}</td>
                               
                               {activeModal === "BELUM_TERCAPAI" && (
                                 <>
@@ -560,7 +576,7 @@ export default function InteractiveDashboardModal({
                          <RechartsPieChart>
                            <Pie
                              data={[
-                               { name: "Aktif", value: inmTableData.length, color: "#F97316" }
+                               { name: "Aktif", value: enrichedAllTableData.length, color: "#F97316" }
                              ]}
                              cx="50%"
                              cy="50%"
@@ -576,7 +592,7 @@ export default function InteractiveDashboardModal({
                          </RechartsPieChart>
                        </ResponsiveContainer>
                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                         <motion.span key={inmTableData.length} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-3xl font-black text-[#F97316]">{inmTableData.length}</motion.span>
+                         <motion.span key={enrichedAllTableData.length} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-3xl font-black text-[#F97316]">{enrichedAllTableData.length}</motion.span>
                          <span className="text-[10px] font-bold text-[#F97316] uppercase tracking-wide">Aktif</span>
                        </div>
                      </div>
@@ -585,23 +601,23 @@ export default function InteractiveDashboardModal({
                        <div className="grid grid-cols-2 gap-3 mb-4">
                          <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-[#F97316]/10">
                            <span className="text-slate-500 font-bold text-xs">Total Aktif</span>
-                           <motion.span key={inmTableData.length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-[#F97316]">{inmTableData.length}</motion.span>
+                           <motion.span key={enrichedAllTableData.length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-[#F97316]">{enrichedAllTableData.length}</motion.span>
                          </div>
                          <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-[#F97316]/10">
                            <span className="text-slate-500 font-bold text-xs">INM</span>
-                           <motion.span key={enrichedInmTableData.filter(i => !i.category || i.category === 'INM').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedInmTableData.filter(i => !i.category || i.category === 'INM').length}</motion.span>
+                           <motion.span key={enrichedAllTableData.filter(i => !i.category || i.category === 'INM').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedAllTableData.filter(i => !i.category || i.category === 'INM').length}</motion.span>
                          </div>
                          <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-[#F97316]/10">
                            <span className="text-slate-500 font-bold text-xs">IMP-RS</span>
-                           <motion.span key={enrichedInmTableData.filter(i => i.category === 'IMP-RS').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedInmTableData.filter(i => i.category === 'IMP-RS').length}</motion.span>
+                           <motion.span key={enrichedAllTableData.filter(i => i.category === 'IMP-RS').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedAllTableData.filter(i => i.category === 'IMP-RS').length}</motion.span>
                          </div>
                          <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-[#F97316]/10">
                            <span className="text-slate-500 font-bold text-xs">IMP-Unit</span>
-                           <motion.span key={enrichedInmTableData.filter(i => i.category === 'IMP-Unit').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedInmTableData.filter(i => i.category === 'IMP-Unit').length}</motion.span>
+                           <motion.span key={enrichedAllTableData.filter(i => i.category === 'IMP-Unit').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedAllTableData.filter(i => i.category === 'IMP-Unit').length}</motion.span>
                          </div>
                          <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-[#F97316]/10 col-span-2">
                            <span className="text-slate-500 font-bold text-xs">SPM</span>
-                           <motion.span key={enrichedInmTableData.filter(i => i.category === 'SPM').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedInmTableData.filter(i => i.category === 'SPM').length}</motion.span>
+                           <motion.span key={enrichedAllTableData.filter(i => i.category === 'SPM').length} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-black text-slate-700">{enrichedAllTableData.filter(i => i.category === 'SPM').length}</motion.span>
                          </div>
                        </div>
                        

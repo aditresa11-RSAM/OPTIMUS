@@ -144,9 +144,39 @@ class LocalQueryBuilder<T = any> implements PromiseLike<PostgrestResponse<T>> {
         count: result.count ?? (Array.isArray(data) ? data.length : data ? 1 : 0),
       };
 
-      // Notify realtime subscribers for mutations
-      if (typeof window !== "undefined" && (this.action === "insert" || this.action === "update" || this.action === "upsert" || this.action === "delete")) {
-        window.dispatchEvent(new CustomEvent("optimus-db-change", { detail: { table: this.table, action: this.action } }));
+      // Notify realtime subscribers for mutations (same-tab + cross-tab)
+      if (
+        typeof window !== "undefined" &&
+        (this.action === "insert" ||
+          this.action === "update" ||
+          this.action === "upsert" ||
+          this.action === "delete")
+      ) {
+        const changeDetail = {
+          table: this.table,
+          action: this.action,
+          ts: Date.now(),
+        };
+        window.dispatchEvent(
+          new CustomEvent("optimus-db-change", { detail: changeDetail }),
+        );
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            const bc = new BroadcastChannel("optimus-db-sync");
+            bc.postMessage(changeDetail);
+            bc.close();
+          }
+        } catch {
+          // Ignore BroadcastChannel errors in restricted contexts
+        }
+        try {
+          localStorage.setItem(
+            "optimus-db-sync-event",
+            JSON.stringify(changeDetail),
+          );
+        } catch {
+          // Ignore storage quota errors
+        }
       }
 
       return onfulfilled ? onfulfilled(finalResult) : (finalResult as any);
@@ -159,24 +189,60 @@ class LocalQueryBuilder<T = any> implements PromiseLike<PostgrestResponse<T>> {
 
 class LocalChannel {
   private name: string;
-  private callbacks: Array<(payload?: any) => void> = [];
-  private listener: any;
+  private subscriptions: Array<{ table?: string; callback: (payload?: any) => void }> = [];
+  private listener: ((e: Event) => void) | null = null;
+  private storageListener: ((e: StorageEvent) => void) | null = null;
+  private broadcastChannel: BroadcastChannel | null = null;
 
   constructor(name: string) {
     this.name = name;
   }
 
-  on(_event: string, _schema: any, callback: (payload?: any) => void) {
-    this.callbacks.push(callback);
+  on(_event: string, schema: any, callback: (payload?: any) => void) {
+    const table = schema && typeof schema === "object" ? schema.table : undefined;
+    this.subscriptions.push({ table, callback });
     return this;
+  }
+
+  private dispatchChange(detail: any) {
+    const changedTable = detail?.table;
+    this.subscriptions.forEach((sub) => {
+      if (!sub.table || !changedTable || sub.table === changedTable) {
+        sub.callback(detail || {});
+      }
+    });
   }
 
   subscribe(callback?: (status: string) => void) {
     if (typeof window !== "undefined") {
-      this.listener = (e: any) => {
-        this.callbacks.forEach((cb) => cb(e?.detail || {}));
+      this.listener = (e: Event) => {
+        const detail = (e as CustomEvent)?.detail || {};
+        this.dispatchChange(detail);
       };
       window.addEventListener("optimus-db-change", this.listener);
+
+      this.storageListener = (e: StorageEvent) => {
+        if (e.key === "optimus-db-sync-event" && e.newValue) {
+          try {
+            const detail = JSON.parse(e.newValue);
+            this.dispatchChange(detail);
+          } catch {
+            this.dispatchChange({});
+          }
+        }
+      };
+      window.addEventListener("storage", this.storageListener);
+
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          this.broadcastChannel = new BroadcastChannel("optimus-db-sync");
+          this.broadcastChannel.onmessage = (event) => {
+            this.dispatchChange(event.data || {});
+          };
+        }
+      } catch {
+        this.broadcastChannel = null;
+      }
     }
     if (callback) {
       callback("SUBSCRIBED");
@@ -185,8 +251,23 @@ class LocalChannel {
   }
 
   unsubscribe() {
-    if (typeof window !== "undefined" && this.listener) {
-      window.removeEventListener("optimus-db-change", this.listener);
+    if (typeof window !== "undefined") {
+      if (this.listener) {
+        window.removeEventListener("optimus-db-change", this.listener);
+        this.listener = null;
+      }
+      if (this.storageListener) {
+        window.removeEventListener("storage", this.storageListener);
+        this.storageListener = null;
+      }
+    }
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.close();
+      } catch {
+        // Ignore close errors
+      }
+      this.broadcastChannel = null;
     }
   }
 }

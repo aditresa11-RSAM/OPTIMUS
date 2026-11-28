@@ -2,6 +2,17 @@ import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
+import {
+  INDONESIAN_MONTHS,
+  normalizeCategory,
+  parseIsoDateParts,
+  getLocalCurrentYearMonth,
+  parseNumericTarget,
+  isReverseIndicatorTarget,
+  evaluateAchievementStatus,
+  mapDbInputsToMutuPayloads,
+  aggregateEntriesCapaian,
+} from "@/lib/mutuSync";
 import { Filter, Activity, Check } from "lucide-react";
 import { formatTarget } from "../../lib/utils";
 import {
@@ -201,14 +212,15 @@ export default function Grafik() {
   const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [categoryFilter, setCategoryFilter] = useState("INM");
   
-  // Periode Filter
+  // Periode Filter (locale-independent Indonesian month name)
+  const initialNow = useMemo(() => getLocalCurrentYearMonth(), []);
   const [periodeMode, setPeriodeMode] = useState("Bulanan");
-  const [selectedBulan, setSelectedBulan] = useState(new Date().toLocaleString("id-ID", { month: "long" }));
+  const [selectedBulan, setSelectedBulan] = useState(initialNow.monthName);
   const [selectedTriwulan, setSelectedTriwulan] = useState("1");
   const [selectedSemester, setSelectedSemester] = useState("1");
-  const [selectedTahun, setSelectedTahun] = useState(String(new Date().getFullYear()));
+  const [selectedTahun, setSelectedTahun] = useState(initialNow.yearStr);
 
-  // Setup Real-time Listener and Fetch
+  // Setup Real-time Listener and Fetch (preserves full DataMutuPayload for all pages)
   useEffect(() => {
     const fetchSupabaseInputs = async () => {
       try {
@@ -217,24 +229,9 @@ export default function Grafik() {
           .select("*")
           .order("created_at", { ascending: true });
 
-        if (data && data.length >= 0) {
-          const newDataList = data.map((dbInput: any) => {
-            const matchedProfile = indicatorProfiles.find((p) => p.id === dbInput.indicator_id);
-            const persentase = dbInput.achievement_percentage || 0;
-            const rawTarget = dbInput.target || matchedProfile?.target || 80;
-            const target = parseFloat(String(rawTarget).replace(/[^0-9.]/g, '')) || 80;
-
-            return {
-              id: dbInput.id,
-              unit: dbInput.unit_id,
-              tanggal: dbInput.input_date,
-              kategori: dbInput.category_id,
-              indikator_id: dbInput.indicator_id || undefined,
-              target: target,
-              capaian: persentase,
-            };
-          });
-          setDataMutuList(newDataList);
+        if (!error && Array.isArray(data)) {
+          const currentProfiles = useStore.getState().indicatorProfiles;
+          setDataMutuList(mapDbInputsToMutuPayloads(data, currentProfiles));
         }
       } catch (err) {
         console.warn("Supabase fetch failed", err);
@@ -242,31 +239,55 @@ export default function Grafik() {
     };
     fetchSupabaseInputs();
 
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchSupabaseInputs();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     const inputsChannel = supabase
       .channel("grafik-inputs-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "indicator_inputs" }, () => {
-        fetchSupabaseInputs();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "indicator_inputs" },
+        () => {
+          fetchSupabaseInputs();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "master_indikator" },
+        () => {
+          fetchSupabaseInputs();
+        },
+      )
       .subscribe();
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(inputsChannel);
     };
   }, [indicatorProfiles, setDataMutuList]);
 
-  // Derive available years from data
+  // Derive available years from data (timezone-safe)
   const availableYears = useMemo(() => {
-    const years = new Set(dataMutuList.filter(d => d.tanggal).map(d => new Date(d.tanggal).getFullYear()));
+    const years = new Set<number>();
+    dataMutuList.forEach((d) => {
+      const parts = parseIsoDateParts(d.tanggal);
+      if (parts) years.add(parts.year);
+    });
     years.add(new Date().getFullYear());
     return Array.from(years).sort((a, b) => b - a).map(String);
   }, [dataMutuList]);
 
   // Compute Active Indicators based on Category
   const activeProfilesInCategory = useMemo(() => {
-    let profiles = indicatorProfiles.filter(p => {
+    const profiles = indicatorProfiles.filter((p) => {
       if (categoryFilter === "Semua") return true;
-      if (categoryFilter === "IMP-UNIT") return p.category === "IMP Unit" || p.category === "IMP-Unit";
-      return p.category === categoryFilter;
+      const normCat = normalizeCategory(p.category);
+      if (categoryFilter === "IMP-UNIT") return normCat === "IMP-Unit";
+      return normCat === normalizeCategory(categoryFilter);
     });
     
     profiles.sort((a, b) => {
@@ -284,7 +305,7 @@ export default function Grafik() {
   const chartData = useMemo(() => {
     return activeProfilesInCategory.map(profile => {
       let months: string[] = [];
-      const allMonths = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      const allMonths = [...INDONESIAN_MONTHS];
       
       if (periodeMode === "Bulanan") {
         months = [selectedBulan];
@@ -307,27 +328,31 @@ export default function Grafik() {
       let totalCapaian = 0;
       let countWithData = 0;
 
-      months.forEach((monthName) => {
-        const matchingInputs = dataMutuList.filter(d => {
-          if (d.indikator_id !== profile.id) return false;
-          if (!d.tanggal) return false;
-          
-          const date = new Date(d.tanggal);
-          const mYear = String(date.getFullYear());
-          const mMonthName = date.toLocaleString("id-ID", { month: "long" });
+      const rawTargetOverall = profile.target ?? 80;
+      const isReverse = isReverseIndicatorTarget(rawTargetOverall, profile.reverse);
+      const parsedTargetOverall = parseNumericTarget(
+        rawTargetOverall,
+        isReverse ? 0 : 80,
+      );
 
-          return mYear === selectedTahun && mMonthName === monthName;
+      months.forEach((monthName) => {
+        const matchingInputs = dataMutuList.filter((d) => {
+          if (d.indikator_id !== profile.id) return false;
+          const parts = parseIsoDateParts(d.tanggal);
+          if (!parts) return false;
+          return String(parts.year) === selectedTahun && parts.monthName === monthName;
         });
 
         let monthCapaian = 0;
         if (matchingInputs.length > 0) {
-          monthCapaian = matchingInputs.reduce((sum, r) => sum + (r.capaian || 0), 0) / matchingInputs.length;
+          const agg = aggregateEntriesCapaian(matchingInputs);
+          monthCapaian = agg.capaian;
           totalCapaian += monthCapaian;
           countWithData++;
         }
-        
-        const rawTarget = matchingInputs[0]?.target || profile.target || 80;
-        const parsedTarget = parseFloat(String(rawTarget).replace(/[^0-9.]/g, '')) || 80;
+
+        const rawTarget = profile.target ?? matchingInputs[0]?.target ?? 80;
+        const parsedTarget = parseNumericTarget(rawTarget, isReverse ? 0 : 80);
 
         series.push({
           name: monthName,
@@ -340,19 +365,16 @@ export default function Grafik() {
       if (countWithData > 0) {
         overallCapaian = totalCapaian / countWithData;
       }
-      
-      const rawTargetOverall = profile.target || 80;
-      const parsedTargetOverall = parseFloat(String(rawTargetOverall).replace(/[^0-9.]/g, '')) || 80;
-      
-      const isReverse = profile.reverse || false;
-      const isSuccess = isReverse ? overallCapaian <= parsedTargetOverall : overallCapaian >= parsedTargetOverall;
-      
-      let status = "Tidak Tercapai";
+
+      let status = "Belum Ada Data";
       if (countWithData > 0) {
-        if (isSuccess) status = "Tercapai";
-        else if (Math.abs(overallCapaian - parsedTargetOverall) <= 10) status = "Mendekati Target";
-      } else {
-        status = "Belum Ada Data";
+        const evalRes = evaluateAchievementStatus(
+          overallCapaian,
+          rawTargetOverall,
+          profile.reverse,
+        );
+        status =
+          evalRes.status === "Mendekati" ? "Mendekati Target" : evalRes.status;
       }
 
       let longPeriodName = `Tahun ${selectedTahun}`;

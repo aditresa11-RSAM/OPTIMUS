@@ -82,6 +82,7 @@ import RadiologiAuditForm, {
   stripEmptyRadiologiRows,
 } from "@/components/input/RadiologiAuditForm";
 import UnitCardSelector from "@/components/input/UnitCardSelector";
+import { getUnitVisualConfig } from "@/components/input/unitVisuals";
 import PeriodCalendarPicker from "@/components/input/PeriodCalendarPicker";
 import type { SavedRoomEntryView } from "@/components/input/SavedRoomDataSection";
 import {
@@ -246,10 +247,10 @@ const UNIT_MUTU_BLUEPRINTS: Record<
       },
       {
         order: 8,
-        label: "Kepatuhan Reasesmen Nyeri (Aisyah Bedah)",
+        label: "Kepatuhan Asesmen Ulang Nyeri",
         badge: "IMP-Unit",
         matchId: "11110011-4a11-4000-9000-000000000011",
-        matchTitle: "reasesmen nyeri",
+        matchTitle: "asesmen ulang nyeri",
       },
     ],
   },
@@ -333,10 +334,10 @@ const UNIT_MUTU_BLUEPRINTS: Record<
       },
       {
         order: 7,
-        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis (Ruang Fatimah)",
+        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis",
         badge: "IMP-Unit",
         matchId: "11110009-4a09-4000-9000-000000000009",
-        matchTitle: "dokumen sbar pada rekam medis (ruang fatimah)",
+        matchTitle: "dokumen sbar pada rekam medis",
       },
     ],
   },
@@ -473,7 +474,7 @@ const UNIT_MUTU_BLUEPRINTS: Record<
       },
       {
         order: 7,
-        label: "Kepatuhan Pengkajian Nyeri (ICU)",
+        label: "Kepatuhan Pengkajian Nyeri",
         badge: "IMP-Unit",
         matchId: "11110008-4a08-4000-9000-000000000008",
         matchTitle: "pengkajian nyeri",
@@ -506,10 +507,10 @@ const UNIT_MUTU_BLUEPRINTS: Record<
       },
       {
         order: 4,
-        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis (Unit IGD)",
+        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis",
         badge: "IMP-Unit",
         matchId: "11110021-4a21-4000-9000-000000000021",
-        matchTitle: "dokumen sbar pada rekam medis (unit igd)",
+        matchTitle: "dokumen sbar pada rekam medis",
       },
     ],
   },
@@ -716,10 +717,10 @@ const UNIT_MUTU_BLUEPRINTS: Record<
       },
       {
         order: 7,
-        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis (Ruang Usman)",
+        label: "Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis",
         badge: "IMP-Unit",
         matchId: "11110013-4a13-4000-9000-000000000013",
-        matchTitle: "dokumen sbar pada rekam medis (ruang usman)",
+        matchTitle: "dokumen sbar pada rekam medis",
       },
     ],
   },
@@ -1096,6 +1097,9 @@ export default function InputData() {
   );
   // Delete confirmation modal state for Kepatuhan Identifikasi Pasien
   const [deleteIdentifikasiId, setDeleteIdentifikasiId] = useState<string | null>(null);
+  // Pop-up modal state for Lokasi Identifikasi room selector in Kepatuhan Identifikasi Pasien
+  const [lokasiPickerRowId, setLokasiPickerRowId] = useState<string | null>(null);
+  const [lokasiPickerSearch, setLokasiPickerSearch] = useState<string>("");
 
   const unitDropdownRef = useRef<HTMLDivElement>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
@@ -1665,7 +1669,7 @@ export default function InputData() {
     ) {
       return {
         key: "kematian_ibu",
-        tableTitle: "Formulir Angka Kematian Ibu (PONEK)",
+        tableTitle: "Tabel Input Data Angka Kematian Ibu",
         subtitle:
           "Pencatatan kejadian kematian ibu (atau klik Nihil 0 Kematian serta isi Total Seluruh Pasien Ibu pada bulan berjalan).",
         populationLabel: "Total Seluruh Pasien Ibu",
@@ -1678,7 +1682,7 @@ export default function InputData() {
     ) {
       return {
         key: "kematian_bayi",
-        tableTitle: "Formulir Angka Kematian Bayi (PONEK)",
+        tableTitle: "Tabel Input Data Angka Kematian Bayi",
         subtitle:
           "Pencatatan kejadian kematian bayi < 12 bulan (atau klik Nihil 0 Kematian serta isi Total Bayi Yang Dirawat).",
         populationLabel: "Total Bayi Yang Dirawat",
@@ -1695,7 +1699,7 @@ export default function InputData() {
     ) {
       return {
         key: "fornas_pasien",
-        tableTitle: "Formulir Kepatuhan Penggunaan Formularium Nasional",
+        tableTitle: "Tabel Input Data Kepatuhan Penggunaan Formularium Nasional",
         subtitle: "Observasi kesesuaian peresepan obat pasien terhadap Formularium Nasional (FORNAS)",
         yesHeader: "Obat Sesuai Fornas (Ya)",
         noHeader: "Obat Sesuai Fornas (Tidak)",
@@ -1707,7 +1711,7 @@ export default function InputData() {
     ) {
       return {
         key: "stiker_segitiga",
-        tableTitle: "Kepatuhan Memasang Stiker Tambahan & Segitiga Risiko Jatuh",
+        tableTitle: "Tabel Input Data Kepatuhan Memasang Stiker Tambahan & Segitiga Risiko Jatuh",
         subtitle: "Observasi kepatuhan pemasangan stiker tambahan dan segitiga risiko jatuh pada pasien risiko jatuh",
         yesHeader: "Terpasang Stiker & Segitiga (Ya)",
         noHeader: "Terpasang Stiker & Segitiga (Tidak)",
@@ -1719,7 +1723,7 @@ export default function InputData() {
     ) {
       return {
         key: "skrining_jatuh_anak",
-        tableTitle: "Form Input Kepatuhan Skrining Risiko Jatuh Pasien Anak",
+        tableTitle: "Tabel Input Data Kepatuhan Skrining Risiko Jatuh Pasien Anak",
         subtitle: "Observasi kepatuhan pelaksanaan skrining risiko jatuh pada pasien anak",
         yesHeader: "Ya (Di Skrining)",
         noHeader: "Tidak (Tidak Di Skrining)",
@@ -1731,7 +1735,7 @@ export default function InputData() {
     ) {
       return {
         key: "skrining_disfagia",
-        tableTitle: "Form Input Kepatuhan Skrining Disfagia Pada Pasien Stroke",
+        tableTitle: "Tabel Input Data Kepatuhan Skrining Disfagia Pada Pasien Stroke",
         subtitle: "Observasi kepatuhan pelaksanaan skrining disfagia pada pasien stroke",
         yesHeader: "Dilakukan Skrining Disfagia (Ya)",
         noHeader: "Dilakukan Skrining Disfagia (Tidak)",
@@ -1744,7 +1748,7 @@ export default function InputData() {
     ) {
       return {
         key: "asesmen_awal_medis_24jam",
-        tableTitle: "Form Input Kelengkapan Asesmen Awal Medis Dalam Waktu 24 Jam",
+        tableTitle: "Tabel Input Data Kelengkapan Asesmen Awal Medis Dalam Waktu 24 Jam",
         subtitle: "Observasi kelengkapan asesmen awal medis dalam waktu ≤ 24 jam pada pasien rawat inap",
         yesHeader: "Kelengkapan Asesmen Awal Medis 24 Jam (Ya)",
         noHeader: "Kelengkapan Asesmen Awal Medis 24 Jam (Tidak)",
@@ -1752,14 +1756,15 @@ export default function InputData() {
     }
     if (
       watchIndikatorId === "11110011-4a11-4000-9000-000000000011" ||
+      indicatorTitleLower.includes("asesmen ulang nyeri") ||
       indicatorTitleLower.includes("reasesmen nyeri")
     ) {
       return {
         key: "reasesmen_nyeri",
-        tableTitle: "Form Input Kepatuhan Reasesmen Nyeri",
-        subtitle: "Observasi kepatuhan pelaksanaan reasesmen nyeri pasien rawat inap",
-        yesHeader: "Reasesmen Nyeri (Ya)",
-        noHeader: "Reasesmen Nyeri (Tidak)",
+        tableTitle: "Tabel Input Data Kepatuhan Asesmen Ulang Nyeri",
+        subtitle: "Observasi kepatuhan pelaksanaan asesmen ulang nyeri pasien rawat inap",
+        yesHeader: "Asesmen Ulang Nyeri (Ya)",
+        noHeader: "Asesmen Ulang Nyeri (Tidak)",
       };
     }
     return null;
@@ -2169,6 +2174,27 @@ export default function InputData() {
       );
     });
   }, [units, unitSearch]);
+
+  // All active rooms from Menu Input Data for Lokasi Identifikasi pop-up modal
+  const lokasiIdentifikasiUnits = useMemo(() => {
+    const seen = new Set<string>();
+    return units.filter((u) => {
+      const normalized = (u.name || "").trim().toLowerCase();
+      if (!normalized || normalized === "ranap aisyah") return false;
+      if (u.status !== "Aktif") return false;
+      const uniqueKey = u.id || normalized;
+      if (seen.has(uniqueKey)) return false;
+      seen.add(uniqueKey);
+      if (lokasiPickerSearch.trim() !== "") {
+        const q = lokasiPickerSearch.trim().toLowerCase();
+        return (
+          normalized.includes(q) ||
+          (u.category || "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [units, lokasiPickerSearch]);
 
   // Interactive functions to manage units via modal (Admin)
   const handleOpenAddRoom = () => {
@@ -3823,6 +3849,7 @@ export default function InputData() {
       titleLow.includes("skrining disfagia") ||
       titleLow.includes("asesmen awal medis") ||
       titleLow.includes("assesmen awal medis") ||
+      titleLow.includes("asesmen ulang nyeri") ||
       titleLow.includes("reasesmen nyeri");
     setYaTidakGrid(isYaTidak ? [withDate(createEmptyYaTidakRow())] : []);
   };
@@ -5411,9 +5438,8 @@ export default function InputData() {
                   />
                   <span
                     data-testid="unit-completion-badge"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 border border-emerald-600 text-white text-xs sm:text-[13px] font-extrabold shadow-xs tabular-nums"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 border border-emerald-600 text-white text-xs sm:text-[13px] font-extrabold shadow-xs tabular-nums"
                   >
-                    <CheckCircle2 size={14} />
                     {
                       activeUnitBlueprint.items.filter((item) => {
                         const prof = resolveBlueprintProfile(item);
@@ -5671,7 +5697,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Input Data Indikator Kepatuhan Jam Visite Dokter
+                        Tabel Input Data Kepatuhan Jam Visite Dokter
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -5888,7 +5914,7 @@ export default function InputData() {
                     <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Data Registrasi Kepatuhan Upaya Pencegahan Risiko Pasien Jatuh
+                          Tabel Input Data Kepatuhan Upaya Pencegahan Risiko Pasien Jatuh
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -6098,12 +6124,9 @@ export default function InputData() {
                 <div className="space-y-4 border-t border-emerald-100/10 pt-4 animate-in fade-in duration-300">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-emerald-50/60 border border-emerald-200/70 rounded-2xl p-4">
                     <div>
-                      <h4 className="font-extrabold text-sm text-[#0c2415] uppercase tracking-wide">
-                        Form Observasi Kepatuhan Identifikasi Pasien
+                      <h4 className="font-extrabold text-sm md:text-base text-[#0c2415] tracking-wide">
+                        Tabel Input Data Kepatuhan Identifikasi Pasien
                       </h4>
-                      <p className="text-xs text-slate-600 font-semibold mt-1">
-                        Pilih dan observasi minimal satu peluang tindakan (Pemasangan Gelang, Pemberian Obat, Produk Darah, Pengambilan Spesimen, Prosedur &amp; Pemberian Diet).
-                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <span className="px-3 py-1 rounded-xl bg-white border border-emerald-200 text-[11px] font-bold text-emerald-900">
@@ -6135,87 +6158,94 @@ export default function InputData() {
                             </button>
                           </div>
 
-                          {/* Top: Observasi Details */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-extrabold text-slate-500 uppercase">
+                          {/* Top: Observasi Details (Centered) */}
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                            <div className="space-y-1 text-center">
+                              <label className="block text-[10px] font-extrabold text-slate-500 uppercase text-center">
                                 Tgl Observasi
                               </label>
                               <input
                                 type="date"
+                                data-testid={`identifikasi-tgl-observasi-${idx}`}
                                 value={row.tanggal_observasi}
                                 onChange={(e) =>
                                   handleUpdateIdentifikasi(row.id, "tanggal_observasi", e.target.value)
                                 }
-                                className="w-full text-xs font-bold border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50"
+                                className="w-full text-xs font-bold text-center border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50 cursor-pointer"
                               />
                             </div>
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-extrabold text-slate-500 uppercase">
+                            <div className="space-y-1 text-center">
+                              <label className="block text-[10px] font-extrabold text-slate-500 uppercase text-center">
                                 Jam
                               </label>
                               <input
                                 type="time"
+                                data-testid={`identifikasi-jam-observasi-${idx}`}
                                 value={row.jam_observasi}
                                 onChange={(e) =>
                                   handleUpdateIdentifikasi(row.id, "jam_observasi", e.target.value)
                                 }
-                                className="w-full text-xs font-bold border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50"
+                                className="w-full text-xs font-bold text-center border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50 cursor-pointer"
                               />
                             </div>
-                            <div className="space-y-1 md:col-span-2">
-                              <label className="text-[10px] font-extrabold text-slate-500 uppercase">
+                            <div className="space-y-1 md:col-span-2 text-center">
+                              <label className="block text-[10px] font-extrabold text-slate-500 uppercase text-center">
                                 Nama Observer
                               </label>
                               <input
                                 type="text"
+                                data-testid={`identifikasi-nama-observer-${idx}`}
                                 value={row.nama_observer}
                                 onChange={(e) =>
                                   handleUpdateIdentifikasi(row.id, "nama_observer", e.target.value)
                                 }
-                                className="w-full text-xs font-bold border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50"
+                                className="w-full text-xs font-bold text-center border border-slate-200 px-3 py-2 rounded-xl outline-none focus:border-emerald-500 bg-slate-50/50"
                                 placeholder="Observer..."
                               />
                             </div>
                           </div>
 
-                          {/* Info Pasien */}
-                          <div className="bg-slate-50 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 border border-slate-100">
-                            <div>
-                              <label className="text-[9px] font-extrabold text-slate-400 uppercase">Nama Pasien</label>
+                          {/* Info Pasien (Centered) */}
+                          <div className="bg-slate-50 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 border border-slate-100 text-center">
+                            <div className="text-center">
+                              <label className="block text-[9px] font-extrabold text-slate-400 uppercase text-center">Nama Pasien</label>
                               <input
                                 type="text"
+                                data-testid={`identifikasi-nama-pasien-${idx}`}
                                 value={row.nama_pasien}
                                 onChange={(e) => handleUpdateIdentifikasi(row.id, "nama_pasien", e.target.value)}
-                                className="w-full text-xs font-bold border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent"
+                                className="w-full text-xs font-bold text-center border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent"
                                 placeholder="Nama Pasien"
                               />
                             </div>
-                            <div>
-                              <label className="text-[9px] font-extrabold text-slate-400 uppercase">No RM</label>
+                            <div className="text-center">
+                              <label className="block text-[9px] font-extrabold text-slate-400 uppercase text-center">No RM</label>
                               <input
                                 type="text"
+                                data-testid={`identifikasi-no-rm-${idx}`}
                                 value={row.no_rm}
                                 onChange={(e) => handleUpdateIdentifikasi(row.id, "no_rm", e.target.value)}
-                                className="w-full text-xs font-bold border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent"
+                                className="w-full text-xs font-bold text-center border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent"
                                 placeholder="00-00-00"
                               />
                             </div>
-                            <div>
-                              <label className="text-[9px] font-extrabold text-slate-400 uppercase">Tanggal Lahir</label>
+                            <div className="text-center">
+                              <label className="block text-[9px] font-extrabold text-slate-400 uppercase text-center">Tanggal Lahir</label>
                               <input
                                 type="date"
+                                data-testid={`identifikasi-tanggal-lahir-${idx}`}
                                 value={row.tanggal_lahir}
                                 onChange={(e) => handleUpdateIdentifikasi(row.id, "tanggal_lahir", e.target.value)}
-                                className="w-full text-xs font-bold border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent"
+                                className="w-full text-xs font-bold text-center border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent cursor-pointer"
                               />
                             </div>
-                            <div>
-                              <label className="text-[9px] font-extrabold text-slate-400 uppercase">Jenis Kelamin</label>
+                            <div className="text-center">
+                              <label className="block text-[9px] font-extrabold text-slate-400 uppercase text-center">Jenis Kelamin</label>
                               <select
+                                data-testid={`identifikasi-jenis-kelamin-${idx}`}
                                 value={row.jenis_kelamin}
                                 onChange={(e) => handleUpdateIdentifikasi(row.id, "jenis_kelamin", e.target.value)}
-                                className="w-full text-xs font-bold border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent appearance-none"
+                                className="w-full text-xs font-bold text-center [text-align-last:center] border-b border-slate-200 px-1 py-1 outline-none focus:border-emerald-500 bg-transparent appearance-none cursor-pointer"
                               >
                                 <option value="">- Pilih JK -</option>
                                 <option value="Laki-Laki">Laki-Laki</option>
@@ -6366,24 +6396,37 @@ export default function InputData() {
                                       4. Lokasi Identifikasi
                                    </td>
                                    <td colSpan={9} className="px-2 py-1 align-middle border-r border-slate-100">
-                                      <select 
-                                         value={row.lokasi || ""} 
-                                         onChange={(e) => handleUpdateIdentifikasi(row.id, "lokasi", e.target.value)}
-                                         className="w-full text-[9px] font-bold border border-slate-200 px-2 py-1 rounded-sm outline-none focus:border-emerald-500 bg-white"
+                                      <button
+                                         type="button"
+                                         data-testid={`lokasi-identifikasi-trigger-${idx}`}
+                                         onClick={() => {
+                                            setLokasiPickerSearch("");
+                                            setLokasiPickerRowId(row.id);
+                                         }}
+                                         className="w-full flex items-center justify-between gap-2 text-[10px] font-bold border border-slate-200 hover:border-emerald-500 px-2.5 py-1.5 rounded-lg outline-none focus:border-emerald-500 bg-white hover:bg-emerald-50/30 transition-all cursor-pointer text-left"
                                       >
-                                         <option value="">-- Pilih Lokasi Identifikasi --</option>
-                                         <option value="Rawat Inap">Rawat Inap</option>
-                                         <option value="Rawat Jalan">Rawat Jalan</option>
-                                         <option value="IGD">IGD</option>
-                                         <option value="Bersalin">Bersalin / Ruang Kebidanan</option>
-                                         <option value="Emergency Kebidanan">Emergency Kebidanan</option>
-                                         <option value="Haemodialisis">Haemodialisis</option>
-                                         <option value="Instalasi Kamar Bedah">Instalasi Kamar Bedah</option>
-                                         <option value="ICU">ICU</option>
-                                         <option value="Laboratorium">Laboratorium</option>
-                                         <option value="Radiologi">Radiologi</option>
-                                         <option value="Ruangan Lainnya">Ruangan Lainnya</option>
-                                      </select>
+                                         <span className="flex items-center gap-2 truncate">
+                                            {row.lokasi ? (
+                                              <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                  src={getUnitVisualConfig(row.lokasi).iconSrc}
+                                                  alt=""
+                                                  referrerPolicy="no-referrer"
+                                                  className="w-4 h-4 object-contain shrink-0"
+                                                />
+                                                <span className="text-slate-800 font-extrabold">
+                                                  {row.lokasi}
+                                                </span>
+                                              </>
+                                            ) : (
+                                              <span className="text-slate-400 font-semibold">
+                                                -- Pilih Lokasi Identifikasi --
+                                              </span>
+                                            )}
+                                         </span>
+                                         <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                                      </button>
                                    </td>
                                  </tr>
                                </tbody>
@@ -6613,7 +6656,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Waktu Tunggu Pelayanan Obat Racikan (≤ 60 Menit)
+                        Tabel Input Data Waktu Tunggu Pelayanan Obat Racikan (≤ 60 Menit)
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -6819,7 +6862,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Kepatuhan Double Check Obat High Alert
+                        Tabel Input Data Kepatuhan Double Check Obat High Alert
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -6997,7 +7040,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Input Data Presentase Kejadian Kekosongan Obat Essensial
+                        Tabel Input Data Presentase Kejadian Kekosongan Obat Essensial
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
@@ -7193,7 +7236,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Input Data Kepatuhan Clinical Pathway
+                        Tabel Input Data Kepatuhan Clinical Pathway
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -7382,7 +7425,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Pelaksanaan Verifikasi 1x24 Jam Pada Instruksi Melalui Telepon Oleh DPJP
+                        Tabel Input Data Pelaksanaan Verifikasi 1x24 Jam Pada Instruksi Melalui Telepon Oleh DPJP
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -7750,7 +7793,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis
+                        Tabel Input Data Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -7937,7 +7980,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Penundaan Operasi Elektif (Target &lt; 5%)
+                        Tabel Input Data Penundaan Operasi Elektif (Target &lt; 5%)
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -8143,7 +8186,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Kepatuhan Pelaksanaan Surgical Safety Checklist (SSC)
+                        Tabel Input Data Kepatuhan Pelaksanaan Surgical Safety Checklist (SSC)
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -8316,7 +8359,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Monitoring Pembatalan Operasi Elektif (Target ≤ 2%)
+                        Tabel Input Data Monitoring Pembatalan Operasi Elektif (Target ≤ 2%)
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -8512,7 +8555,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Angka Keterlambatan Penyediaan Darah Obstetri &amp; Neonatus (&gt; 60 Menit)
+                        Tabel Input Data Angka Keterlambatan Penyediaan Darah Obstetri &amp; Neonatus (&gt; 60 Menit)
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
@@ -8725,7 +8768,7 @@ export default function InputData() {
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                        Formulir Angka Kejadian Tidak Dilakukannya IMD Pada Bayi Baru Lahir
+                        Tabel Input Data Angka Kejadian Tidak Dilakukannya IMD Pada Bayi Baru Lahir
                       </h3>
                       <p className="text-[11px] font-semibold text-emerald-100">
                         Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target IMD: 100%
@@ -9132,7 +9175,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Kepatuhan Pengkajian Nyeri (ICU)
+                          Tabel Input Data Kepatuhan Pengkajian Nyeri
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
@@ -9307,7 +9350,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Emergency Respon Time &le; 5 menit
+                          Tabel Input Data Emergency Respon Time &le; 5 menit
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -9527,7 +9570,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Validasi Waktu Tanggap Operasi Seksio Sesaria Emergency (&le; 30 Menit)
+                          Tabel Input Data Waktu Tanggap Operasi Seksio Sesaria Emergency (&le; 30 Menit)
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: &ge; 80%
@@ -9735,7 +9778,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Angka Persalinan Dengan Komplikasi Tertangani
+                          Tabel Input Data Angka Persalinan Dengan Komplikasi Tertangani
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: &ge; 95%
@@ -9965,7 +10008,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Pelaporan Hasil Kritis Laboratorium (&lt; 30 Menit)
+                          Tabel Input Data Pelaporan Hasil Kritis Laboratorium (&lt; 30 Menit)
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -10172,7 +10215,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Persentase Sampel Laboratorium Yang Tidak Diberi Pelabelan
+                          Tabel Input Data Persentase Sampel Laboratorium Yang Tidak Diberi Pelabelan
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 0%
@@ -10470,7 +10513,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Angka Kunjungan Keluarga Diluar Jam Kunjungan Rumah Sakit
+                          Tabel Input Data Angka Kunjungan Keluarga Diluar Jam Kunjungan Rumah Sakit
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: &le; 5%
@@ -10719,7 +10762,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Persentase Sarana Sanitasi (Toilet, Wastafel, Saluran Pembuangan)
+                          Tabel Input Data Persentase Sarana Sanitasi (Toilet, Wastafel, Saluran Pembuangan)
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -10930,7 +10973,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Ketepatan Waktu Pengangkutan Limbah Rumah Sakit
+                          Tabel Input Data Ketepatan Waktu Pengangkutan Limbah Rumah Sakit
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -11096,7 +11139,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Ketepatan Waktu Penyediaan Alat Steril
+                          Tabel Input Data Ketepatan Waktu Penyediaan Alat Steril
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -11315,7 +11358,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Ketepatan Waktu Penyediaan Linen Untuk Rawat Inap (&le; 30 Menit)
+                          Tabel Input Data Ketepatan Waktu Penyediaan Linen Untuk Rawat Inap (&le; 30 Menit)
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -11552,7 +11595,7 @@ export default function InputData() {
                     <div className="flex items-center gap-3">
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Ketersediaan Air Bersih Dalam 24 Jam
+                          Tabel Input Data Ketersediaan Air Bersih Dalam 24 Jam
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -12098,6 +12141,154 @@ export default function InputData() {
                 className="px-5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-md shadow-rose-500/20"
               >
                 Ya, Hapus Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP MODAL PILIH LOKASI IDENTIFIKASI (RUANGAN RSUD AL-MULK) */}
+      {lokasiPickerRowId && (
+        <div
+          data-testid="lokasi-identifikasi-modal"
+          onClick={() => setLokasiPickerRowId(null)}
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/45 backdrop-blur-md p-4 animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white/95 backdrop-blur-xl rounded-[28px] border border-white shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+          >
+            {/* Modal Header */}
+            <div className="bg-emerald-600 px-6 py-4 flex items-center justify-between text-white shrink-0">
+              <div>
+                <h3 className="font-extrabold text-sm md:text-base tracking-wide">
+                  Pilih Lokasi Identifikasi Pasien
+                </h3>
+                <p className="text-[11px] font-medium text-emerald-100 mt-0.5">
+                  Pilih nama ruangan sesuai daftar seluruh ruangan aktif di Menu Input Data RSUD Al-Mulk
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Tutup pop up pilih ruangan"
+                onClick={() => setLokasiPickerRowId(null)}
+                className="text-white/85 hover:text-white hover:bg-white/15 p-1.5 rounded-xl transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search Filter Bar */}
+            <div className="px-6 py-3.5 bg-slate-50/90 border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
+              <div className="relative flex-1">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  value={lokasiPickerSearch}
+                  onChange={(e) => setLokasiPickerSearch(e.target.value)}
+                  placeholder="Cari nama ruangan atau kategori..."
+                  className="w-full h-9 pl-9 pr-8 rounded-xl bg-white border border-slate-200/90 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15 transition-all"
+                />
+                {lokasiPickerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setLokasiPickerSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+              <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl shrink-0">
+                {lokasiIdentifikasiUnits.length} Ruangan
+              </span>
+            </div>
+
+            {/* Room Selection Grid */}
+            <div className="p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {(() => {
+                const activeRow = identifikasiGrid.find((r) => r.id === lokasiPickerRowId);
+                const currentLokasi = activeRow?.lokasi || "";
+
+                if (lokasiIdentifikasiUnits.length === 0) {
+                  return (
+                    <div className="col-span-full py-10 text-center text-xs font-semibold text-slate-400">
+                      Tidak ada ruangan yang cocok dengan kata kunci &quot;{lokasiPickerSearch}&quot;.
+                    </div>
+                  );
+                }
+
+                return lokasiIdentifikasiUnits.map((u) => {
+                  const visual = getUnitVisualConfig(u.name, u.category);
+                  const isSelected =
+                    currentLokasi.trim().toLowerCase() === u.name.trim().toLowerCase();
+
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      data-testid={`lokasi-room-option-${u.name}`}
+                      onClick={() => {
+                        handleUpdateIdentifikasi(lokasiPickerRowId, "lokasi", u.name);
+                        setLokasiPickerRowId(null);
+                      }}
+                      className={`group flex items-center justify-between gap-3 p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-white hover:bg-emerald-50/40 border-slate-200/90 hover:border-emerald-300 shadow-2xs"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={visual.iconSrc}
+                            alt={visual.iconAlt}
+                            referrerPolicy="no-referrer"
+                            className="w-8 h-8 object-contain transition-transform duration-200 group-hover:scale-110"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p
+                            className={`text-xs font-extrabold truncate ${
+                              isSelected
+                                ? "text-emerald-950"
+                                : "text-slate-800 group-hover:text-emerald-900"
+                            }`}
+                          >
+                            {u.name}
+                          </p>
+                          <p className="text-[10px] font-semibold text-slate-400 truncate">
+                            {u.category}
+                          </p>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle2
+                          size={16}
+                          className="text-emerald-600 shrink-0"
+                        />
+                      )}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200/80 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-[11px] font-semibold text-slate-500">
+                Klik salah satu ruangan di atas untuk memilih lokasi identifikasi
+              </span>
+              <button
+                type="button"
+                onClick={() => setLokasiPickerRowId(null)}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 transition-colors cursor-pointer"
+              >
+                Tutup
               </button>
             </div>
           </div>

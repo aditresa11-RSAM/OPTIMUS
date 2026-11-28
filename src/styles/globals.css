@@ -18,18 +18,28 @@
   }
 }
 
-/* Clean Time & Date Table Inputs:
-   Hide native clock/calendar icons visually while stretching the real native
-   picker indicator invisibly over the entire cell so clicking ANYWHERE in the
-   cell natively opens the browser time/date picker (works even inside iframes). */
+/* Clean Time & Date Inputs (All Menus & Tables):
+   Hide native clock/calendar icons visually across the entire app while stretching
+   the picker trigger invisibly over the entire field so clicking ANYWHERE in the
+   input opens the date/time picker. */
 input[type="time"],
-table input[type="date"] {
+input[type="date"] {
   position: relative;
   cursor: pointer;
+  text-align: center;
+}
+
+input[type="time"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
 }
 
 input[type="time"]::-webkit-calendar-picker-indicator,
-table input[type="date"]::-webkit-calendar-picker-indicator {
+input[type="date"]::-webkit-calendar-picker-indicator {
   position: absolute;
   top: 0;
   left: 0;
@@ -47,8 +57,8 @@ table input[type="date"]::-webkit-calendar-picker-indicator {
 
 input[type="time"]::-webkit-clear-button,
 input[type="time"]::-webkit-inner-spin-button,
-table input[type="date"]::-webkit-clear-button,
-table input[type="date"]::-webkit-inner-spin-button {
+input[type="date"]::-webkit-clear-button,
+input[type="date"]::-webkit-inner-spin-button {
   display: none;
   -webkit-appearance: none;
 }

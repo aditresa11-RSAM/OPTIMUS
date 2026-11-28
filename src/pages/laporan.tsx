@@ -17,8 +17,14 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-import { useStore, DataMutuPayload, IndicatorProfile } from "@/store/useStore";
+import { useStore, DataMutuPayload } from "@/store/useStore";
 import { supabase } from "@/lib/supabase";
+import {
+  adaptMasterProfileFromDb,
+  mapDbInputsToMutuPayloads,
+  parseIsoDateParts,
+  aggregateEntriesCapaian,
+} from "@/lib/mutuSync";
 import { formatTarget } from "../../lib/utils";
 import OfficialMutuReport, {
   ReportChapterFilter,
@@ -36,37 +42,7 @@ import {
 } from "@/components/laporan/RiskRegisterDefaults";
 import { AiNarrativeResult } from "@/pages/api/ai-laporan";
 
-const adaptProfileFromDb = (dbItem: any): IndicatorProfile => ({
-  id: dbItem.id,
-  category:
-    dbItem.category === "IMP Unit" ? "IMP-Unit" : dbItem.category || "INM",
-  indicator_title: dbItem.title || dbItem.indicator_title || "",
-  rationale: dbItem.rationale || "—",
-  quality_dimension: dbItem.quality_dimension || "—",
-  objective: dbItem.purpose || dbItem.objective || "—",
-  operational_definition: dbItem.operational_definition || "—",
-  indicator_type: dbItem.indicator_type || "Proses",
-  measurement_unit:
-    dbItem.satuan_pengukuran || dbItem.measurement_unit || "Persen (%)",
-  numerator: dbItem.numerator || "—",
-  denominator: dbItem.denominator || "—",
-  target: String(dbItem.target ?? "100%"),
-  criteria: dbItem.criteria || "—",
-  formula: dbItem.formula || "—",
-  data_collection_method: dbItem.data_collection_method || "Retrospektif",
-  data_source: dbItem.data_source || "Rekam Medis",
-  sampling_method: dbItem.sampling_method || "Total Sampling",
-  data_collection_tool:
-    dbItem.data_collection_instrument || dbItem.data_collection_tool || "—",
-  sample_size: dbItem.sample_size || "—",
-  collection_period: dbItem.collection_period || "Bulanan",
-  analysis_period: dbItem.analysis_period || "Triwulanan",
-  data_presentation: dbItem.data_presentation || "Tabel & Grafik",
-  person_responsible:
-    dbItem.person_in_charge || dbItem.person_responsible || "—",
-  reverse: Boolean(dbItem.reverse),
-  created_at: dbItem.created_at,
-});
+// Indicator profiles adapted via shared adaptMasterProfileFromDb helper
 
 export default function Laporan() {
   const dataMutuList = useStore((state) => state.dataMutuList);
@@ -122,109 +98,75 @@ export default function Laporan() {
     [periode, bulan, triwulan, semester, tahun],
   );
 
-  // 1. Load Master Indikator, Inputs, Risiko, Survei Budaya
-  const fetchAllReportData = useCallback(async () => {
-    try {
-      const [profRes, inpRes, riskRes, survRes] = await Promise.all([
-        supabase.from("master_indikator").select("*").order("created_at", { ascending: true }),
-        supabase.from("indicator_inputs").select("*").order("created_at", { ascending: true }),
-        supabase.from("manajemen_risiko").select("*"),
-        supabase.from("survei_budaya").select("*"),
-      ]);
-
-      let activeProfiles = indicatorProfiles;
-      if (Array.isArray(profRes.data) && profRes.data.length > 0) {
-        activeProfiles = profRes.data.map(adaptProfileFromDb);
-        setIndicatorProfiles(activeProfiles);
-      }
-
-      if (Array.isArray(inpRes.data)) {
-        const mappedInputs: DataMutuPayload[] = inpRes.data.map((dbInput: any) => {
-          const matchedProfile = activeProfiles.find(
-            (p) => p.id === dbInput.indicator_id,
-          );
-          const persentase = Number(dbInput.achievement_percentage) || 0;
-          const rawTarget = dbInput.target || matchedProfile?.target || 80;
-          const targetNum =
-            parseFloat(String(rawTarget).replace(/[^0-9.]/g, "")) || 80;
-          const isReverse = matchedProfile?.reverse || false;
-          const isSuccess = isReverse
-            ? persentase <= targetNum
-            : persentase >= targetNum;
-
-          let notesData: any = {};
-          if (dbInput.notes) {
-            try {
-              const parsed = JSON.parse(dbInput.notes);
-              if (typeof parsed === "object" && parsed !== null) {
-                notesData = parsed;
-              }
-            } catch {
-              notesData = { keterangan: dbInput.notes };
-            }
-          }
-
-          return {
-            id: dbInput.id,
-            unit: dbInput.unit_id,
-            tanggal: dbInput.input_date,
-            kategori: dbInput.category_id,
-            indikator_id: dbInput.indicator_id || undefined,
-            indikator_name: matchedProfile?.indicator_title || undefined,
-            numerator: Number(dbInput.numerator_value) || 0,
-            denominator: Number(dbInput.denominator_value) || 1,
-            target: rawTarget,
-            capaian: persentase,
-            status:
-              dbInput.category_id === "IKP"
-                ? "N/A"
-                : isSuccess
-                  ? "Tercapai"
-                  : "Tidak Tercapai",
-            keterangan: notesData.keterangan || "",
-            kpc: Number(notesData.kpc) || 0,
-            knc: Number(notesData.knc) || 0,
-            ktc: Number(notesData.ktc) || 0,
-            ktd: Number(notesData.ktd) || 0,
-            sentinel: Number(notesData.sentinel) || 0,
-            visite_details: notesData.visite_details || [],
-            jatuh_details: notesData.jatuh_details || [],
-            identifikasi_details: notesData.identifikasi_details || [],
-            waktu_tunggu_details:
-              notesData.waktu_tunggu_details || notesData.details || [],
-            ...(notesData.fullFormData ? { fullFormData: notesData.fullFormData } : {}),
-          } as DataMutuPayload;
-        });
-        setDataMutuList(mappedInputs);
-      }
-
-      if (Array.isArray(riskRes.data)) setLiveRiskRecords(riskRes.data);
-      if (Array.isArray(survRes.data)) setSurveiBudayaRows(survRes.data);
-    } catch (err) {
-      console.warn("Error loading report data:", err);
-    }
-  }, [indicatorProfiles, setDataMutuList, setIndicatorProfiles]);
-
+  // 1. Load Master Indikator, Inputs, Risiko, Survei Budaya (realtime-synced, no stale closure)
   useEffect(() => {
-    fetchAllReportData();
+    let active = true;
+    const fetchAllReportData = async () => {
+      try {
+        const [profRes, inpRes, riskRes, survRes] = await Promise.all([
+          supabase.from("master_indikator").select("*").order("created_at", { ascending: true }),
+          supabase.from("indicator_inputs").select("*").order("created_at", { ascending: true }),
+          supabase.from("manajemen_risiko").select("*"),
+          supabase.from("survei_budaya").select("*"),
+        ]);
+
+        if (!active) return;
+
+        let activeProfiles = useStore.getState().indicatorProfiles;
+        if (Array.isArray(profRes.data) && profRes.data.length > 0) {
+          activeProfiles = profRes.data.map(adaptMasterProfileFromDb);
+          setIndicatorProfiles(activeProfiles);
+        }
+
+        if (Array.isArray(inpRes.data)) {
+          setDataMutuList(mapDbInputsToMutuPayloads(inpRes.data, activeProfiles));
+        }
+
+        if (Array.isArray(riskRes.data)) setLiveRiskRecords(riskRes.data);
+        if (Array.isArray(survRes.data)) setSurveiBudayaRows(survRes.data);
+      } catch (err) {
+        console.warn("Error loading report data:", err);
+      }
+    };
+
+    void fetchAllReportData();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void fetchAllReportData();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     const ch = supabase
       .channel("laporan-official-sync")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "indicator_inputs" },
-        () => fetchAllReportData(),
+        () => void fetchAllReportData(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "master_indikator" },
+        () => void fetchAllReportData(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "manajemen_risiko" },
-        () => fetchAllReportData(),
+        () => void fetchAllReportData(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "survei_budaya" },
+        () => void fetchAllReportData(),
       )
       .subscribe();
     return () => {
+      active = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
       supabase.removeChannel(ch);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setDataMutuList, setIndicatorProfiles]);
 
   // 2. Load cached AI narratives & Rawat Inap overrides when period changes
   useEffect(() => {
@@ -564,10 +506,10 @@ export default function Laporan() {
     );
     const mIndices = new Set(periodMeta.monthCols.map((m) => m.monthIndex));
     const filtered = dataMutuList.filter((d) => {
-      if (!d.tanggal) return false;
-      const dt = new Date(d.tanggal);
-      if (String(dt.getFullYear()) !== periodMeta.currYear) return false;
-      if (!mIndices.has(dt.getMonth())) return false;
+      const parts = parseIsoDateParts(d.tanggal);
+      if (!parts) return false;
+      if (String(parts.year) !== periodMeta.currYear) return false;
+      if (!mIndices.has(parts.monthIndex)) return false;
       return mSet.has(String(d.indikator_id || "").toLowerCase());
     });
     const grouped: Record<string, DataMutuPayload[]> = {};
@@ -592,17 +534,17 @@ export default function Laporan() {
 
   const getMatrixCell = (indId: string, mIdx: number) => {
     const recs = dataMutuList.filter((d) => {
-      if (!d.tanggal || d.indikator_id !== indId) return false;
-      const dt = new Date(d.tanggal);
+      if (d.indikator_id !== indId) return false;
+      const parts = parseIsoDateParts(d.tanggal);
+      if (!parts) return false;
       return (
-        dt.getMonth() === mIdx &&
-        String(dt.getFullYear()) === periodMeta.currYear
+        parts.monthIndex === mIdx &&
+        String(parts.year) === periodMeta.currYear
       );
     });
     if (recs.length === 0) return "-";
-    const avg =
-      recs.reduce((acc, c) => acc + (Number(c.capaian) || 0), 0) / recs.length;
-    return `${avg.toFixed(2)}%`;
+    const agg = aggregateEntriesCapaian(recs);
+    return `${agg.capaian.toFixed(2)}%`;
   };
 
   const monthNamesFull = [
