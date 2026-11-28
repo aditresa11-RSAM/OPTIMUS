@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import {
   Check,
   CheckCheck,
-  FileSpreadsheet,
   FileUp,
   Plus,
   Trash2,
@@ -1077,16 +1076,13 @@ export default function RekamMedisAuditForm({
     <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
       {/* Header Bar */}
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <FileSpreadsheet size={20} className="text-white" />
-          <div>
-            <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              Audit Mutu Ruang Rekam Medis
-            </h3>
-            <p className="text-[11px] font-semibold text-emerald-100">
-              Unit: {unitLabel || "Rekam Medis"} • Bulan: {bulanLabel} • Target: 100%
-            </p>
-          </div>
+        <div>
+          <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+            Audit Mutu Ruang Rekam Medis
+          </h3>
+          <p className="text-[11px] font-semibold text-emerald-100">
+            Unit: {unitLabel || "Rekam Medis"} • Bulan: {bulanLabel} • Target: 100%
+          </p>
         </div>
         {activeSheet !== "rekap_kuantitatif" && (
           <div className="flex flex-wrap items-center gap-2">
@@ -1568,19 +1564,6 @@ export default function RekamMedisAuditForm({
           </div>
         </div>
       )}
-
-      {/* Footer Score Summary */}
-      <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-xs font-bold text-emerald-900">
-          Sumber Hitung ({metrics.sourceLabel}):{" "}
-          <span className="font-black">{metrics.num}</span> /{" "}
-          <span className="font-black">{metrics.den}</span>
-        </p>
-        <p className="text-xs font-extrabold text-emerald-800">
-          Nilai / Persentase Capaian:{" "}
-          <span className="text-sm font-black">{computedCapaian}%</span>
-        </p>
-      </div>
     </div>
   );
 }

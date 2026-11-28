@@ -473,7 +473,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
       </Head>
 
       {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Manajemen Risiko) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4 mb-2">
+      <div className="w-full max-w-full space-y-4 mb-2">
         <div id="risiko-header-panel" className="relative pt-0 group">
           {/* Card Main Body */}
           <div className="bg-white rounded-3xl border border-emerald-200/60 drop-shadow-card p-4 sm:p-5 md:py-5 md:px-6 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-4 min-h-[152px] sm:min-h-[162px] transition-all duration-300">
@@ -557,7 +557,7 @@ CREATE POLICY "Public Access Manajemen Risiko" ON public.manajemen_risiko FOR AL
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full max-w-full py-5">
         {supabaseError && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}

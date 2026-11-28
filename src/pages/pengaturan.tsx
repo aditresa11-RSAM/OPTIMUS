@@ -408,7 +408,7 @@ export default function Pengaturan() {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 max-w-5xl mx-auto">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6 w-full max-w-full">
       {/* Welcome Hero Greeting Banner - 3D Out-of-Bounds Pop-Out Style (Pengaturan Sistem) */}
       <div id="pengaturan-header-panel" className="relative pt-0 group">
         {/* Card Main Body */}

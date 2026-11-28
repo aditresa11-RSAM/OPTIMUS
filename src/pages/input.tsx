@@ -1847,20 +1847,29 @@ export default function InputData() {
     "Poli Arafah",
   ];
 
-  // Dynamically compute real-time score
-  const computedCapaian = useMemo(() => {
-    let num = watchNumerator !== undefined ? watchNumerator : 0;
+  // Dynamically compute real-time numerator, denominator, and score
+  const {
+    num: computedNumerator,
+    den: computedDenominator,
+    capaian: computedCapaian,
+  } = useMemo(() => {
+    let num =
+      watchNumerator !== undefined && !isNaN(Number(watchNumerator))
+        ? Number(watchNumerator)
+        : 0;
     let den =
-      watchDenominator !== undefined && watchDenominator > 0
-        ? watchDenominator
-        : 1;
+      watchDenominator !== undefined &&
+      !isNaN(Number(watchDenominator)) &&
+      Number(watchDenominator) > 0
+        ? Number(watchDenominator)
+        : 0;
 
     // Special calculations
     if (isVisiteDokter) {
       num = visiteGrid.filter(
         (d) => d.jam_visite_kurang_14 && d.keterangan === "Sesuai Jadwal",
       ).length;
-      den = visiteGrid.length || 1;
+      den = visiteGrid.length;
     } else if (isRisikoJatuh) {
       num = jatuhGrid.reduce(
         (acc, curr) =>
@@ -1868,52 +1877,54 @@ export default function InputData() {
           (curr.asesmen_awal && curr.asesmen_ulang && curr.intervensi ? 1 : 0),
         0,
       );
-      den = jatuhGrid.length || 1;
+      den = jatuhGrid.length;
     } else if (isIdentifikasiPasien) {
       let calcNum = 0;
       let calcDen = 0;
-      identifikasiGrid.forEach(row => {
-         Object.values(row.moments || {}).forEach(m => {
-            if (m.aktif) {
-               calcDen++;
-               if (m.patuh) calcNum++;
-            }
-         });
+      identifikasiGrid.forEach((row) => {
+        Object.values(row.moments || {}).forEach((m) => {
+          if (m.aktif) {
+            calcDen++;
+            if (m.patuh) calcNum++;
+          }
+        });
       });
       num = calcNum;
-      den = calcDen || 1;
+      den = calcDen;
     } else if (isWaktuTunggu) {
       const filledWt = waktuTungguGrid.filter(isRajalRowFilled);
       num = filledWt.filter(isRajalRowCompliant).length;
-      den = filledWt.length || 1;
+      den = filledWt.length;
     } else if (isRekamMedis) {
       const rmMetrics = computeRekamMedisMetrics(rekamMedisBundle);
       num = rmMetrics.num;
-      den = rmMetrics.den || 1;
+      den = rmMetrics.den;
     } else if (radiologiMode) {
-      const radMetrics = computeRadiologiMetrics(radiologiBundle, radiologiMode);
+      const radMetrics = computeRadiologiMetrics(
+        radiologiBundle,
+        radiologiMode,
+      );
       num = radMetrics.num;
-      den = radMetrics.den || 1;
+      den = radMetrics.den;
     } else if (prognasIndicatorType) {
       const pStats = computePrognasStats(prognasData);
       num = pStats.num;
-      den = pStats.den || 1;
+      den = pStats.den;
     } else if (isWaktuTungguRacikan) {
       num = racikanGrid.filter((d) => d.sesuai_standar === true).length;
-      den = racikanGrid.length || 1;
+      den = racikanGrid.length;
     } else if (isHighAlertDoubleCheck) {
       num = highAlertGrid.filter((d) => d.hasil === "Patuh").length;
-      den = highAlertGrid.length || 1;
+      den = highAlertGrid.length;
     } else if (isKekosonganObat) {
       num = kekosonganObatGrid.reduce(
         (acc, curr) => acc + (Number(curr.jumlah_kosong) || 0),
         0,
       );
-      den =
-        Math.max(
-          0,
-          ...kekosonganObatGrid.map((r) => Number(r.jumlah_seluruh_obat) || 0),
-        ) || 1;
+      den = Math.max(
+        0,
+        ...kekosonganObatGrid.map((r) => Number(r.jumlah_seluruh_obat) || 0),
+      );
     } else if (isSBAR) {
       num = sbarGrid.filter(
         (d) =>
@@ -1923,10 +1934,10 @@ export default function InputData() {
           d.recomendation === "Ya" &&
           d.verifikasi === "Ya",
       ).length;
-      den = sbarGrid.length || 1;
+      den = sbarGrid.length;
     } else if (isPenundaanOperasi) {
       num = penundaanGrid.filter((d) => d.tertunda_lebih_60 === true).length;
-      den = penundaanGrid.length || 1;
+      den = penundaanGrid.length;
     } else if (isSurgicalSafety) {
       num = sscGrid.filter(
         (d) =>
@@ -1934,20 +1945,21 @@ export default function InputData() {
           d.time_out === "Ya" &&
           d.sign_out === "Ya",
       ).length;
-      den = sscGrid.length || 1;
+      den = sscGrid.length;
     } else if (isPembatalanOperasi) {
       num = pembatalanGrid.reduce(
         (acc, curr) => acc + (Number(curr.jumlah_batal) || 0),
         0,
       );
-      den =
-        Math.max(
-          0,
-          ...pembatalanGrid.map((r) => Number(r.jumlah_seluruh_operasi) || 0),
-        ) || 1;
+      den = Math.max(
+        0,
+        ...pembatalanGrid.map((r) => Number(r.jumlah_seluruh_operasi) || 0),
+      );
     } else if (isPenyediaanDarah) {
-      num = penyediaanDarahGrid.filter((d) => d.terlambat_lebih_60 === true).length;
-      den = penyediaanDarahGrid.length || 1;
+      num = penyediaanDarahGrid.filter(
+        (d) => d.terlambat_lebih_60 === true,
+      ).length;
+      den = penyediaanDarahGrid.length;
     } else if (isImdBayi) {
       const yaCount = imdGrid.filter((d) => d.imd === "Ya").length;
       const tidakCount = imdGrid.filter((d) => d.imd === "Tidak").length;
@@ -1960,35 +1972,34 @@ export default function InputData() {
         den = maxLahir;
       } else {
         num = yaCount;
-        den = Math.max(imdGrid.length, maxLahir) || 1;
+        den = Math.max(imdGrid.length, maxLahir);
       }
     } else if (kematianConfig) {
       num = kematianGrid.reduce(
         (acc, curr) => acc + (Number(curr.jumlah_kematian) || 0),
         0,
       );
-      den =
-        Math.max(
-          0,
-          ...kematianGrid.map((r) => Number(r.jumlah_populasi) || 0),
-        ) || 1;
+      den = Math.max(
+        0,
+        ...kematianGrid.map((r) => Number(r.jumlah_populasi) || 0),
+      );
     } else if (isPengkajianNyeriIcu) {
       num = pengkajianNyeriGrid.filter(
         (d) => d.asesmen_awal_nyeri === "Ya" && d.asesmen_ulang_nyeri === "Ya",
       ).length;
-      den = pengkajianNyeriGrid.length || 1;
+      den = pengkajianNyeriGrid.length;
     } else if (isEmergencyResponTime) {
       num = emergencyResponGrid.filter((d) => d.respon_kurang_5 === true).length;
-      den = emergencyResponGrid.length || 1;
+      den = emergencyResponGrid.length;
     } else if (isScEmergency) {
       num = scEmergencyGrid.filter((d) => d.sesuai_standar === true).length;
-      den = scEmergencyGrid.length || 1;
+      den = scEmergencyGrid.length;
     } else if (isKomplikasiPersalinan) {
       num = komplikasiGrid.filter((d) => d.ditangani === "Ya").length;
-      den = komplikasiGrid.length || 1;
+      den = komplikasiGrid.length;
     } else if (isHasilKritisLab) {
       num = hasilKritisLabGrid.filter((d) => d.sesuai_standar === true).length;
-      den = hasilKritisLabGrid.length || 1;
+      den = hasilKritisLabGrid.length;
     } else if (isSampelLabTanpaLabel) {
       num = sampelLabGrid.filter(
         (d) =>
@@ -1996,24 +2007,26 @@ export default function InputData() {
           d.identitas_lengkap === "Tidak" ||
           d.status_sampel === "Ditolak",
       ).length;
-      den =
-        Math.max(sampelLabGrid.length, Number(sampelLabTotalDenom) || 0) || 1;
+      den = Math.max(sampelLabGrid.length, Number(sampelLabTotalDenom) || 0);
     } else if (isKunjunganKeluarga) {
-      num = kunjunganGrid.filter((d) => d.sesuai_jam_kunjungan === "Tidak").length;
-      den =
-        Math.max(kunjunganGrid.length, Number(kunjunganTotalDenom) || 0) || 1;
+      num = kunjunganGrid.filter(
+        (d) => d.sesuai_jam_kunjungan === "Tidak",
+      ).length;
+      den = Math.max(kunjunganGrid.length, Number(kunjunganTotalDenom) || 0);
     } else if (isSaranaSanitasi) {
-      num = sanitasiGrid.filter((d) => d.status_fungsi === "Berfungsi Baik").length;
-      den = sanitasiGrid.length || 1;
+      num = sanitasiGrid.filter(
+        (d) => d.status_fungsi === "Berfungsi Baik",
+      ).length;
+      den = sanitasiGrid.length;
     } else if (isPengangkutanLimbah) {
       num = limbahGrid.filter((d) => d.tepat_waktu === true).length;
-      den = limbahGrid.length || 1;
+      den = limbahGrid.length;
     } else if (isAlatSteril) {
       num = alatSterilGrid.filter((d) => d.sesuai_standar === true).length;
-      den = alatSterilGrid.length || 1;
+      den = alatSterilGrid.length;
     } else if (isPenyediaanLinen) {
       num = linenGrid.filter((d) => d.sesuai_standar === true).length;
-      den = linenGrid.length || 1;
+      den = linenGrid.length;
     } else if (isAirBersih24Jam) {
       num = Number(
         airBersihGrid
@@ -2023,25 +2036,29 @@ export default function InputData() {
       den = airBersihGrid.length > 0 ? airBersihGrid.length * 24 : 24;
     } else if (isClinicalPathway) {
       num = clinicalPathwayGrid.filter((d) => d.keterangan === "Patuh").length;
-      den = clinicalPathwayGrid.length || 1;
+      den = clinicalPathwayGrid.length;
     } else if (isVerifikasiTelepon) {
       num = verifikasiTeleponGrid.filter(
         (d) => d.terverifikasi_24jam === true,
       ).length;
-      den = verifikasiTeleponGrid.length || 1;
+      den = verifikasiTeleponGrid.length;
     } else if (yaTidakConfig) {
       num = yaTidakGrid.filter((d) => d.status_ya).length;
-      den = yaTidakGrid.length || 1;
+      den = yaTidakGrid.length;
     } else if (
       customNumerator !== undefined &&
       customDenominator !== undefined
     ) {
       num = customNumerator;
-      den = customDenominator > 0 ? customDenominator : 1;
+      den = customDenominator > 0 ? customDenominator : 0;
     }
 
-    const val = parseFloat(((num / (den || 1)) * 100).toFixed(2));
-    return isNaN(val) ? 0 : val;
+    const val = den > 0 ? parseFloat(((num / den) * 100).toFixed(2)) : 0;
+    return {
+      num,
+      den,
+      capaian: isNaN(val) ? 0 : val,
+    };
   }, [
     watchNumerator,
     watchDenominator,
@@ -5164,7 +5181,7 @@ export default function InputData() {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-7xl mx-auto space-y-6 pb-16">
+    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 w-full max-w-full space-y-5 pb-16">
       {/* Welcome Hero Greeting Banner - Presisi & Tajam Sebagaimana Profil Indikator */}
       <div id="input-header-panel" className="relative pt-0 group">
         {/* Card Main Body (Clipped inside rounded-3xl border - Exact Dashboard & Profil Dimensions) */}
@@ -5217,8 +5234,14 @@ export default function InputData() {
         </div>
       </div>
 
-      {/* Primary Input Panel */}
-      <div className="bg-[#f8fafc] rounded-[32px] shadow-[12px_12px_28px_rgba(160,175,195,0.22),-12px_-12px_28px_rgba(255,255,255,0.95)] border border-white/80 p-8 md:p-10 space-y-8">
+      {/* Primary Input Panel — full-width aligned with hero header card */}
+      <div
+        className={
+          selectedUnit
+            ? "w-full space-y-5"
+            : "bg-[#f8fafc] rounded-[28px] shadow-[10px_10px_24px_rgba(160,175,195,0.2),-10px_-10px_24px_rgba(255,255,255,0.95)] border border-white/80 p-5 md:p-6 space-y-6"
+        }
+      >
         {successMsg && (
           <div className="p-5 bg-emerald-50 text-emerald-800 rounded-2xl flex items-center gap-3 border border-emerald-100/75 animate-in fade-in duration-500">
             <div className="bg-emerald-600 text-white p-1 rounded-full">
@@ -5236,7 +5259,7 @@ export default function InputData() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={handleSubmit(onSubmit)} className="mutu-input-tables space-y-6">
           {/* STEP 1: PILIH UNIT BERBASIS CARD 4 KOLOM + 3D POP-OUT HERO ICON */}
           <div className="w-full" ref={unitDropdownRef}>
             <UnitCardSelector
@@ -5646,16 +5669,13 @@ export default function InputData() {
               {isVisiteDokter && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Input Data Indikator Kepatuhan Jam Visite Dokter
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Input Data Indikator Kepatuhan Jam Visite Dokter
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -5666,7 +5686,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[920px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -5858,26 +5878,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Visite {"<"} 14.00 Sesuai Jadwal:{" "}
-                      <span className="font-black">
-                        {
-                          visiteGrid.filter(
-                            (d) =>
-                              d.jam_visite_kurang_14 &&
-                              d.keterangan === "Sesuai Jadwal",
-                          ).length
-                        }
-                      </span>{" "}
-                      / Total Pasien: <span className="font-black">{visiteGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -5886,16 +5886,13 @@ export default function InputData() {
                 <div className="space-y-6 animate-in fade-in">
                   <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)]">
                     <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                      <div className="flex items-center gap-3">
-                        <Activity size={20} className="text-white" />
-                        <div>
-                          <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                            Data Registrasi Kepatuhan Upaya Pencegahan Risiko Pasien Jatuh
-                          </h3>
-                          <p className="text-[11px] font-semibold text-emerald-100">
-                            Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                          </p>
-                        </div>
+                      <div>
+                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                          Data Registrasi Kepatuhan Upaya Pencegahan Risiko Pasien Jatuh
+                        </h3>
+                        <p className="text-[11px] font-semibold text-emerald-100">
+                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -6091,20 +6088,6 @@ export default function InputData() {
                           )}
                         </tbody>
                       </table>
-                    </div>
-
-                    <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                      <p className="text-xs font-bold text-emerald-900">
-                        Lengkap Ketiga Upaya (Ya semua):{" "}
-                        <span className="font-black">
-                          {jatuhGrid.filter((d) => d.asesmen_awal && d.asesmen_ulang && d.intervensi).length}
-                        </span>{" "}
-                        / Total Pasien: <span className="font-black">{jatuhGrid.length}</span>
-                      </p>
-                      <p className="text-xs font-extrabold text-emerald-800">
-                        Nilai / Persentase Capaian:{" "}
-                        <span className="text-sm font-black">{computedCapaian}%</span>
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -6628,16 +6611,13 @@ export default function InputData() {
               {isWaktuTungguRacikan && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Waktu Tunggu Pelayanan Obat Racikan (≤ 60 Menit)
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Waktu Tunggu Pelayanan Obat Racikan (≤ 60 Menit)
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -6648,8 +6628,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[920px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -6830,20 +6810,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Selesai ≤ 60 Menit:{" "}
-                      <span className="font-black">
-                        {racikanGrid.filter((d) => d.sesuai_standar === true).length}
-                      </span>{" "}
-                      / Total Resep Racikan: <span className="font-black">{racikanGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -6851,16 +6817,13 @@ export default function InputData() {
               {isHighAlertDoubleCheck && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Kepatuhan Double Check Obat High Alert
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Kepatuhan Double Check Obat High Alert
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -6871,7 +6834,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -7025,21 +6988,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Patuh (Double Check &amp; Dokumentasi Lengkap):{" "}
-                      <span className="font-black">
-                        {highAlertGrid.filter((d) => d.hasil === "Patuh").length}
-                      </span>{" "}
-                      / Total Pemberian High Alert:{" "}
-                      <span className="font-black">{highAlertGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -7047,16 +6995,13 @@ export default function InputData() {
               {isKekosonganObat && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Input Data Presentase Kejadian Kekosongan Obat Essensial
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Input Data Presentase Kejadian Kekosongan Obat Essensial
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -7073,7 +7018,7 @@ export default function InputData() {
                     </p>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[980px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -7239,29 +7184,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Total Item Kosong:{" "}
-                      <span className="font-black">
-                        {kekosonganObatGrid.reduce(
-                          (acc, curr) => acc + (Number(curr.jumlah_kosong) || 0),
-                          0,
-                        )}
-                      </span>{" "}
-                      / Total Obat Essensial:{" "}
-                      <span className="font-black">
-                        {Math.max(
-                          0,
-                          ...kekosonganObatGrid.map((r) => Number(r.jumlah_seluruh_obat) || 0),
-                        )}
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Kekosongan:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -7269,16 +7191,13 @@ export default function InputData() {
               {isClinicalPathway && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Input Data Kepatuhan Clinical Pathway
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Input Data Kepatuhan Clinical Pathway
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -7289,8 +7208,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1060px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -7454,20 +7373,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Patuh (LOS, Obat &amp; Penunjang Sesuai):{" "}
-                      <span className="font-black">
-                        {clinicalPathwayGrid.filter((d) => d.keterangan === "Patuh").length}
-                      </span>{" "}
-                      / Total Pasien: <span className="font-black">{clinicalPathwayGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -7475,16 +7380,13 @@ export default function InputData() {
               {isVerifikasiTelepon && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Pelaksanaan Verifikasi 1x24 Jam Pada Instruksi Melalui Telepon Oleh DPJP
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Pelaksanaan Verifikasi 1x24 Jam Pada Instruksi Melalui Telepon Oleh DPJP
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -7495,7 +7397,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[980px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -7669,21 +7571,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Terverifikasi 1x24 Jam:{" "}
-                      <span className="font-black">
-                        {verifikasiTeleponGrid.filter((d) => d.terverifikasi_24jam === true).length}
-                      </span>{" "}
-                      / Total Instruksi:{" "}
-                      <span className="font-black">{verifikasiTeleponGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -7691,16 +7578,13 @@ export default function InputData() {
               {yaTidakConfig && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          {yaTidakConfig.tableTitle}
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        {yaTidakConfig.tableTitle}
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -7717,7 +7601,7 @@ export default function InputData() {
                     </p>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[900px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -7857,20 +7741,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Sesuai / Dilakukan (Ya):{" "}
-                      <span className="font-black">
-                        {yaTidakGrid.filter((d) => d.status_ya).length}
-                      </span>{" "}
-                      / Total Pasien: <span className="font-black">{yaTidakGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -7878,16 +7748,13 @@ export default function InputData() {
               {isSBAR && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Kepatuhan Pelaksanaan Dokumen SBAR Pada Rekam Medis
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -7898,8 +7765,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1120px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -8061,29 +7928,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Lengkap SBAR &amp; Verifikasi:{" "}
-                      <span className="font-black">
-                        {
-                          sbarGrid.filter(
-                            (d) =>
-                              d.situation === "Ya" &&
-                              d.background === "Ya" &&
-                              d.assesment === "Ya" &&
-                              d.recomendation === "Ya" &&
-                              d.verifikasi === "Ya",
-                          ).length
-                        }
-                      </span>{" "}
-                      / Total Pasien: <span className="font-black">{sbarGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -8091,16 +7935,13 @@ export default function InputData() {
               {isPenundaanOperasi && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Penundaan Operasi Elektif (Target &lt; 5%)
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Penundaan Operasi Elektif (Target &lt; 5%)
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -8111,8 +7952,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1040px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -8293,20 +8134,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Tertunda &gt; 1 Jam:{" "}
-                      <span className="font-black">
-                        {penundaanGrid.filter((d) => d.tertunda_lebih_60 === true).length}
-                      </span>{" "}
-                      / Total Operasi Elektif: <span className="font-black">{penundaanGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Penundaan:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -8314,16 +8141,13 @@ export default function InputData() {
               {isSurgicalSafety && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Kepatuhan Pelaksanaan Surgical Safety Checklist (SSC)
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Kepatuhan Pelaksanaan Surgical Safety Checklist (SSC)
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -8334,7 +8158,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[960px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -8483,27 +8307,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      SSC Lengkap (Sign In, Time Out &amp; Sign Out = Ya):{" "}
-                      <span className="font-black">
-                        {
-                          sscGrid.filter(
-                            (d) =>
-                              d.sign_in === "Ya" &&
-                              d.time_out === "Ya" &&
-                              d.sign_out === "Ya",
-                          ).length
-                        }
-                      </span>{" "}
-                      / Total Operasi: <span className="font-black">{sscGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -8511,16 +8314,13 @@ export default function InputData() {
               {isPembatalanOperasi && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Monitoring Pembatalan Operasi Elektif (Target ≤ 2%)
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Monitoring Pembatalan Operasi Elektif (Target ≤ 2%)
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -8537,8 +8337,8 @@ export default function InputData() {
                     </p>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[920px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -8703,23 +8503,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Total Dibatalkan:{" "}
-                      <span className="font-black">
-                        {pembatalanGrid.reduce((acc, c) => acc + (Number(c.jumlah_batal) || 0), 0)}
-                      </span>{" "}
-                      / Total Operasi Terjadwal:{" "}
-                      <span className="font-black">
-                        {Math.max(0, ...pembatalanGrid.map((r) => Number(r.jumlah_seluruh_operasi) || 0))}
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Pembatalan:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -8727,16 +8510,13 @@ export default function InputData() {
               {isPenyediaanDarah && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Angka Keterlambatan Penyediaan Darah Obstetri &amp; Neonatus (&gt; 60 Menit)
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Angka Keterlambatan Penyediaan Darah Obstetri &amp; Neonatus (&gt; 60 Menit)
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: ≤ 0%
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -8747,8 +8527,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1080px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -8936,21 +8716,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Terlambat &gt; 60 Menit:{" "}
-                      <span className="font-black">
-                        {penyediaanDarahGrid.filter((d) => d.terlambat_lebih_60 === true).length}
-                      </span>{" "}
-                      / Total Permintaan Darah:{" "}
-                      <span className="font-black">{penyediaanDarahGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Keterlambatan:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -8958,16 +8723,13 @@ export default function InputData() {
               {isImdBayi && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Angka Kejadian Tidak Dilakukannya IMD Pada Bayi Baru Lahir
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target IMD: 100%
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        Formulir Angka Kejadian Tidak Dilakukannya IMD Pada Bayi Baru Lahir
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target IMD: 100%
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -8978,7 +8740,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[960px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -9128,20 +8890,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Dilakukan IMD (Ya):{" "}
-                      <span className="font-black">
-                        {imdGrid.filter((d) => d.imd === "Ya").length}
-                      </span>{" "}
-                      / Total Baris Data: <span className="font-black">{imdGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian IMD:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -9149,16 +8897,13 @@ export default function InputData() {
               {kematianConfig && (
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
-                      <div>
-                        <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          {kematianConfig.tableTitle}
-                        </h3>
-                        <p className="text-[11px] font-semibold text-emerald-100">
-                          Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+                        {kematianConfig.tableTitle}
+                      </h3>
+                      <p className="text-[11px] font-semibold text-emerald-100">
+                        Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -9181,8 +8926,8 @@ export default function InputData() {
                     ))}
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1160px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -9377,23 +9122,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Jumlah Kematian:{" "}
-                      <span className="font-black">
-                        {kematianGrid.reduce((acc, c) => acc + (Number(c.jumlah_kematian) || 0), 0)}
-                      </span>{" "}
-                      / {kematianConfig.populationLabel}:{" "}
-                      <span className="font-black">
-                        {Math.max(0, ...kematianGrid.map((r) => Number(r.jumlah_populasi) || 0))}
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -9402,7 +9130,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Kepatuhan Pengkajian Nyeri (ICU)
@@ -9421,7 +9148,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -9569,27 +9296,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Asesmen Awal &amp; Ulang Nyeri Lengkap (Ya):{" "}
-                      <span className="font-black">
-                        {
-                          pengkajianNyeriGrid.filter(
-                            (d) =>
-                              d.asesmen_awal_nyeri === "Ya" &&
-                              d.asesmen_ulang_nyeri === "Ya",
-                          ).length
-                        }
-                      </span>{" "}
-                      / Total Pasien:{" "}
-                      <span className="font-black">{pengkajianNyeriGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -9599,10 +9305,9 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-                          Formulir Emergency Respon Time (&le; 5 Menit / 00:05:00)
+                          Formulir Emergency Respon Time &le; 5 menit
                         </h3>
                         <p className="text-[11px] font-semibold text-emerald-100">
                           Unit: {selectedUnit?.name || "-"} {selectedSubUnit ? `(${selectedSubUnit})` : ""} • Bulan: {formattedBulanLabel} • Target: 100%
@@ -9630,38 +9335,41 @@ export default function InputData() {
                     <option value="T14.0 - Superficial injury of" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse border border-slate-300 bg-white min-w-[1180px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table
+                      data-testid="emergency-respon-table"
+                      className="w-full text-left border-collapse border border-slate-300 bg-white min-w-[940px]"
+                    >
                       <thead>
                         <tr className="bg-slate-100 border-b border-slate-300 text-slate-900">
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs uppercase text-center w-12 border-r border-slate-300">
+                          <th className="py-2.5 px-1.5 font-extrabold text-xs uppercase text-center w-10 border-r border-slate-300">
                             NO
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-32 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[120px] border-r border-slate-300">
                             Tanggal
                           </th>
-                          <th className="py-2.5 px-3 font-extrabold text-xs text-center min-w-[180px] border-r border-slate-300">
+                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center min-w-[135px] border-r border-slate-300">
                             Pasien
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-28 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[84px] border-r border-slate-300">
                             RM
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-36 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[120px] border-r border-slate-300">
                             Tgl Lahir
                           </th>
-                          <th className="py-2.5 px-3 font-extrabold text-xs text-center min-w-[230px] border-r border-slate-300">
+                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center min-w-[160px] border-r border-slate-300">
                             Diagnosa
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-36 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[88px] border-r border-slate-300">
                             Jam Reg
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-36 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[92px] border-r border-slate-300">
                             Jam Periksa
                           </th>
-                          <th className="py-2.5 px-2.5 font-extrabold text-xs text-center w-36 border-r border-slate-300">
+                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-[94px] border-r border-slate-300">
                             Interval
                           </th>
-                          <th className="py-2.5 px-2 font-extrabold text-xs text-center w-12">
+                          <th className="py-2.5 px-1.5 font-extrabold text-xs text-center w-11">
                             Aksi
                           </th>
                         </tr>
@@ -9809,21 +9517,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Respon Time &le; 5 Menit (00:05:00):{" "}
-                      <span className="font-black">
-                        {emergencyResponGrid.filter((d) => d.respon_kurang_5 === true).length}
-                      </span>{" "}
-                      / Total Pasien Gawat Darurat:{" "}
-                      <span className="font-black">{emergencyResponGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -9832,7 +9525,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Validasi Waktu Tanggap Operasi Seksio Sesaria Emergency (&le; 30 Menit)
@@ -9851,8 +9543,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1040px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -10033,21 +9725,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      SC Emergency &le; 30 Menit:{" "}
-                      <span className="font-black">
-                        {scEmergencyGrid.filter((d) => d.sesuai_standar === true).length}
-                      </span>{" "}
-                      / Total Pasien SC Emergency:{" "}
-                      <span className="font-black">{scEmergencyGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -10056,7 +9733,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Angka Persalinan Dengan Komplikasi Tertangani
@@ -10086,8 +9762,8 @@ export default function InputData() {
                     <option value="Ketuban Pecah Dini (KPD)" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1060px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -10279,21 +9955,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Komplikasi Tertangani Sesuai Standar:{" "}
-                      <span className="font-black">
-                        {komplikasiGrid.filter((d) => d.ditangani === "Ya").length}
-                      </span>{" "}
-                      / Total Persalinan Dengan Komplikasi:{" "}
-                      <span className="font-black">{komplikasiGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -10302,7 +9963,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Pelaporan Hasil Kritis Laboratorium (&lt; 30 Menit)
@@ -10321,8 +9981,8 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1040px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-3 font-extrabold text-xs uppercase w-12 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -10502,21 +10162,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Dilaporkan &lt; 30 Menit:{" "}
-                      <span className="font-black">
-                        {hasilKritisLabGrid.filter((d) => d.sesuai_standar === true).length}
-                      </span>{" "}
-                      / Total Hasil Kritis:{" "}
-                      <span className="font-black">{hasilKritisLabGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -10525,7 +10170,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Persentase Sampel Laboratorium Yang Tidak Diberi Pelabelan
@@ -10598,8 +10242,8 @@ export default function InputData() {
                     <option value="Swab / Kultur" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1160px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -10815,30 +10459,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Sampel Tidak Berlabel / Ditolak:{" "}
-                      <span className="font-black">
-                        {
-                          sampelLabGrid.filter(
-                            (d) =>
-                              d.label_ada === "Tidak" ||
-                              d.identitas_lengkap === "Tidak" ||
-                              d.status_sampel === "Ditolak",
-                          ).length
-                        }
-                      </span>{" "}
-                      / Total Sampel Diterima:{" "}
-                      <span className="font-black">
-                        {Math.max(sampelLabGrid.length, Number(sampelLabTotalDenom) || 0)}
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Tanpa Label:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -10848,7 +10468,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Angka Kunjungan Keluarga Diluar Jam Kunjungan Rumah Sakit
@@ -10909,8 +10528,8 @@ export default function InputData() {
                     <option value="IGD" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1160px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -11090,23 +10709,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Kunjungan Diluar Jam Tanpa Izin:{" "}
-                      <span className="font-black">
-                        {kunjunganGrid.filter((d) => d.sesuai_jam_kunjungan === "Tidak").length}
-                      </span>{" "}
-                      / Total Kunjungan:{" "}
-                      <span className="font-black">
-                        {Math.max(kunjunganGrid.length, Number(kunjunganTotalDenom) || 0)}
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Diluar Jam:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -11115,7 +10717,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Activity size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Persentase Sarana Sanitasi (Toilet, Wastafel, Saluran Pembuangan)
@@ -11151,8 +10752,8 @@ export default function InputData() {
                     <option value="Laundry / CSSD" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1120px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -11319,21 +10920,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Sarana Berfungsi Baik:{" "}
-                      <span className="font-black">
-                        {sanitasiGrid.filter((d) => d.status_fungsi === "Berfungsi Baik").length}
-                      </span>{" "}
-                      / Total Diperiksa:{" "}
-                      <span className="font-black">{sanitasiGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Berfungsi Baik:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -11342,7 +10928,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Ketepatan Waktu Pengangkutan Limbah Rumah Sakit
@@ -11361,7 +10946,7 @@ export default function InputData() {
                     </button>
                   </div>
 
-                  <div className="p-6 overflow-x-auto">
+                  <div className="p-3 md:p-4 overflow-x-auto">
                     <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
@@ -11501,21 +11086,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Pengangkutan Tepat Waktu:{" "}
-                      <span className="font-black">
-                        {limbahGrid.filter((d) => d.tepat_waktu === true).length}
-                      </span>{" "}
-                      / Total Jadwal Pengangkutan:{" "}
-                      <span className="font-black">{limbahGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -11524,7 +11094,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Ketepatan Waktu Penyediaan Alat Steril
@@ -11556,8 +11125,8 @@ export default function InputData() {
                     <option value="Ranap Usman" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1060px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -11736,21 +11305,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Dipenuhi Tepat Waktu:{" "}
-                      <span className="font-black">
-                        {alatSterilGrid.filter((d) => d.sesuai_standar === true).length}
-                      </span>{" "}
-                      / Total Permintaan Alat Steril:{" "}
-                      <span className="font-black">{alatSterilGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -11759,7 +11313,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Ketepatan Waktu Penyediaan Linen Untuk Rawat Inap (&le; 30 Menit)
@@ -11799,8 +11352,8 @@ export default function InputData() {
                     <option value="IGD" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1140px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -11989,21 +11542,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Dipenuhi Tepat Waktu (&le; 30 Menit):{" "}
-                      <span className="font-black">
-                        {linenGrid.filter((d) => d.sesuai_standar === true).length}
-                      </span>{" "}
-                      / Total Permintaan Linen:{" "}
-                      <span className="font-black">{linenGrid.length}</span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Nilai / Persentase Capaian:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -12012,7 +11550,6 @@ export default function InputData() {
                 <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
                   <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3">
-                      <Clock size={20} className="text-white" />
                       <div>
                         <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
                           Formulir Ketersediaan Air Bersih Dalam 24 Jam
@@ -12057,8 +11594,8 @@ export default function InputData() {
                     <option value="Laboratorium" />
                   </datalist>
 
-                  <div className="p-6 overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[1120px]">
+                  <div className="p-3 md:p-4 overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[940px]">
                       <thead>
                         <tr className="bg-emerald-50/55 border-b border-emerald-100 text-emerald-950">
                           <th className="py-3 px-2.5 font-extrabold text-xs uppercase w-10 text-center rounded-tl-xl border-r border-emerald-100/30">
@@ -12219,28 +11756,6 @@ export default function InputData() {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-                    <p className="text-xs font-bold text-emerald-900">
-                      Total Jam Tersedia:{" "}
-                      <span className="font-black">
-                        {Number(
-                          airBersihGrid
-                            .reduce((acc, c) => acc + (Number(c.jam_tersedia) || 0), 0)
-                            .toFixed(2),
-                        )}{" "}
-                        Jam
-                      </span>{" "}
-                      / Total Jam Pengamatan:{" "}
-                      <span className="font-black">
-                        {airBersihGrid.length > 0 ? airBersihGrid.length * 24 : 24} Jam
-                      </span>
-                    </p>
-                    <p className="text-xs font-extrabold text-emerald-800">
-                      Persentase Ketersediaan Air:{" "}
-                      <span className="text-sm font-black">{computedCapaian}%</span>
-                    </p>
-                  </div>
                 </div>
               )}
 
@@ -12346,13 +11861,40 @@ export default function InputData() {
 
           {/* REALTIME SCORE PREVIEW & CALCULATION INSIGHT BAR */}
           {watchKategori !== "IKP" && selectedIndikatorProfile && (
-            <div className="bg-[#f8fafc] rounded-[28px] border border-white shadow-[10px_10px_25px_rgba(160,175,195,0.22),-10px_-10px_25px_rgba(255,255,255,0.95)] p-6 md:p-10 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500 max-w-2xl mx-auto w-full">
-              <span className="text-sm md:text-base font-semibold text-gray-500 tracking-wide md:mb-1">
+            <div className="bg-[#f8fafc] rounded-[28px] border border-white shadow-[10px_10px_25px_rgba(160,175,195,0.22),-10px_-10px_25px_rgba(255,255,255,0.95)] p-6 md:p-8 flex flex-col items-center justify-center gap-4 animate-in fade-in duration-500 w-full">
+              <span className="text-sm md:text-base font-semibold text-gray-500 tracking-wide">
                 Persentase Capaian
               </span>
 
+              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
+                <div className="bg-white/90 border border-slate-200/80 rounded-2xl px-5 py-2.5 flex items-center gap-2.5 shadow-2xs">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Numerator:
+                  </span>
+                  <span
+                    data-testid="score-numerator"
+                    className="text-lg md:text-xl font-black text-emerald-700 tabular-nums"
+                  >
+                    {computedNumerator}
+                  </span>
+                </div>
+                <span className="text-slate-300 font-black text-xl select-none">/</span>
+                <div className="bg-white/90 border border-slate-200/80 rounded-2xl px-5 py-2.5 flex items-center gap-2.5 shadow-2xs">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Denumerator:
+                  </span>
+                  <span
+                    data-testid="score-denumerator"
+                    className="text-lg md:text-xl font-black text-slate-800 tabular-nums"
+                  >
+                    {computedDenominator}
+                  </span>
+                </div>
+              </div>
+
               <div className="flex flex-col items-center gap-5 mt-1">
                 <span
+                  data-testid="score-percentage"
                   className={`text-[60px] md:text-[72px] font-bold leading-none tracking-tight transition-all duration-500 drop-shadow-[0_4px_8px_rgba(0,0,0,0.15)] ${
                     achievementStatus === "Tercapai"
                       ? "text-[#10a37f]"

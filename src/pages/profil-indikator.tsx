@@ -817,7 +817,7 @@ export default function ProfilIndikator() {
   };
 
   return (
-    <div id="profil-indikator-root" className="space-y-6 pb-4 relative max-w-6xl mx-auto w-full">
+    <div id="profil-indikator-root" className="space-y-6 pb-4 relative w-full max-w-full">
       
       {/* Dynamic light frosted glass pop-up toasts */}
       <AnimatePresence>

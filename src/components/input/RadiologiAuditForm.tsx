@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, FileUp, Plus, Trash2, X, Check } from "lucide-react";
+import { FileUp, Plus, Trash2, X, Check } from "lucide-react";
 import {
   RadiologiAuditBundle,
   RadJumlahPemeriksaanRow,
@@ -447,21 +447,18 @@ export default function RadiologiAuditForm({
   return (
     <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <FileSpreadsheet size={20} className="text-white" />
-          <div>
-            <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              Formulir Mutu Ruang Radiologi
-            </h3>
-            <p className="text-[11px] font-semibold text-emerald-100">
-              Unit: Radiologi • Bulan: {bulanLabel} {tahunLabel} • Indikator Aktif:{" "}
-              {defaultTab === "thorax_wt"
-                ? "Waktu Tunggu Thorax Foto ≤ 180 Menit (Target: 100%)"
-                : defaultTab === "reject_analisis"
-                  ? "Reject Analisis Pelayanan Rontgent (Target: ≤ 2%)"
-                  : "Pelaksana Ekspertisi Hasil Pemeriksaan (Target: 100%)"}
-            </p>
-          </div>
+        <div>
+          <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+            Formulir Mutu Ruang Radiologi
+          </h3>
+          <p className="text-[11px] font-semibold text-emerald-100">
+            Unit: Radiologi • Bulan: {bulanLabel} {tahunLabel} • Indikator Aktif:{" "}
+            {defaultTab === "thorax_wt"
+              ? "Waktu Tunggu Thorax Foto ≤ 180 Menit (Target: 100%)"
+              : defaultTab === "reject_analisis"
+                ? "Reject Analisis Pelayanan Rontgent (Target: ≤ 2%)"
+                : "Pelaksana Ekspertisi Hasil Pemeriksaan (Target: 100%)"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -612,32 +609,32 @@ export default function RadiologiAuditForm({
 
       {/* SHEET 2: MUTU REJECT ANALISIS PELAYANAN RONTGENT */}
       {activeSheet === "reject_analisis" && (
-        <div className="p-5 overflow-x-auto space-y-4">
+        <div className="p-3 md:p-4 overflow-x-auto space-y-4">
           <div className="text-center bg-slate-50 border border-slate-300 rounded-xl py-2.5 px-4">
             <p className="text-xs md:text-sm font-black text-slate-900 uppercase">
               MUTU REJECT ANALISIS PELAYANAN RONTGENT
             </p>
           </div>
 
-          <table className="w-full border-collapse border border-slate-400 bg-white text-xs min-w-[1100px]">
+          <table className="w-full border-collapse border border-slate-400 bg-white text-xs min-w-[940px]">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-400 text-slate-900">
-                <th className="py-2 px-2 border-r border-slate-400 text-center w-10">NO</th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center w-32">TANGGAL</th>
-                <th className="py-2 px-3 border-r border-slate-400 text-center min-w-[160px]">NAMA PASIEN</th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center w-24">NO RM</th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[150px]">JENIS PEMERIKSAAN</th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center w-36 leading-tight">
+                <th className="py-2 px-1.5 border-r border-slate-400 text-center w-9">NO</th>
+                <th className="py-2 px-2 border-r border-slate-400 text-center w-[118px]">TANGGAL</th>
+                <th className="py-2 px-2.5 border-r border-slate-400 text-center min-w-[130px]">NAMA PASIEN</th>
+                <th className="py-2 px-2 border-r border-slate-400 text-center w-20">NO RM</th>
+                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[125px]">JENIS PEMERIKSAAN</th>
+                <th className="py-2 px-2 border-r border-slate-400 text-center w-32 leading-tight">
                   HASIL FOTO TERBACA DENGAN BAIK (YA/TIDAK)
                 </th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[180px] leading-tight">
+                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[135px] leading-tight">
                   BILA TIDAK TERBACA ALASANYA
                 </th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[180px] leading-tight">
+                <th className="py-2 px-2 border-r border-slate-400 text-center min-w-[135px] leading-tight">
                   TINDAK LANJUT BILA FOTO TIDAK TERBACA
                 </th>
-                <th className="py-2 px-2 border-r border-slate-400 text-center w-14">KET</th>
-                <th className="py-2 px-2 text-center w-12">AKSI</th>
+                <th className="py-2 px-1.5 border-r border-slate-400 text-center w-12">KET</th>
+                <th className="py-2 px-1.5 text-center w-11">AKSI</th>
               </tr>
             </thead>
             <tbody>
@@ -1155,18 +1152,6 @@ export default function RadiologiAuditForm({
           </table>
         </div>
       )}
-
-      {/* Footer Score Summary */}
-      <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-xs font-bold text-emerald-900">
-          Numerator: <span className="font-black">{metrics.num}</span> / Denominator:{" "}
-          <span className="font-black">{metrics.den}</span>
-        </p>
-        <p className="text-xs font-extrabold text-emerald-800">
-          Nilai / Persentase Capaian:{" "}
-          <span className="text-sm font-black">{computedCapaian}%</span>
-        </p>
-      </div>
     </div>
   );
 }

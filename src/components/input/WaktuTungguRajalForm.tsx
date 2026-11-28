@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Clock, FileUp, Plus, Trash2, X } from "lucide-react";
+import { FileUp, Plus, Trash2, X } from "lucide-react";
 import { WaktuTungguData } from "@/store/useStore";
 
 export const RAJAL_SHEET_POLIS = [
@@ -312,17 +312,14 @@ export default function WaktuTungguRajalForm({
     <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
       {/* Header Bar */}
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Clock size={20} className="text-white" />
-          <div>
-            <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              Formulir Waktu Tunggu Rawat Jalan &lt; 60 Menit
-            </h3>
-            <p className="text-[11px] font-semibold text-emerald-100">
-              Unit: Rawat Jalan • Sheet Aktif: Poli {activeSheet} • Bulan:{" "}
-              {bulanLabel} • Target: &ge; 80%
-            </p>
-          </div>
+        <div>
+          <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+            Formulir Waktu Tunggu Rawat Jalan &lt; 60 Menit
+          </h3>
+          <p className="text-[11px] font-semibold text-emerald-100">
+            Unit: Rawat Jalan • Sheet Aktif: Poli {activeSheet} • Bulan:{" "}
+            {bulanLabel} • Target: &ge; 80%
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -604,22 +601,6 @@ export default function WaktuTungguRajalForm({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Footer Summary */}
-      <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-xs font-bold text-emerald-900">
-          Poli {activeSheet}: <span className="font-black">{sheetN}</span> /{" "}
-          <span className="font-black">{sheetD}</span> ({sheetPct}%) • Total
-          Semua Sheet Diisi:{" "}
-          <span className="font-black">
-            {totalCompliant} / {filledAllRows.length}
-          </span>
-        </p>
-        <p className="text-xs font-extrabold text-emerald-800">
-          Nilai / Persentase Capaian:{" "}
-          <span className="text-sm font-black">{computedCapaian}%</span>
-        </p>
       </div>
     </div>
   );

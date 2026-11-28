@@ -111,8 +111,8 @@ export default function Layout({ children, router }: LayoutProps) {
         </header>
 
         {/* Primary Page views main insertion wrapper */}
-        <main className="flex-1 w-full px-4 sm:px-5 md:px-6 lg:px-6 xl:px-8 pt-20 md:pt-[104px] pb-10">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 w-full px-3 sm:px-4 md:px-5 lg:px-6 pt-20 md:pt-[104px] pb-10">
+          <div className="w-full max-w-[1680px] mx-auto">{children}</div>
         </main>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import React from "react";
-import { Activity } from "lucide-react";
 import { PrognasMutuData } from "@/store/useStore";
 
 export type PrognasIndicatorType = PrognasMutuData["indicator_type"];
@@ -148,16 +147,13 @@ export default function PrognasMutuForm({
   return (
     <div className="bg-[#f8fafc] border border-white rounded-[28px] overflow-hidden shadow-[8px_8px_20px_rgba(160,175,195,0.2),-8px_-8px_20px_rgba(255,255,255,0.95)] animate-in fade-in">
       <div className="bg-emerald-600 p-5 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Activity size={20} className="text-white" />
-          <div>
-            <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
-              LAPORAN MUTU PROGNAS — {bulanLabel.toUpperCase()} TAHUN {tahunLabel}
-            </h3>
-            <p className="text-[11px] font-semibold text-emerald-100">
-              Unit: Prognas • Indikator: {preset.sectionTitle} • Target: {preset.targetPct}
-            </p>
-          </div>
+        <div>
+          <h3 className="font-extrabold text-white tracking-wide text-sm md:text-base">
+            LAPORAN MUTU PROGNAS — {bulanLabel.toUpperCase()} TAHUN {tahunLabel}
+          </h3>
+          <p className="text-[11px] font-semibold text-emerald-100">
+            Unit: Prognas • Indikator: {preset.sectionTitle} • Target: {preset.targetPct}
+          </p>
         </div>
         <div className="flex items-center gap-2 bg-white/15 px-3 py-1.5 rounded-xl">
           <span className="text-[11px] font-bold text-white">Tanggal:</span>
@@ -261,17 +257,6 @@ export default function PrognasMutuForm({
             />
           </div>
         </div>
-      </div>
-
-      <div className="px-6 py-4 bg-emerald-50/70 border-t border-emerald-100 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-xs font-bold text-emerald-900">
-          Capaian: <span className="font-black">{stats.num}</span> /{" "}
-          <span className="font-black">{data.target_count || 0}</span>
-        </p>
-        <p className="text-xs font-extrabold text-emerald-800">
-          Nilai / Persentase Capaian:{" "}
-          <span className="text-sm font-black">{computedCapaian}%</span>
-        </p>
       </div>
     </div>
   );

@@ -18,6 +18,98 @@
   }
 }
 
+/* Clean Time & Date Table Inputs:
+   Hide native clock/calendar icons visually while stretching the real native
+   picker indicator invisibly over the entire cell so clicking ANYWHERE in the
+   cell natively opens the browser time/date picker (works even inside iframes). */
+input[type="time"],
+table input[type="date"] {
+  position: relative;
+  cursor: pointer;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+table input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+
+input[type="time"]::-webkit-clear-button,
+input[type="time"]::-webkit-inner-spin-button,
+table input[type="date"]::-webkit-clear-button,
+table input[type="date"]::-webkit-inner-spin-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* Stretch date/time inputs flush across their table cell so the whole cell opens the picker */
+td:has(> input[type="time"]),
+td:has(> input[type="date"]) {
+  padding: 0 !important;
+  position: relative;
+}
+
+td > input[type="time"],
+td > input[type="date"] {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 6px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+/* Mutu Input Tables: center-align all table content across every mutu form,
+   EXCEPT patient-name column content which stays cleanly left-aligned. */
+.mutu-input-tables table th,
+.mutu-input-tables table td {
+  text-align: center;
+}
+
+.mutu-input-tables table td input[type="text"],
+.mutu-input-tables table td input[type="number"],
+.mutu-input-tables table td input[type="date"],
+.mutu-input-tables table td input[type="time"],
+.mutu-input-tables table td select,
+.mutu-input-tables table td textarea {
+  text-align: center;
+}
+
+.mutu-input-tables table td input[type="date"]::-webkit-datetime-edit,
+.mutu-input-tables table td input[type="time"]::-webkit-datetime-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.mutu-input-tables table td select {
+  text-align-last: center;
+}
+
+/* Exception: keep Patient Name column cell content left-aligned */
+.mutu-input-tables table td:has(input[placeholder*="Pasien" i]),
+.mutu-input-tables table td:has(input[placeholder="NO RM / Nama"]) {
+  text-align: left;
+}
+
+.mutu-input-tables table td input[placeholder*="Pasien" i],
+.mutu-input-tables table td input[placeholder="NO RM / Nama"] {
+  text-align: left !important;
+}
+
 /* Custom Elegant Slim Emerald Scrollbar */
 html {
   scrollbar-width: thin;

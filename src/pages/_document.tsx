@@ -16,11 +16,33 @@ export default function Document() {
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              try {
-                window.next = window.next || {};
-                window.next.router = window.next.router || { components: {}, pathname: "" };
-                if (!window.next.router.components) { window.next.router.components = {}; }
-              } catch(e) {}
+              (function() {
+                try {
+                  window.__NEXT_PROXY_GUARDED__ = true;
+                  var fallbackRouter = { components: {}, pathname: typeof location !== "undefined" ? location.pathname : "/" };
+                  var wrapNext = function(obj) {
+                    if (!obj || typeof obj !== "object") return obj;
+                    return new Proxy(obj, {
+                      get: function(target, prop, receiver) {
+                        var val = Reflect.get(target, prop, receiver);
+                        if (prop === "router") {
+                          if (!val) return fallbackRouter;
+                          if (!val.components) val.components = {};
+                          return val;
+                        }
+                        return val;
+                      }
+                    });
+                  };
+                  var currentNext = wrapNext(window.next || { router: fallbackRouter });
+                  Object.defineProperty(window, "next", {
+                    configurable: true,
+                    enumerable: true,
+                    get: function() { return currentNext; },
+                    set: function(v) { currentNext = wrapNext(v); }
+                  });
+                } catch(e) {}
+              })();
             `,
           }}
         />

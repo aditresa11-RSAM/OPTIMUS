@@ -36,32 +36,41 @@ if (typeof window !== "undefined") {
     (window as any).__NEXT_DATA__ = currentNextData;
   }
 
-  // 2. Guard window.next.router.components for Next.js hot-reloader
+  // 2. Ensure window.next.router always resolves safely before/during hydration
   const win = window as any;
-  if (!win.next) {
-    win.next = {};
-  }
-  let currentRouter = win.next.router || { components: {}, pathname: "" };
-  if (!currentRouter.components) {
-    currentRouter.components = {};
-  }
-  try {
-    Object.defineProperty(win.next, "router", {
-      get() {
-        return currentRouter;
-      },
-      set(newRouter) {
-        if (newRouter) {
-          if (!newRouter.components) {
-            newRouter.components = {};
+  if (!win.__NEXT_PROXY_GUARDED__) {
+    win.__NEXT_PROXY_GUARDED__ = true;
+    const fallbackRouter = {
+      components: {},
+      pathname: window.location?.pathname || "/",
+    };
+    const wrapNext = (obj: any) => {
+      if (!obj || typeof obj !== "object") return obj;
+      return new Proxy(obj, {
+        get(target, prop, receiver) {
+          const val = Reflect.get(target, prop, receiver);
+          if (prop === "router") {
+            if (!val) return fallbackRouter;
+            if (!val.components) val.components = {};
+            return val;
           }
-          currentRouter = newRouter;
-        }
-      },
-      configurable: true,
-    });
-  } catch (e) {
-    win.next.router = currentRouter;
+          return val;
+        },
+      });
+    };
+    try {
+      let currentNext = wrapNext(win.next || { router: fallbackRouter });
+      Object.defineProperty(window, "next", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return currentNext;
+        },
+        set(v) {
+          currentNext = wrapNext(v);
+        },
+      });
+    } catch (e) {}
   }
 }
 

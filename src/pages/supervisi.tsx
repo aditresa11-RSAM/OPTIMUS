@@ -63,7 +63,7 @@ export default function SupervisiPage() {
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-7xl mx-auto w-full flex flex-col min-h-[calc(100vh-140px)] mb-20">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-full flex flex-col min-h-[calc(100vh-140px)] mb-20">
       <Head>
         <title>Supervisi Mutu Terintegrasi - OptiMus</title>
       </Head>

@@ -18,7 +18,7 @@ export default function SurveiBudayaPage() {
         <title>Survei Budaya Keselamatan Pasien - OPTIMUS</title>
       </Head>
 
-      <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 max-w-7xl mx-auto space-y-5 pb-16">
+      <div className="animate-in fade-in slide-in-from-bottom-6 duration-700 w-full max-w-full space-y-5 pb-16">
         {/* ========================================================= */}
         {/* HEADER HERO BANNER (3D RSUD AL-MULK HOSPITAL BACKGROUND) */}
         {/* ========================================================= */}
